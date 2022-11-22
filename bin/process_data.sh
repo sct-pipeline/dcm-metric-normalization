@@ -107,7 +107,7 @@ cd ${SUBJECT}/anat
 # ------------------------------------------------------------------------------
 # Define variables
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-file_t2="${SUBJECT//[\/]/_}"
+file_t2="${SUBJECT//[\/]/_}"_T2w
 
 # Reorient to RPI and resample to 0.8mm iso (supposed to be the effective resolution)
 sct_image -i ${file_t2}.nii.gz -setorient RPI -o ${file_t2}_RPI.nii.gz
