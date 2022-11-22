@@ -132,7 +132,7 @@ sct_register_to_template -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -ldisc ${
 sct_register_to_template -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -ldisc ${file_t2_seg}_labeled_discs.nii.gz -ref subject -c t2 -param step=0,type=label,dof=Tx_Ty_Tz_Sz:step=1,type=seg,algo=centermass,dof=Tx_Ty_Tz -ofolder ref_subject_centermass_dof_Tx_Ty_Tz -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Bring SC segmentation to PAM50
-sct_apply_transfo -i ${file_t2_seg}.nii.gz -d $SCT_DIR/data/PAM50/template/PAM50_t2.nii.gz -w warp_anat2template.nii.gz
+sct_apply_transfo -i ${file_t2_seg}.nii.gz -d $SCT_DIR/data/PAM50/template/PAM50_t2.nii.gz -w ref_subject_centermass_dof_Tx_Ty_Tz/warp_anat2template.nii.gz
 
 # Compute metrics from SC segmentation in PAM50 space
 sct_process_segmentation -i ${file_t2_seg}_reg.nii.gz -perslice 1 -vertfile $SCT_DIR/data/PAM50/template/PAM50_levels.nii.gz -o ${PATH_RESULTS}/${file_t2}_pam50.csv
