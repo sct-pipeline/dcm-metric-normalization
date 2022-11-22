@@ -128,8 +128,8 @@ sct_process_segmentation -i ${file_t2_seg}.nii.gz -perslice 1 -vertfile ${file_t
 #   `dof=Tx_Ty_Tz_Sz`   --> allow scaling only in S-I (z-axis) direction (to do not change the shape of compressed spinal cord); we do not want to do rotation (R) since we want to compute torsion (which si computed from orientation between adjacent slices)
 #   `algo=centermass`   --> again, we do not want to do rotation, thus we use slicereg algorithm, which uses just translation in x,y-axes
 # TODO - although `algo=centermass` should NOT do a rotation (because the rotation is included in centermassrot), the dof printed to the CLI during step=1 are: Tx_Ty_Tz_Rx_Ry_Rz. Thus we tried to specify dof manually. --> compare if there is any difference
-sct_register_to_template -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -ldisc labels.nii.gz -ref subject -c t2 -param step=0,type=label,dof=Tx_Ty_Tz_Sz:step=1,type=seg,algo=centermass -ofolder ref_subject_centermass -qc ${PATH_QC} -qc-subject ${SUBJECT}
-sct_register_to_template -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -ldisc labels.nii.gz -ref subject -c t2 -param step=0,type=label,dof=Tx_Ty_Tz_Sz:step=1,type=seg,algo=centermass,dof=Tx_Ty_Tz -ofolder ref_subject_centermass_dof_Tx_Ty_Tz -qc ${PATH_QC} -qc-subject ${SUBJECT}
+sct_register_to_template -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -ldisc ${file_t2_seg}_labeled_discs.nii.gz -ref subject -c t2 -param step=0,type=label,dof=Tx_Ty_Tz_Sz:step=1,type=seg,algo=centermass -ofolder ref_subject_centermass -qc ${PATH_QC} -qc-subject ${SUBJECT}
+sct_register_to_template -i ${file_t2}.nii.gz -s ${file_t2_seg}.nii.gz -ldisc ${file_t2_seg}_labeled_discs.nii.gz -ref subject -c t2 -param step=0,type=label,dof=Tx_Ty_Tz_Sz:step=1,type=seg,algo=centermass,dof=Tx_Ty_Tz -ofolder ref_subject_centermass_dof_Tx_Ty_Tz -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Bring SC segmentation to PAM50
 sct_apply_transfo -i ${file_t2_seg}.nii.gz -d $SCT_DIR/data/PAM50/template/PAM50_t2.nii.gz -w warp_anat2template.nii.gz
