@@ -64,7 +64,7 @@ label_if_does_not_exist(){
   local contrast="$3"
   # Update global variable with segmentation file name
   FILELABEL="${file}_labels-disc"
-  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${FILELABEL/RPI_r_/}-manual.nii.gz"   # we are removing `RPI_r_` from the filename to be compatible with manual labeling filename
+  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL/RPI_r_/}-manual.nii.gz"   # we are removing `RPI_r_` from the filename to be compatible with manual labeling filename
   # Binarize softsegmentation to create labeled softseg
   #sct_maths -i ${file_seg}.nii.gz -bin 0.5 -o ${file_seg}_bin.nii.gz
   echo "Looking for manual label: $FILELABELMANUAL"
