@@ -113,8 +113,12 @@ file_t2="${SUBJECT//[\/]/_}"_T2w
 # preprocessing. Thus, no preprocessing steps are applied also here.
 
 # Make sure that input T2w image and segmentation dimensions are the same
-dims_im=$(sct_image -i ${file_t2}.nii.gz -header | grep dim | head -1 | awk '{print $3, $4, $5}')
-dims_seg=$(sct_image -i ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2}_seg-manual.nii.gz -header | grep dim | head -1 | awk '{print $3, $4, $5}')
+if [[ -f ${file_t2}.nii.gz ]];then
+    dims_im=$(sct_image -i ${file_t2}.nii.gz -header | grep dim | head -1 | awk '{print $3, $4, $5}')
+fi
+if [[ -f ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2}_seg-manual.nii.gz ]];then
+    dims_seg=$(sct_image -i ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2}_seg-manual.nii.gz -header | grep dim | head -1 | awk '{print $3, $4, $5}')
+fi
 
 if [[ ${dims_im} == ${dims_seg} ]];then
     # Copy SC segmentation from /derivatives
