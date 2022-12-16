@@ -42,7 +42,7 @@ segment_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name
-  FILESEG="${file}_seg"
+  FILESEG="${file/_RPI_r//}_seg"      # remove '_RPI_r' to match derivatives/labels files
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
@@ -53,7 +53,7 @@ segment_if_does_not_exist() {
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment spinal cord
-    sct_deepseg_sc -i ${file}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg_sc -i ${file}.nii.gz -o {FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
   fi
 }
 
@@ -64,7 +64,7 @@ label_if_does_not_exist(){
   local file_seg="$2"
   local contrast="$3"
   # Update global variable with segmentation file name
-  FILELABEL="${file}_labels-disc"
+  FILELABEL="${file/_RPI_r//}_labels-disc"
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
@@ -74,7 +74,7 @@ label_if_does_not_exist(){
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
   else
     echo "Not found. Proceeding with automatic labeling."
-    # Generate labeled segmentation
+    # Generate labeled segmentation automatically (no manual disc labels provided)
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
   fi
 }
@@ -108,15 +108,19 @@ cd ${SUBJECT}/anat
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
 file_t2="${SUBJECT//[\/]/_}"_T2w
 
+# Reorient and resample (to match spine-generic derivatives/labels files)
+sct_image -i ${file_t2}.nii.gz -setorient RPI -o ${file_t2}_RPI.nii.gz
+sct_resample -i ${file_t2}_RPI.nii.gz -mm 0.8x0.8x0.8 -o ${file_t2}_RPI_r.nii.gz
+file_t2="${file_t2}_RPI_r"
+
 # Copy SC segmentation from /derivatives
 segment_if_does_not_exist ${file_t2} 't2'
-file_t2_seg="${file_t2}_seg"
+file_t2_seg=$FILESEG
 # Create labeling from manual disc labels located at /derivatives
 label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 
 # Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
 sct_process_segmentation -i ${file_t2_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2}.csv -normalize PAM50
-
 
 # ------------------------------------------------------------------------------
 # End
