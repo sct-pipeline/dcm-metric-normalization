@@ -94,9 +94,9 @@ sct_check_dependencies -short
 # Go to folder where data will be copied and processed
 cd $PATH_DATA_PROCESSED
 
-# Copy source images
+# Copy source T2w images
 # Note: we use '/./' in order to include the sub-folder 'ses-0X'
-rsync -Ravzh $PATH_DATA/./$SUBJECT .
+rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_T2w.* .
 
 # Go to subject folder for source images
 cd ${SUBJECT}/anat
