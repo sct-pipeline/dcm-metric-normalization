@@ -42,7 +42,7 @@ segment_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name
-  FILESEG="${file/_RPI_r//}_seg"      # remove '_RPI_r' to match derivatives/labels files
+  FILESEG="${file/_RPI_r/}_seg"      # remove '_RPI_r' to match derivatives/labels files
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
@@ -64,7 +64,7 @@ label_if_does_not_exist(){
   local file_seg="$2"
   local contrast="$3"
   # Update global variable with segmentation file name
-  FILELABEL="${file/_RPI_r//}_labels-disc"
+  FILELABEL="${file/_RPI_r/}_labels-disc"
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
