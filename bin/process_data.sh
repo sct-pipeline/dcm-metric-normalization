@@ -2,6 +2,8 @@
 #
 # Run `sct_process_segmentation -normalize PAM50` on spine-generic T2w images
 # SC segmentation and discs from /derivatives are used
+# Note: files in /derivatives were created from reoriented and resampled T2w images. Thus, the same preprocessing steps
+# are used also within this script.
 #
 
 # Usage:
