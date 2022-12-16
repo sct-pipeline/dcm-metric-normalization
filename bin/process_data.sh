@@ -120,7 +120,7 @@ file_t2_seg=$FILESEG
 label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 
 # Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
-sct_process_segmentation -i ${file_t2_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2}.csv -normalize PAM50
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2/_RPI_r/}.csv -normalize PAM50
 
 # ------------------------------------------------------------------------------
 # End
