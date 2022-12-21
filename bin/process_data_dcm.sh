@@ -112,28 +112,14 @@ file_t2="${SUBJECT//[\/]/_}"_T2w
 # Note: manual segmentations and disc labels located under /derivatives were created from "raw" images without any
 # preprocessing. Thus, no preprocessing steps are applied also here.
 
-# Make sure that input T2w image and segmentation dimensions are the same
-if [[ -f ${file_t2}.nii.gz ]];then
-    dims_im=$(sct_image -i ${file_t2}.nii.gz -header | grep dim | head -1 | awk '{print $3, $4, $5}')
-fi
-if [[ -f ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2}_seg-manual.nii.gz ]];then
-    dims_seg=$(sct_image -i ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2}_seg-manual.nii.gz -header | grep dim | head -1 | awk '{print $3, $4, $5}')
-fi
+# Copy SC segmentation from /derivatives
+segment_if_does_not_exist ${file_t2} 't2'
+file_t2_seg=$FILESEG
+# Create labeling from manual disc labels located at /derivatives
+label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 
-if [[ ${dims_im} == ${dims_seg} ]];then
-    # Copy SC segmentation from /derivatives
-    segment_if_does_not_exist ${file_t2} 't2'
-    file_t2_seg=$FILESEG
-    # Create labeling from manual disc labels located at /derivatives
-    label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
-
-    # Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
-    sct_process_segmentation -i ${file_t2_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2}.csv -normalize PAM50
-else
-    echo "Input T2w image and manual SC segmentation have different dimensions!"
-    echo "T2w dims: ${dims_im}"
-    echo "seg dims: ${dims_seg}"
-fi
+# Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2}.csv -normalize PAM50
 
 # ------------------------------------------------------------------------------
 # End
