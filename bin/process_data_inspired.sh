@@ -44,7 +44,7 @@ segment_if_does_not_exist() {
   local contrast="$2"
   # Update global variable with segmentation file name
   FILESEG="${file}_label-SC_mask"
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}.nii.gz"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/manual_labels/${SUBJECT}/anat/${FILESEG}.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -66,7 +66,7 @@ label_if_does_not_exist(){
   local contrast="$3"
   # Update global variable with segmentation file name
   FILELABEL="${file}_label-disc"
-  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}.nii.gz"
+  FILELABELMANUAL="${PATH_DATA}/derivatives/manual_labels/${SUBJECT}/anat/${FILELABEL}.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
     echo "Found! Using manual labels."
