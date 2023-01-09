@@ -120,6 +120,9 @@ label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
 file_t2_ax="${SUBJECT//[\/]/_}"_acq-cspineAxial_T2w
 
+# Generate QC for compression labels
+sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax}_label-compression.nii.gz -p sct_get_centerline -qc ${PATH_QC} -qc-subject ${SUBJECT}
+
 # Note: manual segmentations and disc labels located under /derivatives were created from "raw" images without any
 # preprocessing. Thus, no preprocessing steps are applied also here.
 
