@@ -130,7 +130,7 @@ file_t2_ax_seg=$FILESEG
 # Note: output of the following command does not include levels above the top label and below the bottom label
 label_if_does_not_exist ${file_t2_ax} ${file_t2_ax_seg} 't2'
 
-# Thus, alternative method bringing vertebral labeling from T2w sagittal
+# Thus, alternative method bringing vertebral labeling from T2w sagittal is tried
 sct_register_multimodal -i ${file_t2_sag_seg}_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
 # Generate QC report to assess vertebral labeling
 sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
