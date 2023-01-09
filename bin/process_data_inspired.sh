@@ -110,7 +110,8 @@ cd ${SUBJECT}/anat
 file_t2_sag="${SUBJECT//[\/]/_}"_acq-cspineSagittal_T2w
 
 segment_if_does_not_exist ${file_t2_sag} 't2'
-label_if_does_not_exist ${file_t2_sag} ${file_t2_sag}_seg 't2'
+file_t2_sag_seg=$FILESEG
+label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
 
 # ------------------------------------------------------------------------------
 # T2w Axial
@@ -130,13 +131,13 @@ file_t2_ax_seg=$FILESEG
 label_if_does_not_exist ${file_t2_ax} ${file_t2_ax_seg} 't2'
 
 # Thus, alternative method bringing vertebral labeling from T2w sagittal
-sct_register_multimodal -i ${file_t2_sag}_seg_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
+sct_register_multimodal -i ${file_t2_sag_seg}_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
 # Generate QC report to assess vertebral labeling
 sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
 sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_ax_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_native_labeling.csv -normalize PAM50
-sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_PAM50_labeling.csv -normalize PAM50
+sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling.csv -normalize PAM50
 
 # ------------------------------------------------------------------------------
 # End
