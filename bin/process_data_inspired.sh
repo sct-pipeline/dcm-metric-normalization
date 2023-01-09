@@ -103,6 +103,16 @@ rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_*T2w.* .
 cd ${SUBJECT}/anat
 
 # ------------------------------------------------------------------------------
+# T2w Sagittal
+# ------------------------------------------------------------------------------
+# Define variables
+# We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
+file_t2_sag="${SUBJECT//[\/]/_}"_acq-cspineSagittal_T2w
+
+segment_if_does_not_exist ${file_t2_sag} 't2'
+label_if_does_not_exist ${file_t2_sag} ${file_t2_sag}_seg 't2'
+
+# ------------------------------------------------------------------------------
 # T2w Axial
 # ------------------------------------------------------------------------------
 # Define variables
@@ -119,24 +129,14 @@ file_t2_ax_seg=$FILESEG
 # Note: output of the following command does not include levels above the top label and below the bottom label
 label_if_does_not_exist ${file_t2_ax} ${file_t2_ax_seg} 't2'
 
-# Thus, method using PAM50 template is tried
-sct_register_to_template -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -ldisc ${file_t2_ax}_label-disc.nii.gz -ref template -c t2 -param step=1,type=seg,algo=centermassrot:step=2,type=seg,algo=syn,slicewise=1,smooth=0,iter=5:step=3,type=im,algo=syn,slicewise=1,smooth=0,iter=3
-# Rename warping fields for clarity
-mv warp_template2anat.nii.gz warp_template2Axial_T2w.nii.gz
-mv warp_anat2template.nii.gz warp_Axial_T2w2template.nii.gz
-# Warp PAM50 vertebral labeling (-a 0: we don't need WM atlas)
-sct_warp_template -d ${file_t2_ax}.nii.gz -w warp_template2Axial_T2w.nii.gz -a 0 -ofolder label_Axial_T2w
+# Thus, alternative method bringing vertebral labeling from T2w sagittal
+sct_register_multimodal -i ${file_t2_sag}_seg_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
 # Generate QC report to assess vertebral labeling
-sct_qc -i ${file_t2_ax}.nii.gz -s label_Axial_T2w/template/PAM50_levels.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
-
-# Bring vertebral labeling from PAM50
-sct_register_multimodal -i label_Axial_T2w/template/PAM50_levels.nii.gz -d ${file_t2_ax}.nii.gz -o PAM50_levels2Axial_T2w.nii.gz -identity 1 -x nn
-# Generate QC report to assess vertebral labeling
-sct_qc -i ${file_t2_ax}.nii.gz -s PAM50_levels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
+sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
 sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_ax_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_native_labeling.csv -normalize PAM50
-sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile label_Axial_T2w/template/PAM50_levels.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_PAM50_labeling.csv -normalize PAM50
+sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_PAM50_labeling.csv -normalize PAM50
 
 # ------------------------------------------------------------------------------
 # End
