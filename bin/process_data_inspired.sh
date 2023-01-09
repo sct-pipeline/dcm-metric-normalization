@@ -130,7 +130,7 @@ sct_warp_template -d ${file_t2_ax}.nii.gz -w warp_template2Axial_T2w.nii.gz -a 0
 sct_qc -i ${file_t2_ax}.nii.gz -s label_Axial_T2w/template/PAM50_levels.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Bring vertebral labeling from PAM50
-sct_register_multimodal -i label_Sagittal_T2w/template/PAM50_levels.nii.gz -d ${file_t2_ax}.nii.gz -o PAM50_levels2Axial_T2w.nii.gz -identity 1 -x nn
+sct_register_multimodal -i label_Axial_T2w/template/PAM50_levels.nii.gz -d ${file_t2_ax}.nii.gz -o PAM50_levels2Axial_T2w.nii.gz -identity 1 -x nn
 # Generate QC report to assess vertebral labeling
 sct_qc -i ${file_t2_ax}.nii.gz -s PAM50_levels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
