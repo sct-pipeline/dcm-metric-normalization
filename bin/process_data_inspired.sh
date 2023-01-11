@@ -73,6 +73,8 @@ label_if_does_not_exist(){
     rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
     # Generate labeled segmentation from manual disc labels
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    # Generate QC to access manual disc labels
+    sct_qc -i ${file}.nii.gz -s ${FILELABEL}.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
   else
     echo "Not found. Proceeding with automatic labeling."
     # Generate labeled segmentation automatically (no manual disc labels provided)
@@ -131,7 +133,10 @@ segment_if_does_not_exist ${file_t2_ax} 't2'
 file_t2_ax_seg=$FILESEG
 # Create native labeling from manual disc labels located under /derivatives
 # Note: output of the following command does not include levels above the top label and below the bottom label
-label_if_does_not_exist ${file_t2_ax} ${file_t2_ax_seg} 't2'
+#label_if_does_not_exist ${file_t2_ax} ${file_t2_ax_seg} 't2'
+# Generate QC to access manual disc labels
+sct_qc -i ${file_t2_ax}.nii.gz -s ${PATH_DATA}/derivatives/manual_labels/${SUBJECT}/anat/${file_t2_ax}_label-disc.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+
 
 # Thus, alternative method bringing vertebral labeling from T2w sagittal is tried
 sct_register_multimodal -i ${file_t2_sag_seg}_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
@@ -139,7 +144,7 @@ sct_register_multimodal -i ${file_t2_sag_seg}_labeled.nii.gz -d ${file_t2_ax}.ni
 sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
 # Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
-sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_ax_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_native_labeling.csv -normalize PAM50
+#sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_ax_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_native_labeling.csv -normalize PAM50
 sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling.csv -normalize PAM50
 
 # ------------------------------------------------------------------------------
