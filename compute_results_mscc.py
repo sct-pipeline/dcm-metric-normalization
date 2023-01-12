@@ -106,8 +106,6 @@ def read_MSCC(path_mscc, exclude, df_participants):
             # Check if subject is in exlude list
             if sub_id not in exclude:
                 df = csv2dataFrame(os.path.join(path_mscc, file))
-                print(sub_id)
-                print(df)
                 max_level = df_participants.loc[df_participants['participant_id']==sub_id, 'max_compression_level'].to_list()[0]
                 max_level = DICT_DISC_LABELS[max_level]
                 idx_max = df.index[df['Compression Level']==max_level].tolist()
@@ -125,6 +123,7 @@ def read_MSCC(path_mscc, exclude, df_participants):
     mscc_df['MSCC'] = mscc
     mscc_df['MSCC_norm'] = mscc_norm
     return mscc_df
+
 
 def read_participants_file(file_path):
     """
@@ -145,9 +144,11 @@ def compute_spearmans(a,b):
     return spearmanr(a,b)
 
 
-def gen_chart_corr_mjoa_mscc(df, path_out=None):
-    #fig, ax = plt.subplots(1,2, sharey=True)
-    fig = plt.figure()
+def gen_chart_corr_mjoa_mscc(df, path_out=""):
+    sns.set_style("ticks",{'axes.grid' : True})
+    plt.figure()
+    fig, ax = plt.subplots()
+    #ax.set_box_aspect(1)
     # MSCC with mJOA
     x_vals = df['mJOA']
     y_vals_mscc = df['MSCC']
@@ -158,21 +159,21 @@ def gen_chart_corr_mjoa_mscc(df, path_out=None):
 
     logger.info('MSCC: Spearmans r = {} and p = {}'.format(r_mscc, p_mscc))
     logger.info('MSCC norm: Spearmans r = {} and p = {}'.format(r_mscc_norm, p_mscc_norm))
-    plt.grid(color='lightgrey')
 
     sns.regplot(x=x_vals, y=y_vals_mscc, ci=None, label='MSCC')
     sns.regplot(x=x_vals, y=y_vals_mscc_norm, color='crimson', ci=None, label='MSCC_norm')
-    #for i, txt in enumerate(df['subject'].tolist()):
-    #    plt.annotate(txt, (x_vals[i], y_vals_mscc[i]))
-    #    plt.annotate(txt, (x_vals[i], y_vals_mscc_norm[i]))
-    plt.ylabel('MSCC')
+    plt.ylabel('MSCC', fontsize=16)
+    plt.xlabel('mJOA', fontsize=16)
     plt.tight_layout()
-    plt.legend()
+    plt.legend( fontsize=12, bbox_to_anchor=(0.5, 1.12), loc="upper center", ncol=2, framealpha=0.95, handletextpad=0.1)
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
     # save figure
-    fname_fig = 'fig.png'
-    plt.savefig(fname_fig, dpi=200)
+    fname_fig = os.path.join(path_out, 'scatter_mscc_mjoa.png')
+    plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
     plt.close()
-    print(f'Created: {fname_fig}.\n')
+    logger.info(f'Created: {fname_fig}.\n')
+
 
 def add_mJOA_to_df(participant_df, mscc_df):
 
@@ -180,15 +181,11 @@ def add_mJOA_to_df(participant_df, mscc_df):
         mscc_df.loc[mscc_df['subject']==subject,'mJOA'] = participant_df.loc[participant_df['participant_id']==subject,'mjoa'].to_list()
     return mscc_df
 
+
 def main():
 
     parser = get_parser()
     args = parser.parse_args()
-
-    # If argument path-ouput included, go to the results folder
-    #if args.path_out is not None:
-    #    path_results = os.path.join(args.path_out, 'results')
-    #    os.chdir(path_results)
 
     # Dump log file there
     if os.path.exists(FNAME_LOG):
@@ -212,12 +209,12 @@ def main():
         # Initialize empty dict if n
                 dict_exclude_subj = dict()
 
-    print('exlcude', dict_exclude_subj)
+    logger.info('Exlcuded subjects: {}'.format(dict_exclude_subj))
     df_participants = read_participants_file(args.participants_file_inspired)
     mscc_df = read_MSCC(args.ifolder, dict_exclude_subj, df_participants)
     
     mscc_df = add_mJOA_to_df(df_participants, mscc_df)
-    gen_chart_corr_mjoa_mscc(mscc_df)
-    print(mscc_df)
+    gen_chart_corr_mjoa_mscc(mscc_df, args.path_out)
+    logger.info('MSCC data: \n {}'.format(mscc_df))
 if __name__ == '__main__':
     main()
