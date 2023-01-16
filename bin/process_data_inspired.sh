@@ -147,6 +147,9 @@ sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_la
 #sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile ${file_t2_ax_seg}_labeled.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_native_labeling.csv -normalize PAM50
 sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -perslice 1 -vert 1:20 -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -o ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling.csv -normalize PAM50
 
+# Compute MSCC
+sct_compute_mscc -i ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling.csv -l ${PATH_DATA}/derivatives/manual_labels/${SUBJECT}/anat/${file_t2_ax}_label-compression.nii.gz -ref ~/duke/projects/dcm-normalization/data-multi-subject_normalization_2022-12-27/results/
+
 # ------------------------------------------------------------------------------
 # End
 # ------------------------------------------------------------------------------
