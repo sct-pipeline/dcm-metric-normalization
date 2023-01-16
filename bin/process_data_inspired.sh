@@ -1,13 +1,17 @@
 #!/bin/bash
 #
-# Run `sct_process_segmentation -normalize PAM50` on axial T2w images from HC and SCI and DCM patients (INSPIRED dataset)
-# SC segmentations from /derivatives are used
+# Run `sct_process_segmentation -normalize PAM50` on T2w images from DCM patients (INSPIRED dataset)
+# The script also computes normalized MSCC using `sct_compute_mscc`
+#
+# Spinal cord segmentations, disc labels and compression labels from /derivatives are used
 # Note: files in /derivatives were created from "raw" axial T2w images (i.e., without any preprocessing steps). Thus, no
 # preprocessing steps are used also within this script.
-
+# Note: Since axial T2w images have limited FOV (C2-C7) and high slice thickness (3.6mm), the vertebral labeling from
+# sagittal T2w images is brought to axial T2w images
+#
 # Usage:
 #     sct_run_batch -c <PATH_TO_REPO>/etc/config_process_data.json
-
+#
 # The following global variables are retrieved from the caller sct_run_batch
 # but could be overwritten by uncommenting the lines below:
 # PATH_DATA_PROCESSED="~/data_processed"

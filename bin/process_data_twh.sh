@@ -1,13 +1,14 @@
 #!/bin/bash
 #
-# Run `sct_process_segmentation -normalize PAM50` on T2w images from DCM patients (twh dataset)
-# SC segmentation and discs from /derivatives are used
+# Run `sct_process_segmentation -normalize PAM50` on T2w images from DCM patients (sct-testing-large/twh subjects)
+#
+# Spinal cord segmentation and disc labels from /derivatives are used
 # Note: files in /derivatives were created from "raw" T2w images (i.e., without any preprocessing steps). Thus, no
 # preprocessing steps are used also within this script.
-
+#
 # Usage:
 #     sct_run_batch -c <PATH_TO_REPO>/etc/config_process_data.json
-
+#
 # The following global variables are retrieved from the caller sct_run_batch
 # but could be overwritten by uncommenting the lines below:
 # PATH_DATA_PROCESSED="~/data_processed"
