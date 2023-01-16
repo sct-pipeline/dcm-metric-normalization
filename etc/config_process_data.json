@@ -1,0 +1,6 @@
+{
+  "path_data"   : "./...",
+  "path_output" : "./...",
+  "script"      : "/.../process_data.sh",
+  "jobs"        : -1
+}
