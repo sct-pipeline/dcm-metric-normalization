@@ -24,9 +24,7 @@ or using the configuration file:
 sct_run_batch -c etc/config_process_data.json
 ```
 
-```{note}
-The `etc/config_process_data.json` configuration file is just a template --> you need to edit it to match your data.
-```
+> **Note** The `etc/config_process_data.json` configuration file is just a template --> you need to edit it to match your data.
 
 ### Dependencies
 
