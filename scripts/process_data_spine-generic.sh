@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Run `sct_process_segmentation -normalize PAM50` on spine-generic T2w images
+# Run sct_process_segmentation with the '-normalize-PAM50' flag on spine-generic multi-subject T2w images
 #
 # Spinal cord segmentation and disc labels from /derivatives are used
 # Note: files in /derivatives were created from reoriented and resampled T2w images. Thus, the same preprocessing steps
@@ -121,7 +121,7 @@ file_t2_seg=$FILESEG
 # Create labeling from manual disc labels located at /derivatives
 label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 
-# Compute metrics from SC segmentation and normalize them to PAM50 (`-normalize PAM50` flag)
+# Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50' flag)
 sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file_t2/_RPI_r/}_PAM50.csv
 
 # ------------------------------------------------------------------------------
