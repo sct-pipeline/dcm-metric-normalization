@@ -122,7 +122,9 @@ file_t2_seg=$FILESEG
 label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 
 # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50' flag)
-sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file_t2/_RPI_r/}_PAM50.csv
+# Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
+# files will have the same number of rows, regardless of the subject's vertebral levels.
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/${file_t2/_RPI_r/}_PAM50.csv
 
 # ------------------------------------------------------------------------------
 # End
