@@ -1,0 +1,7 @@
+{
+  "path_data"   : "<PATH_IN>/inspired",
+  "path_output" : "<PATH_OUT>/inspired_normalization_20XX-XX-XX",
+  "script"      : "<PATH_TO_REPO>/dcm-metric-normalization/bin/process_data_inspired.sh",
+  "include"     : "sub-torontoDCM*",
+  "jobs"        : 16
+}

@@ -1,0 +1,8 @@
+{
+  "path_data"   : "<PATH_IN>/sct-testing-large",
+  "path_output" : "<PATH_OUT>/twh-subjects_normalization_20XX-XX-XX",
+  "script"      : "<PATH_TO_REPO>/dcm-metric-normalization/bin/process_data_twh.sh",
+  "include"     : "sub-twh*",
+  "exclude_list"     : ["sub-twh043", "sub-twh068", "sub-twh085"],
+  "jobs"        : 16
+}
