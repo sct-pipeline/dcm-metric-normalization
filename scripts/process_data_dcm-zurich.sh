@@ -124,7 +124,7 @@ label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
 file_t2_ax="${SUBJECT//[\/]/_}"_acq-axial_T2w
 
-# Segment SC
+# Segment SC (if SC segmentation file already exists under derivatives folder, it will be copied)
 segment_if_does_not_exist ${file_t2_ax} 't2'
 file_t2_ax_seg=$FILESEG
 
