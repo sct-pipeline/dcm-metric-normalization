@@ -1,0 +1,7 @@
+{
+  "path_data"   : "<PATH_IN>/dcm-zurich/",
+  "path_output" : "<PATH_OUT>/dcm-zurich_20XX-XX-XX",
+  "script"      : "<PATH_TO_REPO>/dcm-metric-normalization/scripts/process_data_dcm-zurich.sh",
+  "exclude_list"     : ["sub-817811", "sub-834907", "sub-842197"],
+  "jobs"        : 32
+}
