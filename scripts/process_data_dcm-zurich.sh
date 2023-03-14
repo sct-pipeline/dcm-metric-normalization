@@ -44,7 +44,7 @@ segment_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name
-  FILESEG="${file}_label-SC_mask"
+  FILESEG="${file}_label-SC_seg"
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
