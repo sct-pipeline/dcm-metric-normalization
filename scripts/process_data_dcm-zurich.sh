@@ -44,7 +44,8 @@ segment_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name
-  FILESEG="${file}_label-SC_seg"
+  FILESEG="${file}_label-SC_mask"
+  # TODO - change to FILESEG="${file}_label-SC_seg", once https://github.com/neuropoly/data-management/issues/225 is done
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
@@ -66,7 +67,8 @@ label_if_does_not_exist(){
   local file_seg="$2"
   local contrast="$3"
   # Update global variable with segmentation file name
-  FILELABEL="${file}_label-disc"
+  FILELABEL="${file}_labels"
+  # TODO - change to FILELABEL="${file}_label-disc", once https://github.com/neuropoly/data-management/issues/225 is done
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
