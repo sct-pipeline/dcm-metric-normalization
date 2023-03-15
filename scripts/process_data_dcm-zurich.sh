@@ -113,11 +113,16 @@ cd ${SUBJECT}/anat
 # Define variables
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
 file_t2_sag="${SUBJECT//[\/]/_}"_acq-sagittal_T2w
-
-# Segment SC
-segment_if_does_not_exist ${file_t2_sag} 't2'
-file_t2_sag_seg=$FILESEG
-label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
+# Check if file_t2_sag exists
+if [[ ! -e ${file_t2_sag}.nii.gz ]]; then
+    echo "File ${file_t2_sag}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
+    echo "ERROR: File ${file_t2_sag}.nii.gz does not exist. Exiting."
+    exit 1
+else
+    # Segment SC
+    segment_if_does_not_exist ${file_t2_sag} 't2'
+    file_t2_sag_seg=$FILESEG
+    label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
 
 # ------------------------------------------------------------------------------
 # T2w Axial
