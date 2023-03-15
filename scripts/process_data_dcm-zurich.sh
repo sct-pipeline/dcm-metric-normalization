@@ -124,24 +124,37 @@ else
     file_t2_sag_seg=$FILESEG
     label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
 
-# ------------------------------------------------------------------------------
-# T2w Axial
-# ------------------------------------------------------------------------------
-# Define variables
-# We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-file_t2_ax="${SUBJECT//[\/]/_}"_acq-axial_T2w
+    # ------------------------------------------------------------------------------
+    # T2w Axial
+    # ------------------------------------------------------------------------------
+    # Define variables
+    # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
+    file_t2_ax="${SUBJECT//[\/]/_}"_acq-axial_T2w
+    # Check if file_t2_ax exists.
+    # Note: some subjects do not have T2w axial images. In this case, analysis will be stop after processing of
+    # T2w sagittal image.
+    if [[ ! -e ${file_t2_ax}.nii.gz ]]; then
+        echo "File ${file_t2_ax}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
+        echo "ERROR: File ${file_t2_ax}.nii.gz does not exist. Exiting."
+        exit 1
+    else
+        # Segment SC (if SC segmentation file already exists under derivatives folder, it will be copied)
+        segment_if_does_not_exist ${file_t2_ax} 't2'
+        file_t2_ax_seg=$FILESEG
 
-# Segment SC (if SC segmentation file already exists under derivatives folder, it will be copied)
-segment_if_does_not_exist ${file_t2_ax} 't2'
-file_t2_ax_seg=$FILESEG
+        # Bring vertebral labeling from T2w sagittal image to T2w axial image
+        sct_register_multimodal -i ${file_t2_sag_seg}_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
+        # Generate QC report to assess vertebral labeling
+        sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
-# Bring vertebral labeling from T2w sagittal image to T2w axial image
-sct_register_multimodal -i ${file_t2_sag_seg}_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
-# Generate QC report to assess vertebral labeling
-sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
+        # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50 1')
+        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling_PAM50.csv
+        # Compute metrics from SC segmentation without PAM50 normalization ('-normalize-PAM50 0')
+        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -perslice 1 -normalize-PAM50 0 -o ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling_native.csv
 
-# TODO, add sct_process_segmentation and sct_compute_compression
-
+        # TODO, add sct_compute_compression once https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4003 is merged
+    fi
+fi
 # ------------------------------------------------------------------------------
 # End
 # ------------------------------------------------------------------------------
