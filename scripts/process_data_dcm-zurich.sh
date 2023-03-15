@@ -131,6 +131,7 @@ else
     # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
     file_t2_ax="${SUBJECT//[\/]/_}"_acq-axial_T2w
     # Check if file_t2_ax exists.
+    # Note: the nested condition is used because we need sagittal labeling for processing of axial image.
     # Note: some subjects do not have T2w axial images. In this case, analysis will be stop after processing of
     # T2w sagittal image.
     if [[ ! -e ${file_t2_ax}.nii.gz ]]; then
