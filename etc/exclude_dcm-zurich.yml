@@ -3,3 +3,4 @@
 - sub-294305	# severe compression - hard to correct the SC seg
 - sub-817811	# no axial t2w image
 - sub-834907	# no axial t2w image
+- sub-323721    # axial t2w image is not aligned with sagittal t2w image (subject repositioning)
