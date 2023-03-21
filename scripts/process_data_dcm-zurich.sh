@@ -146,7 +146,7 @@ else
     # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
     sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn
     # TODO - change to "${file_t2_sag}_label-disc.nii.gz", once https://github.com/neuropoly/data-management/issues/225 is done
-    sct_apply_transfo -i ${file_t2_sag}_labels.nii.gz -d ${file_t2_ax}.nii.gz -w warp_{file_t2_sag}2${file_t2_ax}.nii.gz -x label
+    sct_apply_transfo -i ${file_t2_sag}_labels.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
     # Generate QC report to assess warped disc labels
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag}_labels_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
