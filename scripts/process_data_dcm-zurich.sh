@@ -142,15 +142,23 @@ else
     segment_if_does_not_exist ${file_t2_ax} 't2'
     file_t2_ax_seg=$FILESEG
 
-    # Bring vertebral labeling from T2w sagittal image to T2w axial image
-    sct_register_multimodal -i ${file_t2_sag_seg}_labeled.nii.gz -d ${file_t2_ax}.nii.gz -o Sagittal_T2w_labels2Axial_T2w.nii.gz -identity 1 -x nn
-    # Generate QC report to assess vertebral labeling
-    sct_qc -i ${file_t2_ax}.nii.gz -s Sagittal_T2w_labels2Axial_T2w.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    # Bring T2w sagittal image to T2w axial image to obtain warping field.
+    # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
+    sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn
+    # TODO - change to "${file_t2_sag}_label-disc.nii.gz", once https://github.com/neuropoly/data-management/issues/225 is done
+    sct_apply_transfo -i ${file_t2_sag}_labels.nii.gz -d ${file_t2_ax}.nii.gz -w warp_{file_t2_sag}2${file_t2_ax}.nii.gz -x label
+    # Generate QC report to assess warped disc labels
+    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag}_labels_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+
+    # Now, label T2w axial spinal cord segmentation using warped T2w sagittal disc labels
+    sct_label_utils.py -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_sag}_labels_reg.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
+    # Generate QC report to assess labeled segmentation
+    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
     # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50 1')
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling_PAM50.csv
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file_t2_ax}_PAM50_space.csv
     # Compute metrics from SC segmentation without PAM50 normalization ('-normalize-PAM50 0')
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile Sagittal_T2w_labels2Axial_T2w.nii.gz -perslice 1 -normalize-PAM50 0 -o ${PATH_RESULTS}/${file_t2_ax}_Sag_labeling_native.csv
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 0 -o ${PATH_RESULTS}/${file_t2_ax}_subject_space.csv
 
     # TODO, add sct_compute_compression once https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4003 is merged
 fi
