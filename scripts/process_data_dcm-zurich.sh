@@ -151,7 +151,7 @@ else
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag}_labels_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
     # Now, label T2w axial spinal cord segmentation using warped T2w sagittal disc labels
-    sct_label_utils.py -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_sag}_labels_reg.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
+    sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_sag}_labels_reg.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
