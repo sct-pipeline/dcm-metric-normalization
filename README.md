@@ -33,4 +33,14 @@ sct_run_batch -c etc/config_process_data.json
 
 > **Note** There is an `exclude.yml` file associated with each dataset under the `etc` folder. This file lists subjects/images which should be excluded from analyses. You can exclude those subjects using the `-exclude-list` flag (when running `sct_run_batch` from CLI) or the `exclude_list` key (when running `sct_run_batch` using JSON configuration file).
 
+### Quality control and Manual correction
 
+After running the analysis, check your Quality Control (QC) report by opening the file `./qc/index.html`. 
+
+If segmentation or labeling issues are noticed while checking the QC report, proceed to manual correction using the procedure below:
+
+1. In the QC report, search for `deepseg` or `sct_label_vertebrae` to only display results of spinal cord segmentation or vertebral labeling, respectively.
+2. Review the spinal cord segmentation and vertebral labeling.
+3. Click on the <kbd>F</kbd> key to indicate if the segmentation/labeling is OK ✅, needs manual correction ❌ or if the data is not usable ⚠️ (artifact). Two .yml lists, one for manual corrections and one for the unusable data, will automatically be generated. 
+4. Download the lists by clicking on <kbd>Download QC Fails</kbd> and on <kbd>Download QC Artifacts</kbd>. 
+5. Use [manual-correction](https://github.com/spinalcordtoolbox/manual-correction) repository to correct the spinal cord segmentation and vertebral labeling.
