@@ -144,14 +144,16 @@ else
 
     # Bring T2w sagittal image to T2w axial image to obtain warping field.
     # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
+    # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
     sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT}
-    # TODO - change to "${file_t2_sag}_label-disc.nii.gz", once https://github.com/neuropoly/data-management/issues/225 is done
-    sct_apply_transfo -i ${file_t2_sag}_labels.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
+    # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
+    # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
+    sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
     # Generate QC report to assess warped disc labels
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag}_labels_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
-    # Now, label T2w axial spinal cord segmentation using warped T2w sagittal disc labels
-    sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_sag}_labels_reg.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
+    # Now, label T2w axial spinal cord segmentation using the warped T2w sagittal disc labels
+    sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
