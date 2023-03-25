@@ -145,7 +145,8 @@ else
     # Bring T2w sagittal image to T2w axial image to obtain warping field.
     # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
     # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
-    sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    # Note: the '-dseg' is used only for the QC report
+    sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT} -dseg ${file_t2_ax_seg}.nii.gz
     # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
     # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
     sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
