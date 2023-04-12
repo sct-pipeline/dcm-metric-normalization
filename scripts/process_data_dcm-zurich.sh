@@ -154,16 +154,43 @@ else
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
     # Now, label T2w axial spinal cord segmentation using the warped T2w sagittal disc labels
+    # TODO use manual labels if exists
     sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  
+    # Check if compression labels exists.
+    file_compression="${file_t2_ax}_label-compression-manual"
+    FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_compression}.nii.gz"
+    if [[ ! -e ${FILE_COMPRESSION_MANUAL} ]]; then
+        echo "File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
+        echo "ERROR: File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist. Exiting."
+        exit 1
+    else
+        echo "Found! Using manual labels."
+        rsync -avzh $FILE_COMPRESSION_MANUAL ${file_compression}.nii.gz
+        # TODO: test without angle correction too
+        # Compute compression morphometrics for diameter_AP with and without normalization to PAM50
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -o ${PATH_RESULTS}/${file_t2_ax}_diameter_AP_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -o ${PATH_RESULTS}/${file_t2_ax}_diameter_AP.csv
 
-    # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50 1')
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file_t2_ax}_PAM50_space.csv
-    # Compute metrics from SC segmentation without PAM50 normalization ('-normalize-PAM50 0')
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 0 -o ${PATH_RESULTS}/${file_t2_ax}_subject_space.csv
+        # Compute compression morphometrics for cross-sectional area with and without normalization
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -metric area -o ${PATH_RESULTS}/${file_t2_ax}_area_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric area -o ${PATH_RESULTS}/${file_t2_ax}_area.csv
 
-    # TODO, add sct_compute_compression once https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4003 is merged
+        # Compute compression morphometrics for diameter_RL with and without normalization
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -metric diameter_RL -o ${PATH_RESULTS}/${file_t2_ax}_diameter_RL_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric diameter_RL -o ${PATH_RESULTS}/${file_t2_ax}_diameter_RL.csv
+
+        # Compute compression morphometrics for eccentricity with and without normalization
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -metric eccentricity -o ${PATH_RESULTS}/${file_t2_ax}_eccentricity_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric eccentricity -o ${PATH_RESULTS}/${file_t2_ax}_eccentricity.csv
+
+        # Compute compression morphometrics for solidity with and without normalization
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -metric solidity -o ${PATH_RESULTS}/${file_t2_ax}_solidity_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric solidity -o ${PATH_RESULTS}/${file_t2_ax}_solidity.csv
+
+    fi
 fi
 # ------------------------------------------------------------------------------
 # End
