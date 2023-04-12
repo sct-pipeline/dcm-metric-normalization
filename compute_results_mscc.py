@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-#
+# -*- coding: utf-8
 # The script compute spearmans correlation coefficient between MSCC, MSCC_norm and mJOA score.
 
 import os 
@@ -86,19 +86,20 @@ def csv2dataFrame(filename):
     Returns:
         data (pd.dataFrame): pandas dataframe of the .csv file's data
     """
-    data = pd.read_csv(filename)
+    print(filename)
+    data = pd.read_csv(filename, encoding='utf-8')
     return data
 
 
 def read_MSCC(path_mscc, exclude, df_participants):
     list_files_mscc = os.listdir(path_mscc)
-    list_files_mscc = [file for file in list_files_mscc if '_mscc' in file]
+    list_files_mscc = [file for file in list_files_mscc if '_mscc.csv' in file]
     mscc_df = pd.DataFrame(columns = ['subject','level', 'MSCC', 'MSCC_norm'])
     subject = []
     mscc = []
     mscc_norm = []
     level = []
-    for file in os.listdir(path_mscc):
+    for file in list_files_mscc:
         # Only get MSCC csv files
         if '_mscc' in file:
             # Fetch subject ID
@@ -160,8 +161,8 @@ def gen_chart_corr_mjoa_mscc(df, path_out=""):
     logger.info('MSCC: Spearmans r = {} and p = {}'.format(r_mscc, p_mscc))
     logger.info('MSCC norm: Spearmans r = {} and p = {}'.format(r_mscc_norm, p_mscc_norm))
 
-    sns.regplot(x=x_vals, y=y_vals_mscc, ci=None, label='MSCC')
-    sns.regplot(x=x_vals, y=y_vals_mscc_norm, color='crimson', ci=None, label='MSCC_norm')
+    sns.regplot(x=x_vals, y=y_vals_mscc, label='MSCC') #ci=None,
+    sns.regplot(x=x_vals, y=y_vals_mscc_norm, color='crimson', label='MSCC_norm') # ci=None,
     plt.ylabel('MSCC', fontsize=16)
     plt.xlabel('mJOA', fontsize=16)
     plt.tight_layout()
