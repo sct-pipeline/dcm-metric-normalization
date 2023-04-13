@@ -142,23 +142,37 @@ else
     segment_if_does_not_exist ${file_t2_ax} 't2'
     file_t2_ax_seg=$FILESEG
 
-    # Bring T2w sagittal image to T2w axial image to obtain warping field.
-    # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
-    # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
-    # Note: the '-dseg' is used only for the QC report
-    sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT} -dseg ${file_t2_ax_seg}.nii.gz
-    # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
-    # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
-    sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
-    # Generate QC report to assess warped disc labels
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    # Label SC
+    # Check if manual disc labels file already exists. If so, generate labeled segmentation from manual disc labels.
+    echo "Looking for manual disc labels: ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz"
+    if [[ -e ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz ]]; then
+        echo "Found! Using manual disc labels."
+        rsync -avzh ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz ${file_t2_ax}_labels.nii.gz
 
-    # Now, label T2w axial spinal cord segmentation using the warped T2w sagittal disc labels
-    # TODO use manual labels if exists
-    sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
+        file_t2_ax_labels=${file_t2_ax}_labels
+    # If manual disc labels file does not exist, use disc labels from sagittal image
+    else
+        # Bring T2w sagittal image to T2w axial image to obtain warping field.
+        # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
+        # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
+        # Note: the '-dseg' is used only for the QC report
+        sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT} -dseg ${file_t2_ax_seg}.nii.gz
+        # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
+        # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
+        sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
+        # Generate QC report to assess warped disc labels
+        sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+
+        file_t2_ax_labels=${file_t2_sag_seg}_labeled_discs_reg
+    fi
+
+    # Label T2w axial spinal cord segmentation. Either using manual disc labels or using disc labels from sagittal image.
+    # Note: here we use sct_label_utils instead of sct_label_vertebrae to avoid SC straightening
+    # Context: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4072
+    sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_ax_labels}.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
-  
+
     # Check if compression labels exists.
     file_compression="${file_t2_ax}_label-compression-manual"
     FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_compression}.nii.gz"
