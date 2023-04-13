@@ -70,9 +70,9 @@ label_if_does_not_exist(){
   FILELABEL="${file}_labels"
   # TODO - change to FILELABEL="${file}_label-disc", once https://github.com/neuropoly/data-management/issues/225 is done
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
-  echo "Looking for manual label: $FILELABELMANUAL"
+  echo "Looking for manual disc labels: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
-    echo "Found! Using manual labels."
+    echo "Found! Using manual disc labels."
     rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
     # Generate labeled segmentation from manual disc labels
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
