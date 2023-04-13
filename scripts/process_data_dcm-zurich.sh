@@ -181,7 +181,7 @@ else
         echo "ERROR: File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist. Exiting."
         exit 1
     else
-        echo "Found! Using manual labels."
+        echo "Found! Using manual compression labels."
         rsync -avzh $FILE_COMPRESSION_MANUAL ${file_compression}.nii.gz
         # TODO: test without angle correction too
         # Compute compression morphometrics for diameter_AP with and without normalization to PAM50
