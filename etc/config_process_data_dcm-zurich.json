@@ -2,6 +2,6 @@
   "path_data"   : "/home/GRAMES.POLYMTL.CA/p118175/extrassd1/janvalosek/data/dcm-zurich",
   "path_output" : "/home/GRAMES.POLYMTL.CA/p118175/extrassd1/janvalosek/dcm-zurich_2023-04-13",
   "script"      : "/home/GRAMES.POLYMTL.CA/p118175/code/dcm_metric_normalization/scripts/process_data_dcm-zurich.sh",
-  "exclude_list"     : ["sub-817811", "sub-834907", "sub-842197", "sub-294305", "sub-796358"],
+  "exclude_list"     : ["sub-817811", "sub-834907", "sub-842197", "sub-294305", "sub-796358", "sub-561017"],
   "jobs"        : 32
 }

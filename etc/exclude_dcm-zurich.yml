@@ -5,3 +5,4 @@
 - sub-834907	# no axial t2w image
 - sub-323721    # axial t2w image is not aligned with sagittal t2w image (subject repositioning)
 - sub-796358    # imperfect stitching of axial images, see https://github.com/sct-pipeline/dcm-metric-normalization/issues/11
+- sub-561017    # no clinical data (stenosis, date_of_scan)
