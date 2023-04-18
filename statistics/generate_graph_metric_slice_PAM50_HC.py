@@ -113,8 +113,8 @@ def main():
         metric_std = metric + '_std'
         #print((np.array([d[k][metric] for k in d])).std(axis=0).shape)
         df[metric_std] = np.array([d[k][metric] for k in d]).std(axis=0)
-    df = df.dropna(1,  how='all')
-    df = df.dropna(0, how='any').reset_index(drop=True) # do we want to compute mean with missing levels for some subjects?
+    df = df.dropna(axis=1, how='all')
+    df = df.dropna(axis=0, how='any').reset_index(drop=True) # do we want to compute mean with missing levels for some subjects?
     print(df)
     for metric in metrics:
     #df = get_csa(args.filename)
