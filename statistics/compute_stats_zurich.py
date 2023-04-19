@@ -32,6 +32,15 @@ metrics = [
     'solidity'
 ]
 
+DICT_DISC_LABELS = {
+                    'C1/C2':2,
+                    'C2/C3':3,
+                    'C3/C4':4,
+                    'C4/C5':5,
+                    'C5/C6':6,
+                    'C6/C7':7
+}
+
 
 metrics_norm = [metric + '_norm' for metric in metrics]
 
@@ -94,38 +103,43 @@ def csv2dataFrame(filename):
 
 def read_MSCC(path_results, exclude, df_participants):
     list_files_results = os.listdir(path_results)
-    #list_files_mscc = [file for file in list_files_mscc if '_mscc.csv' in file]
+    list_files_results = [file for file in list_files_results if '_norm.csv' in file]  # Only take norm (include both)
+    # TODO : check to simply add inside the participants.tsv 
     columns = ['subject','level'] + metrics + metrics_norm
-    print(columns)
     mscc_df = pd.DataFrame(columns = columns) # todo add columns of metrics and 
     subject = []
-    mscc = []
-    mscc_norm = []
     level = []
+    data_metrics = {}
+    for metric in (metrics_norm + metrics):
+        data_metrics[metric] = []
+    print(data_metrics)
     for file in list_files_results:
-        # Only get MSCC csv files
-        if '_mscc' in file:
-            # Fetch subject ID
-            sub_id = file.split('_')[0]
-            # Check if subject is in exlude list
-            if sub_id not in exclude:
-                df = csv2dataFrame(os.path.join(path_results, file))
-                max_level = df_participants.loc[df_participants['participant_id']==sub_id, 'max_compression_level'].to_list()[0]
-                max_level = DICT_DISC_LABELS[max_level]
-                idx_max = df.index[df['Compression Level']==max_level].tolist()
-                if len(idx_max)<1:
-                    max_level = df['Compression Level'].tolist()[np.abs(np.array(df['Compression Level'].tolist()) - max_level).argmin()]
-                    idx_max = df.index[df['Compression Level']==max_level].tolist()
-                idx_max = idx_max[0]
-                # Fill list to create final df
-                subject.append(sub_id)
-                level.append(df.loc[idx_max,'Compression Level'])
-                mscc.append(df.loc[idx_max,'MSCC'])
-                mscc_norm.append(df.loc[idx_max,'Normalized MSCC'])
-    mscc_df['subject'] = subject
-    mscc_df['level'] = level
-    mscc_df['MSCC'] = mscc
-    mscc_df['MSCC_norm'] = mscc_norm
+        # Fetch subject ID
+        sub_id = file.split('_')[0]
+        # Check if subject is in exlude list
+        if sub_id not in exclude:
+            df = csv2dataFrame(os.path.join(path_results, file))
+            print(df)
+            max_level = df_participants.loc[df_participants['participant_id']==sub_id, 'maximum_stenosis'].to_list()[0]
+            all_compressed_levels = df_participants.loc[df_participants['participant_id']==sub_id, 'stenosis'].to_list()[0].split(', ')
+            compressed_levels_metrics = df['Compression Level'].to_list()
+            idx_max = all_compressed_levels.index(max_level)
+            print(sub_id, max_level, all_compressed_levels)
+            print((df['Compression Level']))
+            max_level_id = DICT_DISC_LABELS[max_level]
+            subject.append(sub_id)
+          #  for metric in metrics:
+                
+            #idx_max = df.index[df['Compression Level']==max_level].tolist()
+           # print(idx_max, max_level_id)
+            # Fill list to create final df
+           # level.append(df.loc[idx_max,'Compression Level'])
+           # mscc.append(df.loc[idx_max,'MSCC'])
+            #mscc_norm.append(df.loc[idx_max,'Normalized MSCC'])
+    #mscc_df['subject'] = subject
+    #mscc_df['level'] = level
+    #mscc_df['MSCC'] = mscc
+    #mscc_df['MSCC_norm'] = mscc_norm
     return mscc_df
 
 
