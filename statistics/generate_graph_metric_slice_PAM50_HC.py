@@ -49,6 +49,8 @@ def get_parser():
         description="Generate graph of CSA perslice ")
     parser.add_argument('-path-HC', required=True, type=str,
                         help="Path to data of normative dataset computed perslice.")
+    parser.add_argument('-participant-file', required=False, type=str,
+                        help="Path to participants.tsv file.")
     parser.add_argument('-path-out', required=False, type=str, default='csa_perslice',
                         help="Output directory name.")
 
