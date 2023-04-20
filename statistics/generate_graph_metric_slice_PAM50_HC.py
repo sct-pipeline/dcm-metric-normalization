@@ -11,8 +11,8 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-metrics = ['MEAN(diameter_AP)', 'MEAN(area)', 'MEAN(diameter_RL)', 'MEAN(eccentricity)', 'MEAN(solidity)']
-metrics_dtype = {
+METRICS = ['MEAN(diameter_AP)', 'MEAN(area)', 'MEAN(diameter_RL)', 'MEAN(eccentricity)', 'MEAN(solidity)']
+METRICS_DTYPE = {
     'MEAN(diameter_AP)': 'float64',
     'MEAN(area)': 'float64',
     'MEAN(diameter_RL)': 'float64',
@@ -20,6 +20,29 @@ metrics_dtype = {
     'MEAN(solidity)': 'float64'
 }
 
+METRIC_TO_TITLE = {
+    'MEAN(diameter_AP)': 'AP Diameter',
+    'MEAN(area)': 'Cross-Sectional Area',
+    'MEAN(diameter_RL)': 'RL Diameter',
+    'MEAN(eccentricity)': 'Eccentricity',
+    'MEAN(solidity)': 'Solidity'
+}
+
+METRIC_TO_AXIS = {
+    'MEAN(diameter_AP)': 'AP Diameter [mm]',
+    'MEAN(area)': 'Cross-Sectional Area [mm^2]',
+    'MEAN(diameter_RL)': 'RL Diameter [mm]',
+    'MEAN(eccentricity)': 'Eccentricity',
+    'MEAN(solidity)': 'Solidity'
+}
+
+# # To be same as spine-generic figures (https://github.com/spine-generic/spine-generic/blob/master/spinegeneric/cli/generate_figure.py#L114)
+# When the colors are overlapping, they do not look good. So we default colors.
+# PALLETE = {
+#     "GE": "black",
+#     "Philips": "dodgerblue",
+#     "Siemens": "limegreen",
+# }
 
 def get_parser():
     parser = argparse.ArgumentParser(
