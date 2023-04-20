@@ -1,15 +1,15 @@
-#!/usr/bin/env python
-# -*- coding: utf-8
+#
 # Functions to plot CSA perslice and vertebral levels
-# Need sct_process_segmentation -vert 1:10 -vertfile -perslice 1 -pmj
-# Author: Sandrine Bédard
+#
+# Author: Sandrine Bédard, Jan Valosek
+#
 
-import matplotlib.pyplot as plt
-import pandas as pd
-import argparse
 import os
+import argparse
 import numpy as np
-#import plotly.graph_objs as go
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 metrics = ['MEAN(diameter_AP)', 'MEAN(area)', 'MEAN(diameter_RL)', 'MEAN(eccentricity)', 'MEAN(solidity)']
 metrics_dtype = {
