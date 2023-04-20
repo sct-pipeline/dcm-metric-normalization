@@ -102,99 +102,84 @@ def main():
     args = parser.parse_args()
     path_HC = args.path_HC
     path_out = args.path_out
+    # If the output folder directory is not present, then create it.
     if not os.path.exists(path_out):
-    # if the output folder directory is not present, then create it.
         os.makedirs(path_out)
-    # Create empty dict to put dataframe of each healthy control
-    d = {}
-    # Iterator to count number of healthy subjects
-    i = 0
+    # Initialize pandas dataframe where data across all subjects will be stored
+    df = pd.DataFrame()
     # Loop through .csv files of healthy controls
     for file in os.listdir(path_HC):
         if 'PAM50.csv' in file:
-            d[file] = pd.read_csv(os.path.join(path_HC, file), dtype=metrics_dtype)
-            i = i+1
-    first_key = next(iter(d))
-    # Create an empty dataframe with same columns
-    df = pd.DataFrame(columns=d[first_key].columns)
-    df['VertLevel'] = d[first_key]['VertLevel']
-    df['Slice (I->S)'] = d[first_key]['Slice (I->S)']
-    # Loop through all HC
-    for key, values in d.items():
-        for column in d[key].columns:
-            if 'MEAN' in column:
-                if df[column].isnull().values.all():
-                    df[column] = d[key][column]
-                else:
-                    # Sum all columns that have MEAN key
-                    df[column] = df[column] + d[key][column].tolist()
-    # Divide by number of HC
-    for column in df.columns:
-        if 'MEAN' in column:
-            df[column] = df[column]/i
-    # Loop through metrics to create graph
-    print(df)
-    for metric in metrics:
-        metric_std = metric + '_std'
-        #print((np.array([d[k][metric] for k in d])).std(axis=0).shape)
-        df[metric_std] = np.array([d[k][metric] for k in d]).std(axis=0)
+            # Read csv file as pandas dataframe for given subject
+            df_subject = pd.read_csv(os.path.join(path_HC, file), dtype=METRICS_DTYPE)
+            # Concatenate DataFrame objects
+            df = pd.concat([df, df_subject], axis=0, ignore_index=True)
+    # Get sub-id (e.g., sub-amu01) from Filename column and insert it as a new column called participant_id
+    # Subject ID is the first characters of the filename till slash
+    df.insert(0, 'participant_id', df['Filename'].str.split('/').str[0])
+    # Get number of unique subjects (unique strings under Filename column)
+    subjects = df['Filename'].unique()
+    # If a participants.tsv file is provided, insert columns sex, age and manufacturer from df_participants into df
+    if args.participant_file:
+        df_participants = pd.read_csv(args.participant_file, sep='\t')
+        df = df.merge(df_participants[["age", "sex", "manufacturer", "participant_id"]], on='participant_id')
+    # Print number of subjects
+    print('Number of subjects: ' + str(len(subjects)))
     df = df.dropna(axis=1, how='all')
     df = df.dropna(axis=0, how='any').reset_index(drop=True) # do we want to compute mean with missing levels for some subjects?
-    print(df)
-    for metric in metrics:
-    #df = get_csa(args.filename)
-    #df[df.rebounds != 'None']
-    #df = df.replace('None', np.NaN)
-    #df = df.iloc[::-1].reset_index()
-        plt.figure()
-        #fig, ax = plt.subplots(figsize=(5,6))
+    # Keep only VertLevel from C1 to Th1
+    df = df[df['VertLevel'] <= 8]
+    for metric in METRICS:
         fig, ax = plt.subplots()
-        plt.tick_params(axis='y', which='both', labelleft=False, labelright=True)
+        # Note: we are ploting slices not levels to avoid averaging across levels
+        sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df, errorbar='sd', hue='manufacturer')
         # Get slices where array changes value
-        vert = df['VertLevel'].to_numpy()
-        ind_vert = np.where(vert[:-1] != vert[1:])[0]
-        nb_slice = len(df['Slice (I->S)'])
-        #ind_vert = nb_slice - ind_vert
+        plt.tick_params(axis='y', which='both', labelleft=False, labelright=True)
+        plt.grid(color='lightgrey', zorder=0)
+        plt.title('Spinal Cord ' + METRIC_TO_TITLE[metric], fontsize=16)
+        ymin, ymax = ax.get_ylim()
+        ax.set_ylabel(METRIC_TO_AXIS[metric], fontsize=14)
+        ax.set_xlabel('Vertebral Level (S->I)', fontsize=14)
+        # Remove xticks
+        ax.set_xticks([])
+
+        # Get vert levels for one certain subject
+        vert = df[df['participant_id'] == 'sub-amu01']['VertLevel']
+        # Get indexes of where array changes value
+        ind_vert = vert.diff()[vert.diff() != 0].index.values
         ind_vert_mid = []
         for i in range(len(ind_vert)):
             ind_vert_mid.append(int(ind_vert[i:i+2].mean()))
         ind_vert_mid.insert(0, ind_vert[0]-20)
-        ind_vert_mid = ind_vert_mid[:-1]
-        print(ind_vert, ind_vert_mid)
-        #df = df.iloc[::-1].reset_index()
+        ind_vert_mid = ind_vert_mid
+        # Insert a vertical line for each vertebral level
+        for idx, x in enumerate(ind_vert[1:]):
+            plt.axvline(df.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5)
 
-        for idx, x in enumerate(ind_vert):
-            plt.axvline(df.loc[x,'Slice (I->S)'], color='darkblue', linestyle='--', alpha=0.7)
-            #ax.text(0.05 , (x-10)/nb_slice, 'C'+str(vert[x]), transform=ax.transAxes, horizontalalignment='right', verticalalignment='center',color='darkblue')
-        plt.plot((df['Slice (I->S)'].to_numpy())[::-1], df[metric].to_numpy()[::-1], 'r', aa=True)
-        plt.fill_between(df['Slice (I->S)'].to_numpy()[::-1], 
-                         df[metric].to_numpy()[::-1]-df[metric + '_std'][::-1],
-                         df[metric].to_numpy()[::-1]+df[metric + '_std'][::-1],
-                         alpha = 0.4,
-                         color='red',
-                         edgecolor=None,
-                         zorder=3)
-        plt.grid(color='lightgrey', zorder=0)
-        plt.title('Spinal Cord ' + metric, fontsize=16)
-        ymin, ymax = ax.get_ylim()
-        for idx, x in enumerate(ind_vert):
-            if vert[x]>7:
-                level = 'T'+ str(vert[x]-7)
+        # Insert a text label for each vertebral level
+        for idx, x in enumerate(ind_vert, 1):
+            if vert[x] > 7:
+                level = 'T' + str(vert[x] - 7)
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+            # Deal with C1 label position
+            elif vert[x] == 1:
+                level = 'C' + str(vert[x])
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)']+15, ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
             else:
-                level = 'C'+str(vert[x])
-            ax.text(df.loc[ind_vert_mid[idx],'Slice (I->S)'], ymin, level, horizontalalignment='center', verticalalignment='bottom',color='darkblue')
-        #ind_vert_mid = [nb_slice - x for x in ind_vert_mid]
+                level = 'C' + str(vert[x])
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+        # ind_vert_mid = [nb_slice - x for x in ind_vert_mid]
         ax.invert_xaxis()
-        plt.xticks(df.loc[ind_vert,'Slice (I->S)'], [])
-        #plt.ylim(max(df['DistancePMJ'].to_numpy()[6:-6]), min(df['DistancePMJ'].to_numpy()[6:-6]))
-        #plt.ylim(190, 35)
-        #plt.xlim(30,90)
-        plt.ylabel(metric +' ($mm^2$)', fontsize=14)
-        plt.xlabel('Vertebral Level (S->I)', fontsize=14)
-        #ax2.set_xlabel('VertLevel')
+
+        # Save figure
         filename = metric + '_plot.png'
         path_filename = os.path.join(args.path_out, filename)
         plt.savefig(path_filename)
+        print('Figure saved: ' + path_filename)
+
 
 if __name__ == '__main__':
     main()
