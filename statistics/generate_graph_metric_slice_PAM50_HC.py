@@ -129,32 +129,8 @@ def main():
     df = df.dropna(axis=0, how='any').reset_index(drop=True) # do we want to compute mean with missing levels for some subjects?
     # Keep only VertLevel from C1 to Th1
     df = df[df['VertLevel'] <= 8]
-    for metric in METRICS:
-        fig, ax = plt.subplots()
-        # Note: we are ploting slices not levels to avoid averaging across levels
-        sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df, errorbar='sd', hue='manufacturer')
-        # Get slices where array changes value
-        plt.tick_params(axis='y', which='both', labelleft=False, labelright=True)
-        plt.grid(color='lightgrey', zorder=0)
-        plt.title('Spinal Cord ' + METRIC_TO_TITLE[metric], fontsize=16)
-        ymin, ymax = ax.get_ylim()
-        ax.set_ylabel(METRIC_TO_AXIS[metric], fontsize=14)
-        ax.set_xlabel('Vertebral Level (S->I)', fontsize=14)
-        # Remove xticks
-        ax.set_xticks([])
-
-        # Get vert levels for one certain subject
-        vert = df[df['participant_id'] == 'sub-amu01']['VertLevel']
-        # Get indexes of where array changes value
-        ind_vert = vert.diff()[vert.diff() != 0].index.values
-        ind_vert_mid = []
-        for i in range(len(ind_vert)):
-            ind_vert_mid.append(int(ind_vert[i:i+2].mean()))
-        ind_vert_mid.insert(0, ind_vert[0]-20)
-        ind_vert_mid = ind_vert_mid
-        # Insert a vertical line for each vertebral level
-        for idx, x in enumerate(ind_vert[1:]):
-            plt.axvline(df.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5)
+    # Recode age into age bins by 10 years
+    df['age'] = pd.cut(df['age'], bins=[10, 20, 30, 40, 50, 60], labels=['10-20', '20-30', '30-40', '40-50', '50-60'])
 
         # Insert a text label for each vertebral level
         for idx, x in enumerate(ind_vert, 1):
