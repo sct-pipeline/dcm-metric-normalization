@@ -36,6 +36,9 @@ METRIC_TO_AXIS = {
     'MEAN(solidity)': 'Solidity [%]'
 }
 
+LABELS_FONT_SIZE = 14
+TICKS_FONT_SIZE = 12
+
 # # To be same as spine-generic figures (https://github.com/spine-generic/spine-generic/blob/master/spinegeneric/cli/generate_figure.py#L114)
 # When the colors are overlapping, they do not look good. So we default colors.
 # PALLETE = {
@@ -91,10 +94,68 @@ def get_csa(csa_filename):
     return csa
 
 
-def smooth(y, box_pts):
-    box = np.ones(box_pts)/box_pts
-    y_smooth = np.convolve(y, box, mode='same')
-    return y_smooth
+def create_lineplot(df, hue, path_out):
+    """
+    Create lineplot of CSA per vertebral levels.
+    Note: we are ploting slices not levels to avoid averaging across levels.
+    Args:
+        df (pd.dataFrame): dataframe with CSA values
+        hue (str): column name of the dataframe to use for hue
+        path_out (str): path to output directory
+    """
+    for metric in METRICS:
+        fig, ax = plt.subplots()
+        # Note: we are ploting slices not levels to avoid averaging across levels
+        sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df, errorbar='sd', hue=hue)
+        # Get slices where array changes value
+        plt.tick_params(axis='y', which='both', labelleft=False, labelright=True)
+        plt.grid(color='lightgrey', zorder=0)
+        plt.title('Spinal Cord ' + METRIC_TO_TITLE[metric], fontsize=LABELS_FONT_SIZE)
+        ymin, ymax = ax.get_ylim()
+        ax.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
+        ax.set_xlabel('Vertebral Level (S->I)', fontsize=LABELS_FONT_SIZE)
+        # Remove xticks
+        ax.set_xticks([])
+
+        # Get vert levels for one certain subject
+        vert = df[df['participant_id'] == 'sub-amu01']['VertLevel']
+        # Get indexes of where array changes value
+        ind_vert = vert.diff()[vert.diff() != 0].index.values
+        ind_vert_mid = []
+        for i in range(len(ind_vert)):
+            ind_vert_mid.append(int(ind_vert[i:i+2].mean()))
+        ind_vert_mid.insert(0, ind_vert[0]-20)
+        ind_vert_mid = ind_vert_mid
+        # Insert a vertical line for each vertebral level
+        for idx, x in enumerate(ind_vert[1:]):
+            plt.axvline(df.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5)
+
+        # Insert a text label for each vertebral level
+        for idx, x in enumerate(ind_vert, 1):
+            if vert[x] > 7:
+                level = 'T' + str(vert[x] - 7)
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+            # Deal with C1 label position
+            elif vert[x] == 1:
+                level = 'C' + str(vert[x])
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)']+15, ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+            else:
+                level = 'C' + str(vert[x])
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+        # ind_vert_mid = [nb_slice - x for x in ind_vert_mid]
+        ax.invert_xaxis()
+
+        # Save figure
+        if hue:
+            filename = metric + '_plot_per' + hue + '.png'
+        else:
+            filename = metric + '_plot.png'
+        path_filename = os.path.join(path_out, filename)
+        plt.savefig(path_filename)
+        print('Figure saved: ' + path_filename)
 
 
 def main():
@@ -132,29 +193,13 @@ def main():
     # Recode age into age bins by 10 years
     df['age'] = pd.cut(df['age'], bins=[10, 20, 30, 40, 50, 60], labels=['10-20', '20-30', '30-40', '40-50', '50-60'])
 
-        # Insert a text label for each vertebral level
-        for idx, x in enumerate(ind_vert, 1):
-            if vert[x] > 7:
-                level = 'T' + str(vert[x] - 7)
-                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
-                        verticalalignment='bottom', color='black')
-            # Deal with C1 label position
-            elif vert[x] == 1:
-                level = 'C' + str(vert[x])
-                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)']+15, ymin, level, horizontalalignment='center',
-                        verticalalignment='bottom', color='black')
-            else:
-                level = 'C' + str(vert[x])
-                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
-                        verticalalignment='bottom', color='black')
-        # ind_vert_mid = [nb_slice - x for x in ind_vert_mid]
-        ax.invert_xaxis()
-
-        # Save figure
-        filename = metric + '_plot.png'
-        path_filename = os.path.join(args.path_out, filename)
-        plt.savefig(path_filename)
-        print('Figure saved: ' + path_filename)
+    create_lineplot(df, None, args.path_out)
+    # Age
+    create_lineplot(df, 'age', args.path_out)
+    # Sex
+    create_lineplot(df, 'sex', args.path_out)
+    # Vendor
+    create_lineplot(df, 'manufacturer', args.path_out)
 
 
 if __name__ == '__main__':
