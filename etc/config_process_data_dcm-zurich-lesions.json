@@ -1,0 +1,6 @@
+{
+  "path_data"   : "/home/GRAMES.POLYMTL.CA/p118175/extrassd1/janvalosek/data/dcm-zurich-lesions",
+  "path_output" : "/home/GRAMES.POLYMTL.CA/p118175/extrassd1/janvalosek/dcm-zurich-lesions_2023-04-21",
+  "script"      : "/home/GRAMES.POLYMTL.CA/p118175/code/dcm_metric_normalization/scripts/process_data_dcm-zurich-lesions.sh",
+  "jobs"        : 16
+}
