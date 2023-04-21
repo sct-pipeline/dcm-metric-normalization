@@ -30,10 +30,10 @@ METRIC_TO_TITLE = {
 
 METRIC_TO_AXIS = {
     'MEAN(diameter_AP)': 'AP Diameter [mm]',
-    'MEAN(area)': 'Cross-Sectional Area [mm^2]',
+    'MEAN(area)': 'Cross-Sectional Area [mm²]',
     'MEAN(diameter_RL)': 'RL Diameter [mm]',
-    'MEAN(eccentricity)': 'Eccentricity',
-    'MEAN(solidity)': 'Solidity'
+    'MEAN(eccentricity)': 'Eccentricity [%]',
+    'MEAN(solidity)': 'Solidity [%]'
 }
 
 # # To be same as spine-generic figures (https://github.com/spine-generic/spine-generic/blob/master/spinegeneric/cli/generate_figure.py#L114)
