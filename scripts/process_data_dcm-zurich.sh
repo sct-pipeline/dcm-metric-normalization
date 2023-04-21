@@ -1,7 +1,6 @@
 #!/bin/bash
 #
-# Run `sct_process_segmentation -normalize PAM50` on T2w images from DCM patients (dcm-zurich dataset)
-# The script also computes normalized MSCC using `sct_compute_mscc`
+# Run `sct_compute_compression` on T2w images from DCM patients (dcm-zurich dataset)
 #
 # Note: Since axial T2w images have limited FOV (C2-C7) and high slice thickness (3.6mm), the vertebral labeling from
 # sagittal T2w images is brought to axial T2w images
