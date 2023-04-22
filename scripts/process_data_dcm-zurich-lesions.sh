@@ -116,10 +116,10 @@ file_t2_ax_seg=$FILESEG
 
 # Label SC
 file_t2_ax_labels="${file_t2_ax}_label-disc"
-FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
+FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax_labels}-manual.nii.gz"
 if [[ ! -e $FILELABELMANUAL ]]; then
     echo "File ${FILELABELMANUAL}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
-    echo "ERROR: File ${FILELABELMANUAL}.nii.gz does not exist. Exiting."
+    echo "ERROR: File ${FILELABELMANUAL} does not exist. Exiting."
     exit 1
 else
     echo "Found! Using manual disc labels."
