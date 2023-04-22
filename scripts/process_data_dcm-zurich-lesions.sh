@@ -115,7 +115,23 @@ segment_if_does_not_exist ${file_t2_ax} 't2'
 file_t2_ax_seg=$FILESEG
 
 # Label SC
-label_if_does_not_exist ${file_t2_ax} ${file_t2_ax_seg} 't2'
+file_t2_ax_labels="${file_t2_ax}_label-disc"
+FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
+if [[ ! -e $FILELABELMANUAL ]]; then
+    echo "File ${FILELABELMANUAL}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
+    echo "ERROR: File ${FILELABELMANUAL}.nii.gz does not exist. Exiting."
+    exit 1
+else
+    echo "Found! Using manual disc labels."
+    rsync -avzh $FILELABELMANUAL ${file_t2_ax_labels}.nii.gz
+
+    # Label T2w axial spinal cord segmentation using manual disc labels.
+    # Note: we use sct_label_utils instead of sct_label_vertebrae to avoid SC straightening
+    # Context: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4072
+    sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_ax_labels}.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
+    # Generate QC report to assess labeled segmentation
+    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
+fi
 
 # Check if compression labels exists
 file_compression="${file_t2_ax}_label-compression"
