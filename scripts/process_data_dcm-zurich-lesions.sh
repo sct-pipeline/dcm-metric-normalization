@@ -133,6 +133,11 @@ else
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 fi
 
+# Compute statistics on segmented lesion
+file_t2_ax_lesion="${file_t2_ax}_label-lesion"
+rsync -avzh "${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax_lesion}.nii.gz" ${file_t2_ax_lesion}.nii.gz
+sct_analyze_lesion -m ${file_t2_ax_lesion}.nii.gz -s ${file_t2_ax_seg}.nii.gz
+
 # Check if compression labels exists
 file_compression="${file_t2_ax}_label-compression"
 FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_compression}.nii.gz"
