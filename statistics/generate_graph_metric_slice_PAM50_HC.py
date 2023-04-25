@@ -212,6 +212,15 @@ def compute_c2_c3_stats(df):
     print('Mann-Whitney U test between females and males: p-value = ' + format_pvalue(pval))
 
 
+def compare_metrics_across_sex(df):
+    """
+    Compute Mann-Whitney U test between males and females across all levels for each metric.
+    """
+    for metric in METRICS:
+        stat, pval = stats.mannwhitneyu(df[df['sex'] == 'M'][metric], df[df['sex'] == 'F'][metric])
+        print(f'{metric}, all levels: Mann-Whitney U test between females and males: p-value{format_pvalue(pval)}')
+
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -246,6 +255,9 @@ def main():
     df = df[df['VertLevel'] <= 8]
     # Recode age into age bins by 10 years
     df['age'] = pd.cut(df['age'], bins=[10, 20, 30, 40, 50, 60], labels=['10-20', '20-30', '30-40', '40-50', '50-60'])
+
+    # Compute Mann-Whitney U test between males and females for across levels for each metric.
+    compare_metrics_across_sex(df)
 
     # Compute mean and std from C2 and C3 levels across sex and compare females and males
     compute_c2_c3_stats(df)
