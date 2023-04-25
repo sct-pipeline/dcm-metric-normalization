@@ -159,7 +159,7 @@ def create_lineplot(df, hue, path_out):
         print('Figure saved: ' + path_filename)
 
 
-def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=False, include_equal=True):
+def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=True, include_equal=True):
     """
     Format p-value.
     If the p-value is lower than alpha, format it to "<0.001", otherwise, round it to three decimals
@@ -204,12 +204,12 @@ def compute_c2_c3_stats(df):
     c2_c3_m = df_c2_c3[df_c2_c3['sex'] == 'M']['MEAN(area)']
     # Run normality test
     stat, pval = stats.normaltest(c2_c3_f)
-    print('Normality test C2-C3 females: p-value = ' + format_pvalue(pval))
+    print(f'Normality test C2-C3 females: p-value{format_pvalue(pval)}')
     stat, pval = stats.normaltest(c2_c3_m)
-    print('Normality test C2-C3 males: p-value = ' + format_pvalue(pval))
+    print(f'Normality test C2-C3 males: p-value{format_pvalue(pval)}')
     # Compute Mann-Whitney U test
     stat, pval = stats.mannwhitneyu(c2_c3_f, c2_c3_m)
-    print('Mann-Whitney U test between females and males: p-value = ' + format_pvalue(pval))
+    print(f'Mann-Whitney U test between females and males: p-value{format_pvalue(pval)}')
 
 
 def compare_metrics_across_sex(df):
