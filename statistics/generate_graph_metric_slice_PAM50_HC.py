@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+import scipy.stats as stats
 
 METRICS = ['MEAN(diameter_AP)', 'MEAN(area)', 'MEAN(diameter_RL)', 'MEAN(eccentricity)', 'MEAN(solidity)']
 METRICS_DTYPE = {
@@ -158,6 +159,54 @@ def create_lineplot(df, hue, path_out):
         print('Figure saved: ' + path_filename)
 
 
+def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=False, include_equal=True):
+    """
+    Format p-value.
+    If the p-value is lower than alpha, format it to "<0.001", otherwise, round it to three decimals
+
+    :param p_value: input p-value as a float
+    :param alpha: significance level
+    :param decimal_places: number of decimal places the p-value will be rounded
+    :param include_space: include space or not (e.g., ' = 0.06')
+    :param include_equal: include equal sign ('=') to the p-value (e.g., '=0.06') or not (e.g., '0.06')
+    :return: p_value: the formatted p-value (e.g., '<0.05') as a str
+    """
+    if include_space:
+        space = ' '
+    else:
+        space = ''
+
+    # If the p-value is lower than alpha, return '<alpha' (e.g., <0.001)
+    if p_value < alpha:
+        p_value = space + "<" + space + str(alpha)
+    # If the p-value is greater than alpha, round it number of decimals specified by decimal_places
+    else:
+        if include_equal:
+            p_value = space + '=' + space + str(round(p_value, decimal_places))
+        else:
+            p_value = space + str(round(p_value, decimal_places))
+
+    return p_value
+
+
+def compute_c2_c3_stats(df):
+    """
+    Compute mean and std from C2 and C3 levels across sex and compare females and males.
+    """
+
+    # Compute mean and std from C2 and C3 levels
+    df_c2_c3 = df[(df['VertLevel'] == 2) | (df['VertLevel'] == 3)]
+    c2_c3_persex = df_c2_c3.groupby('sex')['MEAN(area)'].agg([np.mean, np.std])
+    print(c2_c3_persex)
+
+    # Compare C2-C3 CSA between females and males
+    c2_c3_f = df_c2_c3[df_c2_c3['sex'] == 'F']['MEAN(area)']
+    c2_c3_m = df_c2_c3[df_c2_c3['sex'] == 'M']['MEAN(area)']
+    # Compute Mann-Whitney U test
+    stat, pval = stats.mannwhitneyu(c2_c3_f, c2_c3_m)
+    print('Mann-Whitney U test: p-value = ' + format_pvalue(pval))
+
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -192,6 +241,9 @@ def main():
     df = df[df['VertLevel'] <= 8]
     # Recode age into age bins by 10 years
     df['age'] = pd.cut(df['age'], bins=[10, 20, 30, 40, 50, 60], labels=['10-20', '20-30', '30-40', '40-50', '50-60'])
+
+    # Compute mean and std from C2 and C3 levels across sex and compare females and males
+    compute_c2_c3_stats(df)
 
     # Create plots
     create_lineplot(df, None, args.path_out)        # across all subjects
