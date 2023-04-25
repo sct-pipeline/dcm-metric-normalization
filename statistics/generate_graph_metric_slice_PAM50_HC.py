@@ -202,9 +202,14 @@ def compute_c2_c3_stats(df):
     # Compare C2-C3 CSA between females and males
     c2_c3_f = df_c2_c3[df_c2_c3['sex'] == 'F']['MEAN(area)']
     c2_c3_m = df_c2_c3[df_c2_c3['sex'] == 'M']['MEAN(area)']
+    # Run normality test
+    stat, pval = stats.normaltest(c2_c3_f)
+    print('Normality test C2-C3 females: p-value = ' + format_pvalue(pval))
+    stat, pval = stats.normaltest(c2_c3_m)
+    print('Normality test C2-C3 males: p-value = ' + format_pvalue(pval))
     # Compute Mann-Whitney U test
     stat, pval = stats.mannwhitneyu(c2_c3_f, c2_c3_m)
-    print('Mann-Whitney U test: p-value = ' + format_pvalue(pval))
+    print('Mann-Whitney U test between females and males: p-value = ' + format_pvalue(pval))
 
 
 def main():
