@@ -185,7 +185,7 @@ def main():
         df_participants = pd.read_csv(args.participant_file, sep='\t')
         df = df.merge(df_participants[["age", "sex", "manufacturer", "participant_id"]], on='participant_id')
     # Print number of subjects
-    print('Number of subjects: ' + str(len(subjects)))
+    print(f'Number of subjects: {str(len(subjects))}\n')
     df = df.dropna(axis=1, how='all')
     df = df.dropna(axis=0, how='any').reset_index(drop=True) # do we want to compute mean with missing levels for some subjects?
     # Keep only VertLevel from C1 to Th1
@@ -193,13 +193,11 @@ def main():
     # Recode age into age bins by 10 years
     df['age'] = pd.cut(df['age'], bins=[10, 20, 30, 40, 50, 60], labels=['10-20', '20-30', '30-40', '40-50', '50-60'])
 
-    create_lineplot(df, None, args.path_out)
-    # Age
-    create_lineplot(df, 'age', args.path_out)
-    # Sex
-    create_lineplot(df, 'sex', args.path_out)
-    # Vendor
-    create_lineplot(df, 'manufacturer', args.path_out)
+    # Create plots
+    create_lineplot(df, None, args.path_out)        # across all subjects
+    create_lineplot(df, 'age', args.path_out)       # across age
+    create_lineplot(df, 'sex', args.path_out)       # across sex
+    create_lineplot(df, 'manufacturer', args.path_out)  # across manufacturer (vendors)
 
 
 if __name__ == '__main__':
