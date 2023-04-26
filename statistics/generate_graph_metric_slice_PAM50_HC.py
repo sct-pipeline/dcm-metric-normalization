@@ -1,5 +1,6 @@
 #
-# Functions to plot CSA perslice and vertebral levels
+# Functions to plot morphometric metrics computed from normative database (spine-generic dataset in PAM50 space)
+# perslice and vertebral levels
 #
 # Author: Sandrine Bédard, Jan Valosek
 #
@@ -50,7 +51,8 @@ TICKS_FONT_SIZE = 12
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Generate graph of CSA perslice ")
+        description="Plot morphometric metrics computed from normative database (spine-generic dataset in PAM50 "
+                    "space) perslice and vertebral levels ")
     parser.add_argument('-path-HC', required=True, type=str,
                         help="Path to data of normative dataset computed perslice.")
     parser.add_argument('-participant-file', required=False, type=str,
