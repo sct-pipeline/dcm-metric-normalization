@@ -12,9 +12,15 @@ import sys
 import yaml
 import numpy as np
 from scipy.stats import spearmanr, pearsonr
+import scipy.stats as stats
 import matplotlib.pyplot as plt
 from textwrap import dedent
 import seaborn as sns
+from sklearn.linear_model import LogisticRegression
+import sklearn.metrics
+from sklearn.feature_selection import RFE
+from sklearn.model_selection import train_test_split
+import statsmodels.api as sm
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
@@ -201,22 +207,188 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     plt.close()
     logger.info(f'Created: {fname_fig}.\n')
 
+    # Create pairplot to seperate with therpeutic decision 
+    plt.figure()
+    g = sns.pairplot(df, x_vars=mjoa, y_vars=metric_norm, kind='reg', hue='therapeutic_decision', 
+                 palette="Set1",  height = 4, plot_kws={'scatter_kws': {'alpha': 0.6}, 'line_kws':{'lw':4}})
+    g._legend.remove()
+    plt.xlim([min(x_vals) -1, max(x_vals)+1])
+    plt.legend(title='Therapeutic decision', loc='lower left', labels=['conservative', 'operative'])
+    plt.tight_layout()
+    plt.savefig(os.path.join(path_out, 'pairwise_plot_' + metric_norm+ '.png'))
+    plt.close()
+
+
+def compute_mean_std(df, path_out):
+
+    # ADD tests
+
+    logger.info('MEAN and STD across all metrics:')
+    mean_std_all = df.agg([np.mean, np.std])
+    logger.info(mean_std_all)
+    # Save as .csv file
+    filename = os.path.join(path_out, 'mean_std_all.csv')
+    mean_std_all.to_csv(filename)
+    logger.info('Created: ' + filename)
+
+    # Seperate per therapeutic_decision
+    logger.info('MEAN and STD separated per therapeutic_decision:')
+    mean_std_by_surgery = df.groupby('therapeutic_decision', as_index=False).agg([np.mean, np.std])
+    logger.info(mean_std_by_surgery)
+    # Save as .csv file
+    filename = os.path.join(path_out, 'mean_std_by_therapeutic.csv')
+    mean_std_by_surgery.to_csv(filename)
+    logger.info('Created: ' + filename)
+
+    # Seperate perlevel
+    logger.info('MEAN and STD separated per level:')
+    mean_by_level= df.groupby('level', as_index=False).agg([np.mean, np.std])
+    logger.info(mean_by_level)
+    # Save as .csv file
+    filename = os.path.join(path_out, 'mean_std_by_level.csv')
+    mean_by_level.to_csv(filename)
+    logger.info('Created: ' + filename)
+
+
+def fit_logistic_reg(X, y):
+    logit_model = sm.Logit(y,X)
+    result = logit_model.fit()
+    print(result.summary2())
+
+#def stepwise_binary_logistic_reg():
+
+def compute_stepwise(y,x, threshold_in, threshold_out):
+    """
+    Perform backward and forward predictor selection based on p-values.
+
+    Args:
+        x (panda.DataFrame): Candidate predictors
+        y (panda.DataFrame): Candidate predictors with target
+        threshold_in: include a predictor if its p-value < threshold_in
+        threshold_out: exclude a predictor if its p-value > threshold_out
+        ** threshold_in <= threshold_out
+    Returns:
+        included: list of selected predictor
+
+    """
+    included = []  # Initialize a list for inlcuded predictors in the model
+    while True:
+        changed = False
+        # Forward step
+        excluded = list(set(x.columns)-set(included))
+        new_pval = pd.Series(index=excluded, dtype=np.float64)
+
+        for new_column in excluded:
+            print(new_column)
+            model = sm.Logit(y, x[included+[new_column]]).fit()
+            new_pval[new_column] = model.pvalues[new_column]
+        best_pval = new_pval.min()
+        if best_pval < threshold_in:
+            best_predictor = excluded[new_pval.argmin()]  # Gets the predictor with the lowest p_value
+            included.append(best_predictor)  # Adds best predictor to included predictor list
+            changed = True
+            logger.info('Add  {:30} with p-value {:.6}'.format(best_predictor, best_pval))
+
+        # backward step
+        model = sm.Logit(y, x[included]).fit()  # Computes linear regression with included predictor
+        # Use all coefs except intercept
+        pvalues = model.pvalues.iloc[1:]
+        # Gets the worst p-value of the model
+        worst_pval = pvalues.max()  # null if pvalues is empty
+        if worst_pval > threshold_out:
+            changed = True
+            worst_predictor = included[pvalues.argmax()]  # gets the predictor with worst p-value
+            included.remove(worst_predictor)  # Removes the worst predictor of included predictor list
+            logger.info('Drop {:30} with p-value {:.6}'.format(worst_predictor, worst_pval))
+            if worst_pval == best_pval and worst_predictor == best_predictor:  # If inclusion of a paremeter doesn't change p_value, end stepwise to avoid infinite loop
+                break
+        if not changed:
+            break
+
+    return included
+
+
+def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=False, include_equal=True):
+    """
+    Format p-value.
+    If the p-value is lower than alpha, format it to "<0.001", otherwise, round it to three decimals
+    :param p_value: input p-value as a float
+    :param alpha: significance level
+    :param decimal_places: number of decimal places the p-value will be rounded
+    :param include_space: include space or not (e.g., ' = 0.06')
+    :param include_equal: include equal sign ('=') to the p-value (e.g., '=0.06') or not (e.g., '0.06')
+    :return: p_value: the formatted p-value (e.g., '<0.05') as a str
+    """
+    if include_space:
+        space = ' '
+    else:
+        space = ''
+
+    # If the p-value is lower than alpha, return '<alpha' (e.g., <0.001)
+    if p_value < alpha:
+        p_value = space + "<" + space + str(alpha)
+    # If the p-value is greater than alpha, round it number of decimals specified by decimal_places
+    else:
+        if include_equal:
+            p_value = space + '=' + space + str(round(p_value, decimal_places))
+        else:
+            p_value = space + str(round(p_value, decimal_places))
+
+    return p_value
+
+
+def compute_test_myelopathy(df):
+    logger.info('\nTest Myelopathy and Ratio')
+    for metric in metrics+metrics_norm+ ['total_mjoa']: # TODO encode MJOA
+        logger.info(f'\n {metric}')
+        df_myelo = df[df['myelopathy'] == 1][metric]
+        df_no_myelo = df[df['myelopathy'] == 0][metric]
+        stat, pval = stats.normaltest(df_myelo)
+        logger.info(f'Normality test {metric} ratio and  myelopathy: p-value {format_pvalue(pval, include_space=True)}')
+        stat, pval2 = stats.normaltest(df_no_myelo)
+        logger.info(f'Normality test {metric} ratio and no myelopathy: p-value {format_pvalue(pval2, include_space=True)}')
+
+        if pval < 0.001 or pval2 < 0.001:
+            stat, pval = stats.mannwhitneyu(df_myelo, df_no_myelo)
+            logger.info(f'Mann-Whitney U test between {metric} ratio and myelopathy/no myelopathy: p-value {format_pvalue(pval, include_space=True)}')
+        else:
+            stat, pval = stats.ttest_ind(df_myelo, df_no_myelo)
+            logger.info(f'T test for independent samples between {metric} ratio and myelopathy/no myelopathy: p-value {format_pvalue(pval, include_space=True)}')
+
+
+def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
+    X = X[regressors]
+    # TODO add k-fold cross-validation
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
+    logreg = LogisticRegression()
+    logreg.fit(X_train, y_train)
+
+    y_pred = logreg.predict(X_test)
+    print('Accuracy of logistic regression classifier on test set: {:.6f}'.format(logreg.score(X_test, y_test)))
+    print(sklearn.metrics.classification_report(y_test, y_pred))
+
+    # ROC and AUC
+    logit_roc_auc = sklearn.metrics.roc_auc_score(y_test, logreg.predict(X_test))
+    fpr, tpr, thresholds = sklearn.metrics.roc_curve(y_test, logreg.predict_proba(X_test)[:,1])
+    plt.figure()
+    plt.plot(fpr, tpr, label='Logistic Regression (area = %0.2f)' % logit_roc_auc)
+    plt.plot([0, 1], [0, 1],'r--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    plt.title('Receiver operating characteristic')
+    plt.legend(loc="lower right")
+    plt.savefig(os.path.join(path_out, filename))
+    plt.close()
+
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std)
+# 1.1. Calcul de proportion
+# 1.2. Matrice de correlation 
 # 2. Binary logistic regression (stepwise)
-
-
-def compute_mean_std(df):
-    print(df.mean())
-    print(df.std())
-    mean_by_surgery = df.groupby('therapeutic_decision', as_index=False).mean()
-    std_by_surgery = df.groupby('therapeutic_decision', as_index=False).std()
-    print(f'Mean and std separated for therapeutic decision')
-    pd.set_option('display.max_columns', None)
-    print(mean_by_surgery)
-    mean_by_level= df.groupby('level', as_index=False).mean()
-    print(mean_by_level)
+# 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
 
 
 def main():
@@ -259,7 +431,7 @@ def main():
         clinical_df = pd.read_excel(args.clinical_file)
     else:
         raise FileNotFoundError(f'{args.clinical_file} not found')
-    mjoa = 'total_mjoa.0'  # change .1 or .2 for different time points
+    mjoa = 'total_mjoa'  # change .1 or .2 for different time points
     clinical_df_mjoa = clinical_df[['record_id', mjoa]]  
     #print(clinical_df_mjoa)
     df_participants = pd.merge(df_participants, clinical_df_mjoa, on='record_id', how='outer', sort=True)
@@ -278,13 +450,92 @@ def main():
     final_df = pd.merge(df_participants, df_combined, on='participant_id', how='outer', sort=True)
     print(final_df.columns)
 
-    final_df.dropna(axis=0, subset=['area_norm', mjoa], inplace=True)
+    final_df.dropna(axis=0, subset=['area_norm', mjoa, 'therapeutic_decision', 'age'], inplace=True)
     final_df.reset_index()
-    print(len(final_df['participant_id'].to_list()))
+    number_subjects = len(final_df['participant_id'].to_list())
+    logger.info(f'Number of subjects: {number_subjects}')
     for metric in metrics:
         gen_chart_corr_mjoa_mscc(final_df, metric, mjoa, path_out)
 
-    compute_mean_std(final_df)
+
+    # get mean ± std of predictors
+    compute_mean_std(final_df, path_out)
+
+    # Get correlation matrix
+    # TODO
+
+    # Create sub-dataset to compute logistic regression
+    df_reg = final_df.copy()
+
+    # Change SEX for 0 and 1
+    df_reg = df_reg.replace({"sex": {'F': 0, 'M': 1}})
+    # Change LEVELS fro numbers
+    df_reg = df_reg.replace({"level": DICT_DISC_LABELS})
+    # Change therapeutic decision for 0 and 1
+    df_reg = df_reg.replace({"therapeutic_decision": {'conservative': 0, 'operative': 1}})
+    # Replace previous_surgery for 0 and 1
+    df_reg = df_reg.replace({"previous_surgery": {'no': 0, 'yes': 1}})
+    
+    #TODO change myelopathy for yes no column
+    df_reg['myelopathy'].fillna(0, inplace=True)
+    
+    df_reg.loc[df_reg['myelopathy']!=0, 'myelopathy'] = 1
+    # Drop useless columns
+    df_reg = df_reg.drop(columns=['record_id', 
+                                  'pathology', 
+                                  'date_previous_surgery', 
+                                  'surgery_date', 
+                                  'date_of_scan', 
+                                  'manufacturers_model_name', 
+                                  'manufacturer', 
+                                  'stenosis',
+                                  'maximum_stenosis',
+                                  'weight',  # missing data
+                                  'height'   # missing data
+                                  ])
+    df_reg.set_index(['participant_id'], inplace=True)
+    df_reg_all = df_reg.copy()
+    print(df_reg.columns.values)
+    df_reg_norm = df_reg.copy()
+    df_reg.drop(inplace=True, columns=metrics_norm)
+    df_reg_norm.drop(inplace=True, columns=metrics)
+    # Model without normalization
+    logger.info('\n Fitting Logistic regression on all variables (no normalization)')
+    x = df_reg.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
+    y = df_reg['therapeutic_decision'].astype(int)
+    x = x.astype(float)
+    # P_values for forward and backward stepwise
+    p_in = 0.05
+    p_out = 0.05
+    logger.info('Stepwise:')
+    included = compute_stepwise(y, x, p_in, p_out)
+    logger.info(f'Included regressors are: {included}')
+    fit_logistic_reg(x[included], y)
+    #logreg = LogisticRegression(solver='liblinear')
+    #rfe = RFE(logreg)
+    #rfe = rfe.fit(x, y.values.ravel())
+    #print(x.columns[rfe.support_])
+    #print(rfe.ranking_)
+
+
+    # Model with normalization
+    logger.info('\n Fitting Logistic regression on all variables (no normalization)')
+    x_norm = df_reg_norm.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
+    x_norm = x_norm.astype(float)
+#    fit_logistic_reg(x_norm, y)
+    logger.info('Stepwise:')
+    included_norm = compute_stepwise(y, x_norm, p_in, p_out)
+    logger.info(f'Included regressors are: {included_norm}')
+    fit_logistic_reg(x_norm[included_norm], y)
+
+# 2. Compute metrics on  models
+    fit_model_metrics(x,y, included, path_out)
+    fit_model_metrics(x_norm,y, included_norm, path_out, 'Log_ROC_norm')
+
+
+# 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
+   # compute_test_myelopathy(df_reg_all)
+
 
 if __name__ == '__main__':
     main()
