@@ -176,6 +176,8 @@ def compute_spearmans(a,b):
 
 
 def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
+
+    # TODO add spearman on graph
     sns.set_style("ticks",{'axes.grid' : True})
     plt.figure()
     fig, ax = plt.subplots()
@@ -198,7 +200,11 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     plt.xlabel('mJOA', fontsize=16)
     plt.xlim([min(x_vals) -1, max(x_vals)+1])
     plt.tight_layout()
-    plt.legend( fontsize=12, bbox_to_anchor=(0.5, 1.12), loc="upper center", ncol=2, framealpha=0.95, handletextpad=0.1)
+    plt.text(0.02, 0.03, '$r$ = {:.3}\n$p$-$value$ {}'.format(r_mscc, format_pvalue(p_mscc)), 
+             fontsize = 10, transform=ax.transAxes, 
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.95, edgecolor="lightgrey"))
+    plt.legend(fontsize=12, bbox_to_anchor=(0.5, 1.12), loc="upper center", ncol=2, framealpha=0.95, handletextpad=0.1)
+    #adding text inside the plot
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     # save figure
@@ -249,13 +255,35 @@ def compute_mean_std(df, path_out):
     mean_by_level.to_csv(filename)
     logger.info('Created: ' + filename)
 
+    # Compute ratio of categorical variables:
+    # Sex
+    count_F = len(df[df['sex']==0])
+    count_M = len(df[df['sex']==1])
+    pct_of_no_sub = np.round(100*count_F/(count_M+count_F), 2)
+    logger.info(f'F:{pct_of_no_sub} %; M: {(100-pct_of_no_sub)} %')
+
+    # Myelopathy
+    count_F = len(df[df['myelopathy']==0])
+    count_M = len(df[df['myelopathy']==1])
+    pct_of_no_sub = np.round(100*count_F/(count_M+count_F), 2)
+    logger.info(f'No myelopathy:{pct_of_no_sub} %; Myelopathy: {(100-pct_of_no_sub)} %')
+
+    # Therepeutic decision
+    count_F = len(df[df['therapeutic_decision']==0])
+    count_M = len(df[df['therapeutic_decision']==1])
+    pct_of_no_sub = np.round(100*count_F/(count_M+count_F), 2)
+    logger.info(f'Conservative:{pct_of_no_sub} %; Operative: {(100-pct_of_no_sub)} %')
+
+    # Maximum level of compression
+    ratio =  df['level'].value_counts(normalize=True)*100
+    logger.info(f'Levels (%): \n{ratio}')
+
 
 def fit_logistic_reg(X, y):
     logit_model = sm.Logit(y,X)
     result = logit_model.fit()
     print(result.summary2())
 
-#def stepwise_binary_logistic_reg():
 
 def compute_stepwise(y,x, threshold_in, threshold_out):
     """
@@ -457,13 +485,6 @@ def main():
     for metric in metrics:
         gen_chart_corr_mjoa_mscc(final_df, metric, mjoa, path_out)
 
-
-    # get mean ± std of predictors
-    compute_mean_std(final_df, path_out)
-
-    # Get correlation matrix
-    # TODO
-
     # Create sub-dataset to compute logistic regression
     df_reg = final_df.copy()
 
@@ -476,10 +497,11 @@ def main():
     # Replace previous_surgery for 0 and 1
     df_reg = df_reg.replace({"previous_surgery": {'no': 0, 'yes': 1}})
     
-    #TODO change myelopathy for yes no column
+    #Change myelopathy for yes no column
     df_reg['myelopathy'].fillna(0, inplace=True)
     
     df_reg.loc[df_reg['myelopathy']!=0, 'myelopathy'] = 1
+
     # Drop useless columns
     df_reg = df_reg.drop(columns=['record_id', 
                                   'pathology', 
@@ -499,6 +521,17 @@ def main():
     df_reg_norm = df_reg.copy()
     df_reg.drop(inplace=True, columns=metrics_norm)
     df_reg_norm.drop(inplace=True, columns=metrics)
+
+    # get mean ± std of predictors
+    compute_mean_std(df_reg_all, path_out)
+
+    # Get correlation matrix
+    corr_matrix = df_reg_all.corr(method='spearman')
+    corr_filename = os.path.join(path_out, 'corr_table')
+    # Save a.csv file of the correlation matrix in the results folder
+    corr_matrix.to_csv(corr_filename + '.csv')
+
+
     # Model without normalization
     logger.info('\n Fitting Logistic regression on all variables (no normalization)')
     x = df_reg.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
@@ -532,10 +565,14 @@ def main():
     fit_model_metrics(x,y, included, path_out)
     fit_model_metrics(x_norm,y, included_norm, path_out, 'Log_ROC_norm')
 
-
-# 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
-   # compute_test_myelopathy(df_reg_all)
+    # 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
+    compute_test_myelopathy(df_reg_all)
 
 
 if __name__ == '__main__':
     main()
+
+# TODO
+#Plot area_ratio and area_ratio_norm
+#Create composite score from all metrics with variance
+#Compute effect size normalized vs non-normalized
