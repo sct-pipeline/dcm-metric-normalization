@@ -174,10 +174,36 @@ def compute_spearmans(a,b):
     b = np.array(b)
     return spearmanr(a,b)
 
+def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
+    sns.set_style("ticks",{'axes.grid' : True})
+    plt.figure()
+    fig, ax = plt.subplots()
+    #ax.set_box_aspect(1)
+    # MSCC with mJOA
+    metric_norm = metric + '_norm'
+    x_vals = df[metric]
+    y_vals_mscc = df[metric_norm]
+    r_mscc, p_mscc = compute_spearmans(x_vals, y_vals_mscc)
+    logger.info(f'{metric} ratio: Spearmans r = {r_mscc} and p = {p_mscc}')
+    sns.regplot(x=x_vals, y=y_vals_mscc)
+    plt.ylabel((metric_norm + ' ratio'), fontsize=16)
+    plt.xlabel(metric + ' ratio', fontsize=16)
+    plt.xlim([min(x_vals) -1, max(x_vals)+1])
+    plt.tight_layout()
+    plt.text(0.03, 0.90, '$r$ = {:.3}\n$p$-$value$ {}'.format(r_mscc, format_pvalue(p_mscc)), 
+             fontsize = 10, transform=ax.transAxes, 
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.95, edgecolor="lightgrey"))
+    plt.xticks(fontsize=12)
+    plt.yticks(fontsize=12)
+    # save figure
+    fname_fig = os.path.join(path_out, 'scatter_norm_no_norm' + metric + '_mjoa.png')
+    plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
+    plt.close()
+    logger.info(f'Created: {fname_fig}.\n')
+
 
 def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
 
-    # TODO add spearman on graph
     sns.set_style("ticks",{'axes.grid' : True})
     plt.figure()
     fig, ax = plt.subplots()
@@ -200,11 +226,11 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     plt.xlabel('mJOA', fontsize=16)
     plt.xlim([min(x_vals) -1, max(x_vals)+1])
     plt.tight_layout()
+    #adding text inside the plot
     plt.text(0.02, 0.03, '$r$ = {:.3}\n$p$-$value$ {}'.format(r_mscc, format_pvalue(p_mscc)), 
              fontsize = 10, transform=ax.transAxes, 
              bbox=dict(boxstyle='round', facecolor='white', alpha=0.95, edgecolor="lightgrey"))
     plt.legend(fontsize=12, bbox_to_anchor=(0.5, 1.12), loc="upper center", ncol=2, framealpha=0.95, handletextpad=0.1)
-    #adding text inside the plot
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     # save figure
@@ -412,11 +438,11 @@ def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
 
 # TODO:
 # 0. Exclude subjects
-# 1. Calcul statistique 2 groupes (mean ± std)
-# 1.1. Calcul de proportion
-# 1.2. Matrice de correlation 
+# 1. Calcul statistique 2 groupes (mean ± std) --> DONE
+# 1.1. Calcul de proportion  --> DONE
+# 1.2. Matrice de correlation   --> DONE
 # 2. Binary logistic regression (stepwise)
-# 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
+# 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy --> DONE
 
 
 def main():
@@ -482,9 +508,12 @@ def main():
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
     logger.info(f'Number of subjects: {number_subjects}')
+    
+    # Create graphs Metrics vs MJOA and ratio norm vs no norm
     for metric in metrics:
         gen_chart_corr_mjoa_mscc(final_df, metric, mjoa, path_out)
-
+        gen_chart_norm_vs_no_norm(final_df, metric, path_out)
+    
     # Create sub-dataset to compute logistic regression
     df_reg = final_df.copy()
 
@@ -573,6 +602,6 @@ if __name__ == '__main__':
     main()
 
 # TODO
-#Plot area_ratio and area_ratio_norm
+#Plot area_ratio and area_ratio_norm  --> DONE
 #Create composite score from all metrics with variance
 #Compute effect size normalized vs non-normalized
