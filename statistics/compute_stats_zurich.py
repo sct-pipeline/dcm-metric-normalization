@@ -175,7 +175,10 @@ def compute_spearmans(a,b):
     return spearmanr(a,b)
 
 def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
-    sns.set_style("ticks",{'axes.grid' : True})
+    """
+    Plot data and a linear regression model fit of normalized vs non-normalized metric
+    """
+    sns.set_style("ticks", {'axes.grid': True})
     plt.figure()
     fig, ax = plt.subplots()
     #ax.set_box_aspect(1)
@@ -203,8 +206,10 @@ def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
 
 
 def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
-
-    sns.set_style("ticks",{'axes.grid' : True})
+    """
+    Plot data and a linear regression model fit of metric vs mJOA
+    """
+    sns.set_style("ticks", {'axes.grid': True})
     plt.figure()
     fig, ax = plt.subplots()
     #ax.set_box_aspect(1)
@@ -306,6 +311,9 @@ def compute_mean_std(df, path_out):
 
 
 def fit_logistic_reg(X, y):
+    """
+    Fit logistic regression model and print summary.
+    """
     logit_model = sm.Logit(y,X)
     result = logit_model.fit()
     print(result.summary2())
