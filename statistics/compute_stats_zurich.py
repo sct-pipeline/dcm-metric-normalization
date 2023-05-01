@@ -199,7 +199,7 @@ def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     # save figure
-    fname_fig = os.path.join(path_out, 'scatter_norm_no_norm' + metric + '_mjoa.png')
+    fname_fig = os.path.join(path_out, 'scatter_norm_no_norm_' + metric + '_mjoa.png')
     plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
     plt.close()
     logger.info(f'Created: {fname_fig}.\n')
@@ -252,8 +252,10 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     plt.xlim([min(x_vals) -1, max(x_vals)+1])
     plt.legend(title='Therapeutic decision', loc='lower left', labels=['conservative', 'operative'])
     plt.tight_layout()
-    plt.savefig(os.path.join(path_out, 'pairwise_plot_' + metric_norm+ '.png'))
+    fname_fig = os.path.join(path_out, 'pairwise_plot_' + metric_norm + '.png')
+    plt.savefig(fname_fig)
     plt.close()
+    logger.info(f'Created: {fname_fig}.\n')
 
 
 def compute_mean_std(df, path_out):
