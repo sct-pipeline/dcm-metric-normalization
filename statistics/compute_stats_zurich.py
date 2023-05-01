@@ -190,9 +190,9 @@ def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
     plt.xlabel(metric + ' ratio', fontsize=16)
     plt.xlim([min(x_vals) -1, max(x_vals)+1])
     plt.tight_layout()
-    plt.text(0.03, 0.90, '$r$ = {:.3}\n$p$-$value$ {}'.format(r_mscc, format_pvalue(p_mscc)), 
-             fontsize = 10, transform=ax.transAxes, 
-             bbox=dict(boxstyle='round', facecolor='white', alpha=0.95, edgecolor="lightgrey"))
+    plt.text(0.03, 0.90, 'r = {}\np{}'.format(round(r_mscc, 2), format_pvalue(p_mscc, alpha=0.001, include_space=True)),
+             fontsize=10, transform=ax.transAxes,
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.95, edgecolor='lightgrey'))
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     # save figure
@@ -226,10 +226,10 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     plt.xlabel('mJOA', fontsize=16)
     plt.xlim([min(x_vals) -1, max(x_vals)+1])
     plt.tight_layout()
-    #adding text inside the plot
-    plt.text(0.02, 0.03, '$r$ = {:.3}\n$p$-$value$ {}'.format(r_mscc, format_pvalue(p_mscc)), 
-             fontsize = 10, transform=ax.transAxes, 
-             bbox=dict(boxstyle='round', facecolor='white', alpha=0.95, edgecolor="lightgrey"))
+    # Insert text with corr coef and pval
+    plt.text(0.02, 0.03, 'r = {}\np{}'.format(round(r_mscc, 2), format_pvalue(p_mscc, alpha=0.001, include_space=True)),
+             fontsize=10, transform=ax.transAxes,
+             bbox=dict(boxstyle='round', facecolor='white', alpha=0.95, edgecolor='lightgrey'))
     plt.legend(fontsize=12, bbox_to_anchor=(0.5, 1.12), loc="upper center", ncol=2, framealpha=0.95, handletextpad=0.1)
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
