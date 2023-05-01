@@ -30,7 +30,7 @@ hdlr = logging.StreamHandler(sys.stdout)
 logging.root.addHandler(hdlr)
 
 
-metrics = [
+METRICS = [
     'area',
     'diameter_AP',
     'diameter_RL',
@@ -48,7 +48,7 @@ DICT_DISC_LABELS = {
 }
 
 
-metrics_norm = [metric + '_norm' for metric in metrics]
+METRICS_NORM = [metric + '_norm' for metric in METRICS]
 
 
 class SmartFormatter(argparse.HelpFormatter):
@@ -119,7 +119,7 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
     print(len(subjects_list))
 
     # TODO : check to simply add inside the participants.tsv 
-    columns = ['participant_id', 'id','level'] + metrics + metrics_norm
+    columns = ['participant_id', 'id','level'] + METRICS + METRICS_NORM
     df_combined = pd.DataFrame(columns = columns) # todo add columns of metrics and 
     df_combined['participant_id'] = subjects_list
     for sub in subjects_list:
@@ -135,7 +135,7 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
             exclude.append(sub)
         else:
             df_combined.loc[df_combined['participant_id']==sub, 'level'] = max_level
-            for metric in metrics:
+            for metric in METRICS:
                 file = [file for file in files_subject if metric in file]#[0]
                 df = csv2dataFrame(os.path.join(path_results, file[0]))
                 # Fill list to create final df
@@ -152,7 +152,7 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
     df_combined.to_csv(file_metric, index=False)
     #df_combined['subject'] = subject
     #df_combined['level'] = level
-   # df_combined[metrics_norm + metrics] = data_metrics
+   # df_combined[METRICS_NORM + METRICS] = data_metrics
     return df_combined
 
 
@@ -393,7 +393,7 @@ def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=False, i
 
 def compute_test_myelopathy(df):
     logger.info('\nTest Myelopathy and Ratio')
-    for metric in metrics+metrics_norm+ ['total_mjoa']: # TODO encode MJOA
+    for metric in METRICS + METRICS_NORM + ['total_mjoa']: # TODO encode MJOA
         logger.info(f'\n {metric}')
         df_myelo = df[df['myelopathy'] == 1][metric]
         df_no_myelo = df[df['myelopathy'] == 0][metric]
@@ -507,10 +507,11 @@ def main():
     final_df.dropna(axis=0, subset=['area_norm', mjoa, 'therapeutic_decision', 'age'], inplace=True)
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
-    logger.info(f'Number of subjects: {number_subjects}')
-    
-    # Create graphs Metrics vs MJOA and ratio norm vs no norm
-    for metric in metrics:
+    logger.info(f'Number of subjects (after dropping subjects with NaN values): {number_subjects}')
+
+    # Loop across metrics
+    for metric in METRICS:
+        # Create charts mJOA vs individual metrics (both normalized and not normalized)
         gen_chart_corr_mjoa_mscc(final_df, metric, mjoa, path_out)
         gen_chart_norm_vs_no_norm(final_df, metric, path_out)
     
@@ -548,8 +549,8 @@ def main():
     df_reg_all = df_reg.copy()
     print(df_reg.columns.values)
     df_reg_norm = df_reg.copy()
-    df_reg.drop(inplace=True, columns=metrics_norm)
-    df_reg_norm.drop(inplace=True, columns=metrics)
+    df_reg.drop(inplace=True, columns=METRICS_NORM)
+    df_reg_norm.drop(inplace=True, columns=METRICS)
 
     # get mean ± std of predictors
     compute_mean_std(df_reg_all, path_out)
