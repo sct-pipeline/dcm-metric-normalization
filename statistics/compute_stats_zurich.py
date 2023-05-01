@@ -174,6 +174,7 @@ def compute_spearmans(a,b):
     b = np.array(b)
     return spearmanr(a,b)
 
+
 def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
     """
     Plot data and a linear regression model fit of normalized vs non-normalized metric
@@ -187,7 +188,7 @@ def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
     x_vals = df[metric]
     y_vals_mscc = df[metric_norm]
     r_mscc, p_mscc = compute_spearmans(x_vals, y_vals_mscc)
-    logger.info(f'{metric} ratio: Spearmans r = {r_mscc} and p = {p_mscc}')
+    logger.info(f'{metric} ratio: Spearman r = {r_mscc} and p = {p_mscc}')
     sns.regplot(x=x_vals, y=y_vals_mscc)
     plt.ylabel((metric_norm + ' ratio'), fontsize=16)
     plt.xlabel(metric + ' ratio', fontsize=16)
@@ -222,14 +223,14 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     r_mscc, p_mscc = compute_spearmans(x_vals, y_vals_mscc)
     r_mscc_norm, p_mscc_norm = compute_spearmans(x_vals, y_vals_mscc_norm)
 
-    logger.info(f'{metric} ratio: Spearmans r = {r_mscc} and p = {p_mscc}')
-    logger.info(f'{metric_norm} ratio: Spearmans r = {r_mscc_norm} and p = {p_mscc_norm}')
+    logger.info(f'{metric} ratio: Spearman r = {r_mscc} and p = {p_mscc}')
+    logger.info(f'{metric_norm} ratio: Spearman r = {r_mscc_norm} and p = {p_mscc_norm}')
 
     sns.regplot(x=x_vals, y=y_vals_mscc, label=(metric+' ratio')) #ci=None,
     sns.regplot(x=x_vals, y=y_vals_mscc_norm, color='crimson', label=(metric_norm + ' ratio')) # ci=None,
     plt.ylabel((metric + ' ratio'), fontsize=16)
     plt.xlabel('mJOA', fontsize=16)
-    plt.xlim([min(x_vals) -1, max(x_vals)+1])
+    plt.xlim([min(x_vals)-1, max(x_vals)+1])
     plt.tight_layout()
     # Insert text with corr coef and pval
     plt.text(0.02, 0.03, 'r = {}\np{}'.format(round(r_mscc, 2), format_pvalue(p_mscc, alpha=0.001, include_space=True)),
@@ -246,10 +247,10 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
 
     # Create pairplot to seperate with therpeutic decision 
     plt.figure()
-    g = sns.pairplot(df, x_vars=mjoa, y_vars=metric_norm, kind='reg', hue='therapeutic_decision', 
-                 palette="Set1",  height = 4, plot_kws={'scatter_kws': {'alpha': 0.6}, 'line_kws':{'lw':4}})
+    g = sns.pairplot(df, x_vars=mjoa, y_vars=metric_norm, kind='reg', hue='therapeutic_decision', palette="Set1",
+                     height=4, plot_kws={'scatter_kws': {'alpha': 0.6}, 'line_kws': {'lw': 4}})
     g._legend.remove()
-    plt.xlim([min(x_vals) -1, max(x_vals)+1])
+    plt.xlim([min(x_vals)-1, max(x_vals)+1])
     plt.legend(title='Therapeutic decision', loc='lower left', labels=['conservative', 'operative'])
     plt.tight_layout()
     fname_fig = os.path.join(path_out, 'pairwise_plot_' + metric_norm + '.png')
@@ -321,7 +322,7 @@ def fit_logistic_reg(X, y):
     print(result.summary2())
 
 
-def compute_stepwise(y,x, threshold_in, threshold_out):
+def compute_stepwise(y, x, threshold_in, threshold_out):
     """
     Perform backward and forward predictor selection based on p-values.
 
@@ -335,7 +336,7 @@ def compute_stepwise(y,x, threshold_in, threshold_out):
         included: list of selected predictor
 
     """
-    included = []  # Initialize a list for inlcuded predictors in the model
+    included = []  # Initialize a list for included predictors in the model
     while True:
         changed = False
         # Forward step
@@ -514,6 +515,7 @@ def main():
     final_df = pd.merge(df_participants, df_combined, on='participant_id', how='outer', sort=True)
     print(final_df.columns)
 
+    # Drop subjects with NaN values
     final_df.dropna(axis=0, subset=['area_norm', mjoa, 'therapeutic_decision', 'age'], inplace=True)
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
@@ -523,6 +525,7 @@ def main():
     for metric in METRICS:
         # Create charts mJOA vs individual metrics (both normalized and not normalized)
         gen_chart_corr_mjoa_mscc(final_df, metric, mjoa, path_out)
+        # Plot scatter plot normalized vs not normalized
         gen_chart_norm_vs_no_norm(final_df, metric, path_out)
     
     # Create sub-dataset to compute logistic regression
@@ -537,10 +540,9 @@ def main():
     # Replace previous_surgery for 0 and 1
     df_reg = df_reg.replace({"previous_surgery": {'no': 0, 'yes': 1}})
     
-    #Change myelopathy for yes no column
+    # Change myelopathy for yes no column
     df_reg['myelopathy'].fillna(0, inplace=True)
-    
-    df_reg.loc[df_reg['myelopathy']!=0, 'myelopathy'] = 1
+    df_reg.loc[df_reg['myelopathy'] != 0, 'myelopathy'] = 1
 
     # Drop useless columns
     df_reg = df_reg.drop(columns=['record_id', 
@@ -571,9 +573,8 @@ def main():
     # Save a.csv file of the correlation matrix in the results folder
     corr_matrix.to_csv(corr_filename + '.csv')
 
-
     # Model without normalization
-    logger.info('\n Fitting Logistic regression on all variables (no normalization)')
+    logger.info('\nFitting Logistic regression on all variables (no normalization)')
     x = df_reg.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
     y = df_reg['therapeutic_decision'].astype(int)
     x = x.astype(float)
@@ -582,14 +583,14 @@ def main():
     p_out = 0.05
     logger.info('Stepwise:')
     included = compute_stepwise(y, x, p_in, p_out)
-    logger.info(f'Included regressors are: {included}')
+    logger.info(f'Included repressors are: {included}')
+    # Fit logistic regression model on included variables
     fit_logistic_reg(x[included], y)
     #logreg = LogisticRegression(solver='liblinear')
     #rfe = RFE(logreg)
     #rfe = rfe.fit(x, y.values.ravel())
     #print(x.columns[rfe.support_])
     #print(rfe.ranking_)
-
 
     # Model with normalization
     logger.info('\n Fitting Logistic regression on all variables (no normalization)')
@@ -598,14 +599,15 @@ def main():
 #    fit_logistic_reg(x_norm, y)
     logger.info('Stepwise:')
     included_norm = compute_stepwise(y, x_norm, p_in, p_out)
-    logger.info(f'Included regressors are: {included_norm}')
+    logger.info(f'Included repressors are: {included_norm}')
+    # Fit logistic regression model on included variables
     fit_logistic_reg(x_norm[included_norm], y)
 
 # 2. Compute metrics on  models
     fit_model_metrics(x,y, included, path_out)
     fit_model_metrics(x_norm,y, included_norm, path_out, 'Log_ROC_norm')
 
-    # 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
+    # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
     compute_test_myelopathy(df_reg_all)
 
 
