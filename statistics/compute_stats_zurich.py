@@ -19,7 +19,8 @@ import seaborn as sns
 from sklearn.linear_model import LogisticRegression
 import sklearn.metrics
 from sklearn.feature_selection import RFE
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold, train_test_split
+from sklearn.metrics import auc
 import statsmodels.api as sm
 
 FNAME_LOG = 'log_stats.txt'
@@ -424,28 +425,73 @@ def compute_test_myelopathy(df):
 def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
     X = X[regressors]
     # TODO add k-fold cross-validation
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=0)
-    logreg = LogisticRegression()
-    logreg.fit(X_train, y_train)
+    fig, ax = plt.subplots(figsize=(6, 6))
+    kf = KFold(n_splits=5, shuffle=True)
+    scores = []
+    fpr_all = []
+    tpr_all = []
+    auc_all = []
+    mean_fpr = np.linspace(0, 1, 100)
+    for fold, (train, test) in enumerate(kf.split(X, y)):
+        x_train = X.iloc[train]
+        x_test = X.iloc[test]
+        y_train = y.iloc[train]
+        y_test = y.iloc[test]
+        logreg = LogisticRegression()
+        logreg.fit(x_train, y_train)
+        scores.append(logreg.score(x_test, y_test))
 
-    y_pred = logreg.predict(X_test)
-    print('Accuracy of logistic regression classifier on test set: {:.6f}'.format(logreg.score(X_test, y_test)))
-    print(sklearn.metrics.classification_report(y_test, y_pred))
+        y_pred = logreg.predict(x_test)
+      #  print('Accuracy of logistic regression classifier on test set: {:.6f}'.format(logreg.score(x_test, y_test)))
+       # print(sklearn.metrics.classification_report(y_test, y_pred))
 
-    # ROC and AUC
-    logit_roc_auc = sklearn.metrics.roc_auc_score(y_test, logreg.predict(X_test))
-    fpr, tpr, thresholds = sklearn.metrics.roc_curve(y_test, logreg.predict_proba(X_test)[:,1])
-    plt.figure()
-    plt.plot(fpr, tpr, label='Logistic Regression (area = %0.2f)' % logit_roc_auc)
+        # ROC and AUC
+        auc_val = sklearn.metrics.roc_auc_score(y_test, y_pred)
+        auc_all.append(auc_val)
+        fpr, tpr, thresholds = sklearn.metrics.roc_curve(y_test, logreg.predict_proba(x_test)[:,1])
+        fpr_all.append(fpr)
+        interp_tpr = np.interp(mean_fpr, fpr, tpr)
+        interp_tpr[0] = 0.0
+        tpr_all.append(interp_tpr)
+        plt.plot(fpr, tpr, label=f'Logistic Regression (area = %0.2f) fold {fold}' % auc_val)
+    
+    ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
+    mean_tpr = np.mean(np.array(tpr_all), axis=0)
+    mean_tpr[-1] = 1.0
+    mean_auc = auc(mean_fpr, mean_tpr)
+    std_auc = np.std(auc_all)
+    ax.plot(
+        mean_fpr,
+        mean_tpr,
+        color="b",
+        label=r"Mean ROC (AUC = %0.2f $\pm$ %0.2f)" % (mean_auc, std_auc),
+        lw=2,
+        alpha=0.8
+    )
+    
+    std_tpr = np.std(tpr_all, axis=0)
+    tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
+    tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    ax.fill_between(
+        mean_fpr,
+        tprs_lower,
+        tprs_upper,
+        color="grey",
+        alpha=0.2,
+        label=r"$\pm$ 1 std. dev.")
+
     plt.plot([0, 1], [0, 1],'r--')
-    plt.xlim([0.0, 1.0])
-    plt.ylim([0.0, 1.05])
+    plt.xlim([-0.05, 1.05])
+    plt.ylim([-0.05, 1.05])
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
     plt.title('Receiver operating characteristic')
     plt.legend(loc="lower right")
     plt.savefig(os.path.join(path_out, filename))
     plt.close()
+
+
+    logger.info(f'Mean accuracy: {np.mean(scores)} ± {np.std(scores)}')
 
 # TODO:
 # 0. Exclude subjects
@@ -526,6 +572,7 @@ def main():
         # Create charts mJOA vs individual metrics (both normalized and not normalized)
         gen_chart_corr_mjoa_mscc(final_df, metric, mjoa, path_out)
         # Plot scatter plot normalized vs not normalized
+        logger.info(f'Correlation {metric} norm vs no norm')
         gen_chart_norm_vs_no_norm(final_df, metric, path_out)
     
     # Create sub-dataset to compute logistic regression
@@ -565,6 +612,7 @@ def main():
     df_reg_norm.drop(inplace=True, columns=METRICS)
 
     # get mean ± std of predictors
+    logger.info('Computing mean ± std')
     compute_mean_std(df_reg_all, path_out)
 
     # Get correlation matrix
@@ -593,18 +641,20 @@ def main():
     #print(rfe.ranking_)
 
     # Model with normalization
-    logger.info('\n Fitting Logistic regression on all variables (no normalization)')
+    logger.info('\n Fitting Logistic regression on all variables (normalization)')
     x_norm = df_reg_norm.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
     x_norm = x_norm.astype(float)
-#    fit_logistic_reg(x_norm, y)
     logger.info('Stepwise:')
     included_norm = compute_stepwise(y, x_norm, p_in, p_out)
     logger.info(f'Included repressors are: {included_norm}')
     # Fit logistic regression model on included variables
     fit_logistic_reg(x_norm[included_norm], y)
 
-# 2. Compute metrics on  models
+# 2. Compute metrics on models (precision, recall, AUC, ROC curve)
+    logger.info('Testing both models and computing ROC curve and AUC')
+    logger.info('No Normalization')
     fit_model_metrics(x,y, included, path_out)
+    logger.info('Normalization')
     fit_model_metrics(x_norm,y, included_norm, path_out, 'Log_ROC_norm')
 
     # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
