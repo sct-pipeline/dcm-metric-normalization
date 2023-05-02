@@ -478,7 +478,7 @@ def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
         tprs_upper,
         color="grey",
         alpha=0.2,
-        label=r"$\pm$ 1 std. dev.")
+        label=r"$\pm$ std.")
 
     plt.plot([0, 1], [0, 1],'r--')
     plt.xlim([-0.05, 1.05])
