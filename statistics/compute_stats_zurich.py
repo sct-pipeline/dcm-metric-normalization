@@ -493,6 +493,14 @@ def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
 
     logger.info(f'Mean accuracy: {np.mean(scores)} ± {np.std(scores)}')
 
+
+def get_z_score(df):
+    for col in METRICS + METRICS_NORM:
+        col_zscore = col + '_zscore'
+        df[col_zscore] = (df[col] - df[col].mean())/df[col].std(ddof=0)
+    return df    
+
+
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std) --> DONE
@@ -660,6 +668,11 @@ def main():
     # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
     compute_test_myelopathy(df_reg_all)
 
+    # 4. Compute z-score
+    df_z_score = get_z_score(df_reg_all)
+    print(df_z_score['area_zscore'])
+    mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
+    print(mean_zscore)
 
 if __name__ == '__main__':
     main()
