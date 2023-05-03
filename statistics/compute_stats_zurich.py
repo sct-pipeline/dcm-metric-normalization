@@ -19,7 +19,7 @@ import seaborn as sns
 from sklearn.linear_model import LogisticRegression
 import sklearn.metrics
 from sklearn.feature_selection import RFE
-from sklearn.model_selection import KFold, train_test_split
+from sklearn.model_selection import KFold, train_test_split, StratifiedKFold, RepeatedStratifiedKFold
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
@@ -429,14 +429,15 @@ def compute_test_myelopathy(df):
 
 def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
     X = X[regressors]
-    # TODO add k-fold cross-validation
     fig, ax = plt.subplots(figsize=(6, 6))
-    kf = KFold(n_splits=5, shuffle=True)
+    #kf = StratifiedKFold(n_splits=10, shuffle=True)
+    kf = RepeatedStratifiedKFold(n_splits=10, n_repeats = 100)
     scores = []
     fpr_all = []
     tpr_all = []
     auc_all = []
     mean_fpr = np.linspace(0, 1, 100)
+    
     for fold, (train, test) in enumerate(kf.split(X, y)):
         x_train = X.iloc[train]
         x_test = X.iloc[test]
@@ -458,9 +459,11 @@ def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
         interp_tpr = np.interp(mean_fpr, fpr, tpr)
         interp_tpr[0] = 0.0
         tpr_all.append(interp_tpr)
-        plt.plot(fpr, tpr, label=f'Logistic Regression (area = %0.2f) fold {fold}' % auc_val)
+       # plt.plot(fpr, tpr, label=f'Logistic Regression (area = %0.2f) fold {fold}' % auc_val)
+        plt.plot(fpr, tpr)
     
     ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
+    
     mean_tpr = np.mean(np.array(tpr_all), axis=0)
     mean_tpr[-1] = 1.0
     mean_auc = auc(mean_fpr, mean_tpr)
@@ -484,7 +487,7 @@ def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
         color="grey",
         alpha=0.2,
         label=r"$\pm$ std.")
-
+    
     plt.plot([0, 1], [0, 1],'r--')
     plt.xlim([-0.05, 1.05])
     plt.ylim([-0.05, 1.05])
@@ -492,7 +495,8 @@ def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver operating characteristic')
     plt.legend(loc="lower right")
-    plt.savefig(os.path.join(path_out, filename))
+    #plt.legend(bbox_to_anchor=(1.05, 1), loc="center left")
+    plt.savefig(os.path.join(path_out, filename), bbox_inches="tight")
     plt.close()
 
 
@@ -675,9 +679,16 @@ def main():
 
     # 4. Compute z-score
     df_z_score = get_z_score(df_reg_all)
-    print(df_z_score['area_zscore'])
+    # Do composite z_score for no norm between area, diameter_AP, diameter_RL
+    df_z_score['composite_zscore'] =df_z_score[['area_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(axis=1)
+    # Do composite z_score for norm between area, diameter_AP, diameter_RL TODO: maybe remove diameter RL?
+    df_z_score['composite_zscore_norm'] =df_z_score[['area_norm_zscore', 'diameter_AP_norm_zscore', 'diameter_RL_norm_zscore']].mean(axis=1)
+    #mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
+    #print(mean_zscore['diameter_AP_zscore'])
     mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
-    print(mean_zscore)
+
+    print(mean_zscore['composite_zscore'])
+    print(mean_zscore['composite_zscore_norm'])
 
 if __name__ == '__main__':
     main()
