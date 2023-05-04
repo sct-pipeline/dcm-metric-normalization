@@ -58,6 +58,7 @@ TICKS_FONT_SIZE = 12
 #     "Siemens": "limegreen",
 # }
 
+
 def get_parser():
     parser = argparse.ArgumentParser(
         description="Plot morphometric metrics computed from normative database (spine-generic dataset in PAM50 "
@@ -377,7 +378,7 @@ def main():
     df['MEAN(solidity)'] = df['MEAN(solidity)'] * 100
 
     # Create plots
-    create_lineplot(df, None, args.path_out)        # across all subjects
+    create_lineplot(df, None, args.path_out, show_cv=True)        # across all subjects
     create_lineplot(df, 'age', args.path_out)       # across age
     create_lineplot(df, 'sex', args.path_out)       # across sex
     create_lineplot(df, 'manufacturer', args.path_out)  # across manufacturer (vendors)
