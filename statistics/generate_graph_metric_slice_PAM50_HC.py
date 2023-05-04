@@ -264,6 +264,9 @@ def main():
     # Compute mean and std from C2 and C3 levels across sex and compare females and males
     compute_c2_c3_stats(df)
 
+    # Multiply solidity by 100 to get percentage (sct_process_segmentation computes solidity in the interval 0-1)
+    df['MEAN(solidity)'] = df['MEAN(solidity)'] * 100
+
     # Create plots
     create_lineplot(df, None, args.path_out)        # across all subjects
     create_lineplot(df, 'age', args.path_out)       # across age
