@@ -20,6 +20,7 @@ from sklearn.linear_model import LogisticRegression
 import sklearn.metrics
 from sklearn.feature_selection import RFE
 from sklearn.model_selection import KFold, train_test_split, StratifiedKFold, RepeatedStratifiedKFold
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
@@ -651,11 +652,6 @@ def main():
     logger.info(f'Included repressors are: {included}')
     # Fit logistic regression model on included variables
     fit_logistic_reg(x[included], y)
-    #logreg = LogisticRegression(solver='liblinear')
-    #rfe = RFE(logreg)
-    #rfe = rfe.fit(x, y.values.ravel())
-    #print(x.columns[rfe.support_])
-    #print(rfe.ranking_)
 
     # Model with normalization
     logger.info('\n Fitting Logistic regression on all variables (normalization)')
@@ -677,7 +673,22 @@ def main():
     # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
     compute_test_myelopathy(df_reg_all)
 
-    # 4. Compute z-score
+    # 4. Compute Variance of inflation to check multicolinearity
+    vif_data = pd.DataFrame()
+    data = x[included]
+    vif_data['Feature'] = data.columns
+    vif_data['VIF']= [variance_inflation_factor(data.values, i) for i in range(len(data.columns))]
+    logger.info('\nVariance of inflation no norm:')
+    logger.info(vif_data)
+    # For normalized model
+    vif_data_norm = pd.DataFrame()
+    data_norm = x_norm[included_norm]
+    vif_data_norm['Feature'] = data_norm.columns
+    vif_data_norm['VIF']= [variance_inflation_factor(data_norm.values, i) for i in range(len(data_norm.columns))]
+    logger.info('Variance of inflation norm:')
+    logger.info(vif_data_norm)
+
+    # 5. Compute z-score
     df_z_score = get_z_score(df_reg_all)
     # Do composite z_score for no norm between area, diameter_AP, diameter_RL
     df_z_score['composite_zscore'] =df_z_score[['area_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(axis=1)
@@ -689,6 +700,7 @@ def main():
 
     print(mean_zscore['composite_zscore'])
     print(mean_zscore['composite_zscore_norm'])
+
 
 if __name__ == '__main__':
     main()
