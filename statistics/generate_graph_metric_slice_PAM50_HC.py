@@ -114,6 +114,9 @@ def create_lineplot(df, hue, path_out):
         plt.tick_params(axis='y', which='both', labelleft=False, labelright=True)
         plt.grid(color='lightgrey', zorder=0)
         plt.title('Spinal Cord ' + METRIC_TO_TITLE[metric], fontsize=LABELS_FONT_SIZE)
+        # Adjust ymlim for solidity (it has low variance)
+        if metric == 'MEAN(solidity)':
+            ax.set_ylim(90, 100)
         ymin, ymax = ax.get_ylim()
         ax.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
         ax.set_xlabel('Vertebral Level (S->I)', fontsize=LABELS_FONT_SIZE)
