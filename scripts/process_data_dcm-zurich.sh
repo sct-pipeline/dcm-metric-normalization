@@ -3,7 +3,7 @@
 # Process dcm-zurich dataset and run `sct_compute_compression` on T2w axial images
 #
 # Usage:
-#     sct_run_batch -c <PATH_TO_REPO>/etc/config_process_data.json
+#     sct_run_batch -c <PATH_TO_REPO>/etc/config_process_data_<DATASET>.json
 #
 # The following global variables are retrieved from the caller sct_run_batch
 # but could be overwritten by uncommenting the lines below:
