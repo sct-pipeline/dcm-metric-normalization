@@ -428,8 +428,10 @@ def compute_test_myelopathy(df):
             logger.info(f'T test for independent samples between {metric} ratio and myelopathy/no myelopathy: p-value {format_pvalue(pval, include_space=True)}')
 
 
-def fit_model_metrics(X, y, regressors, path_out, filename='Log_ROC'):
-    X = X[regressors]
+def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
+    if regressors:
+        X = X[regressors]
+
     fig, ax = plt.subplots(figsize=(6, 6))
     #kf = StratifiedKFold(n_splits=10, shuffle=True)
     kf = RepeatedStratifiedKFold(n_splits=10, n_repeats = 100)
@@ -697,10 +699,20 @@ def main():
     #mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
     #print(mean_zscore['diameter_AP_zscore'])
     mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
-
     print(mean_zscore['composite_zscore'])
     print(mean_zscore['composite_zscore_norm'])
 
+    # 6. Redo Logistic regression using composite z_score instead
+    logger.info('Testing both models and computing ROC curve and AUC with composite z_score')
+    logger.info('No Normalization')
+    x = df_z_score[['total_mjoa', 'level', 'composite_zscore']]
+    # Fit logistic regression model on included variables
+    fit_logistic_reg(x, y)
+    fit_model_metrics(x, y, path_out=path_out, filename='Log_ROC_zscore')
+    logger.info('Normalization')
+    x_norm = df_z_score[['total_mjoa', 'level', 'composite_zscore_norm']]
+    fit_logistic_reg(x_norm, y)
+    fit_model_metrics(x_norm,y, path_out=path_out, filename='Log_ROC_norm_zscore')
 
 if __name__ == '__main__':
     main()
