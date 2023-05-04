@@ -75,26 +75,28 @@ def csv2dataFrame(filename):
     return data
 
 
-def get_csa(csa_filename):
+def get_vert_indices(df):
     """
-    From .csv output file of process_data.sh (sct_process_segmentation),
-    returns a panda dataFrame with CSA values sorted by subject eid.
+    Get indices of slices corresponding to mid-vertebrae
     Args:
-        csa_filename (str): filename of the .csv file that contains de CSA values
+        df (pd.dataFrame): dataframe with CSA values
     Returns:
-        csa (pd.Series): column of CSA values
-
+        vert (pd.Series): vertebrae levels across slices
+        ind_vert (np.array): indices of slices corresponding to the beginning of each level
+        ind_vert_mid (np.array): indices of slices corresponding to mid-levels
     """
-    sc_data = csv2dataFrame(csa_filename)
-    csa = pd.DataFrame(sc_data[['Filename', 'Slice (I->S)', 'VertLevel','DistancePMJ', 'MEAN(area)']]).rename(columns={'Filename': 'Subject'})
-    # Add a columns with subjects eid from Filename column
-    csa.loc[:, 'Subject'] = csa['Subject'].str.slice(-43, -32)
-    
-    #TODO change CSA to float!!!
-    
-    # Set index to subject eid
-    csa = csa.set_index('Subject')
-    return csa
+    # Get vert levels for one certain subject
+    vert = df[df['participant_id'] == 'sub-amu01']['VertLevel']
+    # Get indexes of where array changes value
+    ind_vert = vert.diff()[vert.diff() != 0].index.values
+    ind_vert_mid = []
+    for i in range(len(ind_vert)):
+        ind_vert_mid.append(int(ind_vert[i:i + 2].mean()))
+    ind_vert_mid.insert(0, ind_vert[0] - 20)
+    ind_vert_mid = ind_vert_mid
+
+    return vert, ind_vert, ind_vert_mid
+
 
 
 def create_lineplot(df, hue, path_out):
@@ -123,15 +125,8 @@ def create_lineplot(df, hue, path_out):
         # Remove xticks
         ax.set_xticks([])
 
-        # Get vert levels for one certain subject
-        vert = df[df['participant_id'] == 'sub-amu01']['VertLevel']
-        # Get indexes of where array changes value
-        ind_vert = vert.diff()[vert.diff() != 0].index.values
-        ind_vert_mid = []
-        for i in range(len(ind_vert)):
-            ind_vert_mid.append(int(ind_vert[i:i+2].mean()))
-        ind_vert_mid.insert(0, ind_vert[0]-20)
-        ind_vert_mid = ind_vert_mid
+        # Get indices of slices corresponding to mid-vertebrae
+        vert, ind_vert, ind_vert_mid = get_vert_indices(df)
         # Insert a vertical line for each vertebral level
         for idx, x in enumerate(ind_vert[1:]):
             plt.axvline(df.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5)
