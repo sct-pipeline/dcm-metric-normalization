@@ -189,6 +189,87 @@ def create_lineplot(df, hue, path_out, show_cv=False):
         print('Figure saved: ' + path_filename)
 
 
+def create_regplot(df, path_out):
+    """
+    Plot data and a linear regression model fit. Slices in X and Coefficient of Variation (CoV) in Y.
+    Args:
+        df (pd.dataFrame): dataframe with CSA values
+        path_out (str): path to output directory
+    """
+
+    # Loop across metrics
+    for metric in METRICS:
+        slices_list = []
+        cv_list = []
+        # Loop across slices
+        for slice in df['Slice (I->S)'].unique():
+            # Get metric value for each slice
+            df_slice = df[df['Slice (I->S)'] == slice]
+            cv_list.append(compute_cv(df_slice, metric))
+            slices_list.append(slice)
+
+        fig, ax = plt.subplots()
+        sns.regplot(ax=ax, x=slices_list, y=cv_list)
+        # Move y-axis to the right
+        #plt.tick_params(axis='y', which='both', labelleft=False, labelright=True)
+        # Add title
+        plt.title('Spinal Cord ' + METRIC_TO_TITLE[metric], fontsize=LABELS_FONT_SIZE)
+        # Add labels
+        ax.set_xlabel('Slice (I->S)', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel('Coefficient of Variation (%)', fontsize=LABELS_FONT_SIZE)
+
+        # Get indices of slices corresponding to mid-vertebrae
+        vert, ind_vert, ind_vert_mid = get_vert_indices(df)
+        # Insert a vertical line for each vertebral level
+        for idx, x in enumerate(ind_vert[1:]):
+            plt.axvline(df.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5)
+
+        # Set the same y-axis limits across metrics
+        ax.set_ylim([0, 16])
+
+        ymin, ymax = ax.get_ylim()
+        # Insert a text label for each vertebral level
+        for idx, x in enumerate(ind_vert, 1):
+            if vert[x] > 7:
+                level = 'T' + str(vert[x] - 7)
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+            # Deal with C1 label position
+            elif vert[x] == 1:
+                level = 'C' + str(vert[x])
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)']+15, ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+            else:
+                level = 'C' + str(vert[x])
+                ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
+                        verticalalignment='bottom', color='black')
+
+        # Add horizontal grid
+        ax.grid(color='lightgrey', axis='y')
+        # Invert x-axis
+        ax.invert_xaxis()
+
+        # Save figure
+        filename = metric + '_cov_scatter_plot.png'
+        path_filename = os.path.join(path_out, filename)
+        plt.savefig(path_filename)
+        print('Figure saved: ' + path_filename)
+
+
+def compute_cv(df, metric):
+    """
+    Compute coefficient of variation (CV) of a given metric.
+    Args:
+        df (pd.dataFrame): dataframe with CSA values
+        metric (str): column name of the dataframe to compute CV
+    Returns:
+        cv (float): coefficient of variation
+    """
+    cv = df[metric].std() / df[metric].mean()
+    cv = cv * 100
+    return cv
+
+
 def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=True, include_equal=True):
     """
     Format p-value.
@@ -300,6 +381,9 @@ def main():
     create_lineplot(df, 'age', args.path_out)       # across age
     create_lineplot(df, 'sex', args.path_out)       # across sex
     create_lineplot(df, 'manufacturer', args.path_out)  # across manufacturer (vendors)
+
+    # Plot scatterplot metrics vs COV
+    create_regplot(df, args.path_out)
 
 
 if __name__ == '__main__':
