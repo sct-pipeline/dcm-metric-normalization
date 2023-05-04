@@ -108,11 +108,12 @@ def create_lineplot(df, hue, path_out):
         hue (str): column name of the dataframe to use for hue
         path_out (str): path to output directory
     """
+    # Loop across metrics
     for metric in METRICS:
         fig, ax = plt.subplots()
         # Note: we are ploting slices not levels to avoid averaging across levels
         sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df, errorbar='sd', hue=hue)
-        # Get slices where array changes value
+        # Move y-axis to the right
         plt.tick_params(axis='y', which='both', labelleft=False, labelright=True)
         plt.grid(color='lightgrey', zorder=0)
         plt.title('Spinal Cord ' + METRIC_TO_TITLE[metric], fontsize=LABELS_FONT_SIZE)
