@@ -38,6 +38,15 @@ METRIC_TO_AXIS = {
     'MEAN(solidity)': 'Solidity [%]'
 }
 
+# ylim max offset (used for showing text)
+METRICS_TO_YLIM = {
+    'MEAN(diameter_AP)': 0.4,
+    'MEAN(area)': 6,
+    'MEAN(diameter_RL)': 0.7,
+    'MEAN(eccentricity)': 0.03,
+    'MEAN(solidity)': 1
+}
+
 LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
 
@@ -98,8 +107,7 @@ def get_vert_indices(df):
     return vert, ind_vert, ind_vert_mid
 
 
-
-def create_lineplot(df, hue, path_out):
+def create_lineplot(df, hue, path_out, show_cv=False):
     """
     Create lineplot of CSA per vertebral levels.
     Note: we are ploting slices not levels to avoid averaging across levels.
@@ -107,6 +115,7 @@ def create_lineplot(df, hue, path_out):
         df (pd.dataFrame): dataframe with CSA values
         hue (str): column name of the dataframe to use for hue
         path_out (str): path to output directory
+        show_cv (bool): if True, show coefficient of variation
     """
     # Loop across metrics
     for metric in METRICS:
@@ -134,20 +143,40 @@ def create_lineplot(df, hue, path_out):
 
         # Insert a text label for each vertebral level
         for idx, x in enumerate(ind_vert, 1):
+            if show_cv:
+                cv = compute_cv(df[(df['VertLevel'] == vert[x])], metric)
             if vert[x] > 7:
                 level = 'T' + str(vert[x] - 7)
                 ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
                         verticalalignment='bottom', color='black')
+                # Show CV
+                if show_cv:
+                    ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymax-METRICS_TO_YLIM[metric],
+                            str(round(cv, 1)) + '%', horizontalalignment='center',
+                            verticalalignment='bottom', color='black')
             # Deal with C1 label position
             elif vert[x] == 1:
                 level = 'C' + str(vert[x])
                 ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)']+15, ymin, level, horizontalalignment='center',
                         verticalalignment='bottom', color='black')
+                # Show CV
+                if show_cv:
+                    ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)']+15, ymax-METRICS_TO_YLIM[metric],
+                            str(round(cv, 1)) + '%', horizontalalignment='center',
+                            verticalalignment='bottom', color='black')
             else:
                 level = 'C' + str(vert[x])
                 ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
                         verticalalignment='bottom', color='black')
-        # ind_vert_mid = [nb_slice - x for x in ind_vert_mid]
+                # Show CV
+                if show_cv:
+                    ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymax-METRICS_TO_YLIM[metric],
+                            str(round(cv, 1)) + '%', horizontalalignment='center',
+                            verticalalignment='bottom', color='black')
+            if show_cv:
+                print(f'{metric}, {level}, COV: {cv}')
+
+        # Invert x-axis
         ax.invert_xaxis()
 
         # Save figure
