@@ -34,7 +34,7 @@ METRIC_TO_AXIS = {
     'MEAN(diameter_AP)': 'AP Diameter [mm]',
     'MEAN(area)': 'Cross-Sectional Area [mm²]',
     'MEAN(diameter_RL)': 'RL Diameter [mm]',
-    'MEAN(eccentricity)': 'Eccentricity',
+    'MEAN(eccentricity)': 'Eccentricity [a.u.]',
     'MEAN(solidity)': 'Solidity [%]'
 }
 
