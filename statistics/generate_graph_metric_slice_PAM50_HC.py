@@ -218,6 +218,8 @@ def create_regplot(df, path_out):
         # Add labels
         ax.set_xlabel('Slice (I->S)', fontsize=LABELS_FONT_SIZE)
         ax.set_ylabel('Coefficient of Variation (%)', fontsize=LABELS_FONT_SIZE)
+        # Add horizontal grid
+        ax.grid(color='lightgrey', axis='y')
 
         # Get indices of slices corresponding to mid-vertebrae
         vert, ind_vert, ind_vert_mid = get_vert_indices(df)
@@ -227,6 +229,14 @@ def create_regplot(df, path_out):
 
         # Set the same y-axis limits across metrics
         ax.set_ylim([0, 16])
+
+        # Place text box with COV values
+        # Note: we invert xaxis, thus xmax is used for the left limit
+        plt.text(.02, .93, 'mean COV: {}%'.format(round(np.mean(cv_list), 1)),
+                 horizontalalignment='left', verticalalignment='center', transform=ax.transAxes,
+                 bbox=dict(facecolor='white', edgecolor='black', boxstyle='round'))
+        # Move the text box to the front
+        ax.set_zorder(1)
 
         ymin, ymax = ax.get_ylim()
         # Insert a text label for each vertebral level
