@@ -255,8 +255,6 @@ def create_regplot(df, path_out):
                 ax.text(df.loc[ind_vert_mid[idx], 'Slice (I->S)'], ymin, level, horizontalalignment='center',
                         verticalalignment='bottom', color='black')
 
-        # Add horizontal grid
-        ax.grid(color='lightgrey', axis='y')
         # Invert x-axis
         ax.invert_xaxis()
 
