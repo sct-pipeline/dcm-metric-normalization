@@ -988,20 +988,7 @@ def main():
 
     #compare_mjoa_between_therapeutic_decision(df_reg, path_out)
 
-    # 4. Compute Variance of inflation to check multicolinearity
-    vif_data = pd.DataFrame()
-    data = x[included]
-    vif_data['Feature'] = data.columns
-    vif_data['VIF']= [variance_inflation_factor(data.values, i) for i in range(len(data.columns))]
-    logger.info('\nVariance of inflation no norm:')
-    logger.info(vif_data)
-    # For normalized model
-    vif_data_norm = pd.DataFrame()
-    data_norm = x_norm[included_norm]
-    vif_data_norm['Feature'] = data_norm.columns
-    vif_data_norm['VIF']= [variance_inflation_factor(data_norm.values, i) for i in range(len(data_norm.columns))]
-    logger.info('Variance of inflation norm:')
-    logger.info(vif_data_norm)
+    # TODO - predict development of myelopathy - we do not have such data in 6m and 12m --> ask clinicians
 
     # 5. Compute z-score
     df_z_score = get_z_score(df_reg_all)
