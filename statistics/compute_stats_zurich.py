@@ -426,7 +426,7 @@ def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=False, i
 
 def compute_test_myelopathy(df):
     logger.info('\nTest Myelopathy and Ratio')
-    for metric in METRICS + METRICS_NORM + ['total_mjoa']: # TODO encode MJOA
+    for metric in METRICS + METRICS_NORM + ['mjoa']: # TODO encode MJOA
         logger.info(f'\n {metric}')
         df_myelo = df[df['myelopathy'] == 1][metric]
         df_no_myelo = df[df['myelopathy'] == 0][metric]
