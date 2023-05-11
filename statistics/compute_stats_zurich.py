@@ -990,29 +990,6 @@ def main():
 
     # TODO - predict development of myelopathy - we do not have such data in 6m and 12m --> ask clinicians
 
-    # 5. Compute z-score
-    df_z_score = get_z_score(df_reg_all)
-    # Do composite z_score for no norm between area, diameter_AP, diameter_RL
-    df_z_score['composite_zscore'] =df_z_score[['area_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(axis=1)
-    # Do composite z_score for norm between area, diameter_AP, diameter_RL TODO: maybe remove diameter RL?
-    df_z_score['composite_zscore_norm'] =df_z_score[['area_norm_zscore', 'diameter_AP_norm_zscore', 'diameter_RL_norm_zscore']].mean(axis=1)
-    #mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
-    #print(mean_zscore['diameter_AP_zscore'])
-    mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
-    print(mean_zscore['composite_zscore'])
-    print(mean_zscore['composite_zscore_norm'])
-
-    # 6. Redo Logistic regression using composite z_score instead
-    logger.info('Testing both models and computing ROC curve and AUC with composite z_score')
-    logger.info('No Normalization')
-    x = df_z_score[['total_mjoa', 'level', 'composite_zscore']]
-    # Fit logistic regression model on included variables
-    fit_logistic_reg(x, y)
-    fit_model_metrics(x, y, path_out=path_out, filename='Log_ROC_zscore')
-    logger.info('Normalization')
-    x_norm = df_z_score[['total_mjoa', 'level', 'composite_zscore_norm']]
-    fit_logistic_reg(x_norm, y)
-    fit_model_metrics(x_norm,y, path_out=path_out, filename='Log_ROC_norm_zscore')
 
 if __name__ == '__main__':
     main()
