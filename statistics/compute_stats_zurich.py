@@ -799,6 +799,52 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
     fit_reg(x_norm[included_norm], y, 'linear')
 
 
+def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
+    """
+    Compare mJOA change between subjects with therapeutic_decision == 0 and subjects with therapeutic_decision == 1.
+    """
+    # Get difference between mjoa_6m and mjoa
+    df_reg['mjoa_6m_diff'] = df_reg['mjoa'] - df_reg['mjoa_6m']
+    df_6m = df_reg.dropna(axis=0, subset=['mjoa_6m_diff'])
+    print(df_6m[['therapeutic_decision', 'mjoa_6m_diff']].groupby(['therapeutic_decision']).agg(['mean', 'std']))
+
+    # Get difference between mjoa_12m and mjoa
+    df_reg['mjoa_12m_diff'] = df_reg['mjoa'] - df_reg['mjoa_12m']
+    df_12m = df_reg.dropna(axis=0, subset=['mjoa_12m_diff'])
+
+    print(df_12m[['therapeutic_decision', 'mjoa_12m_diff']].groupby(['therapeutic_decision']).agg(['mean', 'std']))
+
+    # Create DataFrame with three columns: therapeutic_decision, mjoa_diff, and mjoa_6m_12m (6m or 12m) for easy
+    # plotting using sns hue option
+    df_6m_temp = pd.DataFrame(columns=['therapeutic_decision', 'mjoa_diff', 'mjoa_6m_12m'])
+    df_6m_temp['therapeutic_decision'] = df_6m['therapeutic_decision']
+    df_6m_temp['mjoa_diff'] = df_6m['mjoa_6m_diff']
+    df_6m_temp['mjoa_6m_12m'] = '6 months'
+    df_12_temp = pd.DataFrame(columns=['therapeutic_decision', 'mjoa_diff', 'mjoa_6m_12m'])
+    df_12_temp['therapeutic_decision'] = df_12m['therapeutic_decision']
+    df_12_temp['mjoa_diff'] = df_12m['mjoa_12m_diff']
+    df_12_temp['mjoa_6m_12m'] = '12 months'
+    df_final_temp = pd.concat([df_6m_temp, df_12_temp])
+
+    fig, ax = plt.subplots(figsize=(6, 6))
+    # Plot scatter plot and boxplot
+    sns.stripplot(x='mjoa_6m_12m', y='mjoa_diff', hue='therapeutic_decision', data=df_final_temp, ax=ax, dodge=True,
+                  edgecolor='black', linewidth=1, legend=False)
+    sns.boxplot(x='mjoa_6m_12m', y='mjoa_diff', hue='therapeutic_decision', data=df_final_temp, ax=ax, dodge=True,
+                showfliers = False)
+    # Change x axis label
+    ax.set_xlabel('')
+    # Change y axis label
+    ax.set_ylabel('mJOA difference', fontsize=14)
+    # Increase tick label size
+    ax.tick_params(axis='both', which='major', labelsize=14)
+    plt.show()
+    # save figure
+    fname_fig = os.path.join(path_out, 'boxplot_therapeutic_decision_mjoa.png')
+    plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
+    plt.close()
+    logger.info(f'Created: {fname_fig}.\n')
+
 
 # TODO:
 # 0. Exclude subjects
@@ -940,8 +986,7 @@ def main():
     predict_mjoa_m6_diff(df_reg, df_reg_norm)
     #predict_mjoa_m12_diff(df_reg, df_reg_norm)
 
-    # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
-    compute_test_myelopathy(df_reg_all)
+    #compare_mjoa_between_therapeutic_decision(df_reg, path_out)
 
     # 4. Compute Variance of inflation to check multicolinearity
     vif_data = pd.DataFrame()
