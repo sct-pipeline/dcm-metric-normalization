@@ -320,25 +320,34 @@ def compute_mean_std(df, path_out):
     logger.info(f'Levels (%): \n{ratio2}')
 
 
-def fit_logistic_reg(X, y):
+def fit_reg(X, y, method):
     """
-    Fit logistic regression model and print summary.
+    Fit either linear regression (the dependent variable is non-binary) or logistic regression (the dependent variable
+    is binary) and print summary.
+    Args:
+        method: 'linear' or 'logistic'
     """
-    logit_model = sm.Logit(y,X)
+    if method == 'linear':
+        logit_model = sm.OLS(y, X)      # Ordinary Least Squares Regression
+    elif method == 'logistic':
+        logit_model = sm.Logit(y, X)    # Logistic Regression
     result = logit_model.fit()
     print(result.summary2())
 
 
-def compute_stepwise(y, x, threshold_in, threshold_out):
+def compute_stepwise(y, x, threshold_in, threshold_out, method):
     """
     Perform backward and forward predictor selection based on p-values.
+    Either Linear regression (the dependent variable is non-binary) or logistic regression (the dependent variable is
+    binary).
 
     Args:
         x (panda.DataFrame): Candidate predictors
-        y (panda.DataFrame): Candidate predictors with target
+        y (panda.DataFrame): Dependent variable
         threshold_in: include a predictor if its p-value < threshold_in
         threshold_out: exclude a predictor if its p-value > threshold_out
         ** threshold_in <= threshold_out
+        method: 'linear' or 'logistic'
     Returns:
         included: list of selected predictor
 
@@ -352,7 +361,10 @@ def compute_stepwise(y, x, threshold_in, threshold_out):
 
         for new_column in excluded:
             print(new_column)
-            model = sm.Logit(y, x[included+[new_column]]).fit()
+            if method == 'linear':
+                model = sm.OLS(y, x[included+[new_column]]).fit()       # Computes linear regression
+            elif method == 'logistic':
+                model = sm.Logit(y, x[included+[new_column]]).fit()     # Computes logistic regression
             new_pval[new_column] = model.pvalues[new_column]
         best_pval = new_pval.min()
         if best_pval < threshold_in:
@@ -362,7 +374,10 @@ def compute_stepwise(y, x, threshold_in, threshold_out):
             logger.info('Add  {:30} with p-value {:.6}'.format(best_predictor, best_pval))
 
         # backward step
-        model = sm.Logit(y, x[included]).fit()  # Computes linear regression with included predictor
+        if method == 'linear':
+            model = sm.OLS(y, x[included]).fit()    # Computes linear regression with included predictor
+        elif method == 'logistic':
+            model = sm.Logit(y, x[included]).fit()  # Computes logistic regression with included predictor
         # Use all coefs except intercept
         pvalues = model.pvalues.iloc[1:]
         # Gets the worst p-value of the model
