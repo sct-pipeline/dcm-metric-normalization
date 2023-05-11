@@ -598,6 +598,193 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     fit_model_metrics(x_norm, y, path_out=path_out, filename='Log_ROC_norm_zscore')
 
 
+def predict_mjoa_m6(df_reg, df_reg_norm):
+    """
+    The dependent variable is mjoa_6m.
+    """
+
+    # Drop mjoa and mjoa_12m
+    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_12m'])
+    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_12m'])
+
+    # Drop rows (subjects) with NaN values for mjoa_6m
+    df_reg.dropna(axis=0, subset=['mjoa_6m'], inplace=True)
+    df_reg_norm.dropna(axis=0, subset=['mjoa_6m'], inplace=True)
+
+    # Model without normalization
+    logger.info('\nFitting Linear regression on all variables (no normalization)')
+    x = df_reg.drop(columns=['mjoa_6m'])  # Initialize x to data of predictors
+    y = df_reg['mjoa_6m'].astype(int)
+    x = x.astype(float)
+
+    # Fit linear regression model on all variables - to get p-values for all variables
+    fit_reg(x, y, 'linear')
+
+    # P_values for forward and backward stepwise
+    p_in = 0.05
+    p_out = 0.05
+    logger.info('Stepwise:')
+    included = compute_stepwise(y, x, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included}')
+    # Fit linear regression model on included variables
+    fit_reg(x[included], y, 'linear')
+
+    # Model with normalization
+    logger.info('\n Fitting Linear regression on all variables (normalization)')
+    x_norm = df_reg_norm.drop(columns=['mjoa_6m'])  # Initialize x to data of predictors
+    x_norm = x_norm.astype(float)
+
+    # Fit linear regression model on all variables - to get p-values for all variables
+    fit_reg(x_norm, y, 'linear')
+
+    logger.info('Stepwise:')
+    included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included_norm}')
+    # Fit linear regression model on included variables
+    fit_reg(x_norm[included_norm], y, 'linear')
+
+
+def predict_mjoa_m6_diff(df_reg, df_reg_norm):
+    """
+    The dependent variable is the difference between mjoa and mjoa_6m.
+    """
+
+    # Get difference between mjoa_6m and mjoa
+    df_reg['mjoa_6m_diff'] = df_reg['mjoa'] - df_reg['mjoa_6m']
+    df_reg_norm['mjoa_6m_diff'] = df_reg_norm['mjoa'] - df_reg_norm['mjoa_6m']
+
+    # Drop mjoa, mjoa_6m and mjoa_12m --> keep only mjoa_6m_diff
+    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
+    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
+
+    # Drop rows (subjects) with NaN values for mjoa_6m
+    df_reg.dropna(axis=0, subset=['mjoa_6m_diff'], inplace=True)
+    df_reg_norm.dropna(axis=0, subset=['mjoa_6m_diff'], inplace=True)
+
+    # Keep only subject with therapeutic_decision == 0, i.e. no surgery.
+    # Otherwise, the only predictor is therapeutic_decision
+    df_reg = df_reg[df_reg['therapeutic_decision'] == 0]
+    df_reg_norm = df_reg_norm[df_reg_norm['therapeutic_decision'] == 0]
+
+    # Model without normalization
+    logger.info('\nFitting Linear regression on all variables (no normalization)')
+    x = df_reg.drop(columns=['mjoa_6m_diff'])  # Initialize x to data of predictors
+    y = df_reg['mjoa_6m_diff'].astype(int)
+    x = x.astype(float)
+
+    # Fit linear regression model on all variables - to get p-values for all variables
+    fit_reg(x, y, 'linear')
+
+    # P_values for forward and backward stepwise
+    p_in = 0.05
+    p_out = 0.05
+    logger.info('Stepwise:')
+    included = compute_stepwise(y, x, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included}')
+    # Fit linear regression model on included variables
+    fit_reg(x[included], y, 'linear')
+
+    # Model with normalization
+    logger.info('\n Fitting Linear regression on all variables (normalization)')
+    x_norm = df_reg_norm.drop(columns=['mjoa_6m_diff'])  # Initialize x to data of predictors
+    x_norm = x_norm.astype(float)
+
+    # Fit linear regression model on all variables - to get p-values for all variables
+    fit_reg(x_norm, y, 'linear')
+
+    logger.info('Stepwise:')
+    included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included_norm}')
+    # Fit linear regression model on included variables
+    fit_reg(x_norm[included_norm], y, 'linear')
+
+
+def predict_mjoa_m12(df_reg, df_reg_norm):
+    """
+    The dependent variable is mjoa_12m.
+    """
+
+    # Drop mjoa and mjoa_6m
+    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_6m'])
+    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_6m'])
+
+    # Drop rows (subjects) with NaN values for mjoa_6m
+    df_reg.dropna(axis=0, subset=['mjoa_12m'], inplace=True)
+    df_reg_norm.dropna(axis=0, subset=['mjoa_12m'], inplace=True)
+
+    # Model without normalization
+    logger.info('\nFitting Linear regression on all variables (no normalization)')
+    x = df_reg.drop(columns=['mjoa_12m'])  # Initialize x to data of predictors
+    y = df_reg['mjoa_12m'].astype(int)
+    x = x.astype(float)
+    # P_values for forward and backward stepwise
+    p_in = 0.05
+    p_out = 0.05
+    logger.info('Stepwise:')
+    included = compute_stepwise(y, x, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included}')
+    # Fit linear regression model on included variables
+    fit_reg(x[included], y, 'linear')
+
+    # Model with normalization
+    logger.info('\n Fitting Linear regression on all variables (normalization)')
+    x_norm = df_reg_norm.drop(columns=['mjoa_12m'])  # Initialize x to data of predictors
+    x_norm = x_norm.astype(float)
+    logger.info('Stepwise:')
+    included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included_norm}')
+    # Fit linear regression model on included variables
+    fit_reg(x_norm[included_norm], y, 'linear')
+
+
+def predict_mjoa_m12_diff(df_reg, df_reg_norm):
+    """
+    The dependent variable is the difference between mjoa and mjoa_12m.
+    """
+
+    # Get difference between mjoa_6m and mjoa
+    df_reg['mjoa_12m_diff'] = df_reg['mjoa'] - df_reg['mjoa_6m']
+    df_reg_norm['mjoa_12m_diff'] = df_reg_norm['mjoa'] - df_reg_norm['mjoa_6m']
+
+    # Drop mjoa, mjoa_6m and mjoa_12m --> keep only mjoa_12m_diff
+    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
+    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
+
+    # Drop rows (subjects) with NaN values for mjoa_6m
+    df_reg.dropna(axis=0, subset=['mjoa_12m_diff'], inplace=True)
+    df_reg_norm.dropna(axis=0, subset=['mjoa_12m_diff'], inplace=True)
+
+    # Keep only subject with therapeutic_decision == 0, i.e. no surgery.
+    # Otherwise, the only predictor is therapeutic_decision
+    df_reg = df_reg[df_reg['therapeutic_decision'] == 0]
+    df_reg_norm = df_reg_norm[df_reg_norm['therapeutic_decision'] == 0]
+
+    # Model without normalization
+    logger.info('\nFitting Linear regression on all variables (no normalization)')
+    x = df_reg.drop(columns=['mjoa_12m_diff'])  # Initialize x to data of predictors
+    y = df_reg['mjoa_12m_diff'].astype(int)
+    x = x.astype(float)
+    # P_values for forward and backward stepwise
+    p_in = 0.05
+    p_out = 0.05
+    logger.info('Stepwise:')
+    included = compute_stepwise(y, x, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included}')
+    # Fit linear regression model on included variables
+    fit_reg(x[included], y, 'linear')
+
+    # Model with normalization
+    logger.info('\n Fitting Linear regression on all variables (normalization)')
+    x_norm = df_reg_norm.drop(columns=['mjoa_12m_diff'])  # Initialize x to data of predictors
+    x_norm = x_norm.astype(float)
+    logger.info('Stepwise:')
+    included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
+    logger.info(f'Included repressors are: {included_norm}')
+    # Fit linear regression model on included variables
+    fit_reg(x_norm[included_norm], y, 'linear')
+
+
+
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std) --> DONE
@@ -647,8 +834,12 @@ def main():
         clinical_df = pd.read_excel(args.clinical_file)
     else:
         raise FileNotFoundError(f'{args.clinical_file} not found')
-    mjoa = 'total_mjoa'  # change .1 or .2 for different time points
-    clinical_df_mjoa = clinical_df[['record_id', mjoa]]  
+    mjoa = 'total_mjoa'         # baseline
+    mjoa_6m = 'total_mjoa.1'    # 6 months
+    mjoa_12m = 'total_mjoa.2'   # 12 months
+    clinical_df_mjoa = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m]]
+    # Rename columns
+    clinical_df_mjoa = clinical_df_mjoa.rename(columns={mjoa: 'mjoa', mjoa_6m: 'mjoa_6m', mjoa_12m: 'mjoa_12m'})
     #print(clinical_df_mjoa)
     df_participants = pd.merge(df_participants, clinical_df_mjoa, on='record_id', how='outer', sort=True)
 
@@ -667,7 +858,7 @@ def main():
     print(final_df.columns)
 
     # Drop subjects with NaN values
-    final_df.dropna(axis=0, subset=['area_norm', mjoa, 'therapeutic_decision', 'age'], inplace=True)
+    final_df.dropna(axis=0, subset=['area_norm', 'mjoa', 'therapeutic_decision', 'age'], inplace=True)
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
     logger.info(f'Number of subjects (after dropping subjects with NaN values): {number_subjects}')
@@ -675,7 +866,7 @@ def main():
     # Loop across metrics
     for metric in METRICS:
         # Create charts mJOA vs individual metrics (both normalized and not normalized)
-        gen_chart_corr_mjoa_mscc(final_df, metric, mjoa, path_out)
+        gen_chart_corr_mjoa_mscc(final_df, metric, 'mjoa', path_out)
         # Plot scatter plot normalized vs not normalized
         logger.info(f'Correlation {metric} norm vs no norm')
         gen_chart_norm_vs_no_norm(final_df, metric, path_out)
@@ -727,14 +918,12 @@ def main():
     corr_matrix.to_csv(corr_filename + '.csv')
 
     # Stepwise regressions
-    predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out)
-
-# 2. Compute metrics on models (precision, recall, AUC, ROC curve)
-    logger.info('Testing both models and computing ROC curve and AUC')
-    logger.info('No Normalization')
-    fit_model_metrics(x,y, included, path_out)
-    logger.info('Normalization')
-    fit_model_metrics(x_norm,y, included_norm, path_out, 'Log_ROC_norm')
+    # NOTE: uncomment always only one of the following lines (because we are doing inplace operations)
+    #predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out)
+    #predict_mjoa_m6(df_reg, df_reg_norm)
+    #predict_mjoa_m12(df_reg, df_reg_norm)
+    predict_mjoa_m6_diff(df_reg, df_reg_norm)
+    #predict_mjoa_m12_diff(df_reg, df_reg_norm)
 
     # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
     compute_test_myelopathy(df_reg_all)
