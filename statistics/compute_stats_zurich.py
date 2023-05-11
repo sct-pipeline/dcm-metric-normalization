@@ -513,6 +513,91 @@ def get_z_score(df):
     return df    
 
 
+def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
+    """
+    The dependent variable is therapeutic_decision.
+    """
+    # Drop mjoa_6m and mjoa_12m
+    df_reg.drop(inplace=True, columns=['mjoa_6m', 'mjoa_12m'])
+    df_reg_all.drop(inplace=True, columns=['mjoa_6m', 'mjoa_12m'])
+    df_reg_norm.drop(inplace=True, columns=['mjoa_6m', 'mjoa_12m'])
+
+    # Model without normalization
+    logger.info('\nFitting Logistic regression on all variables (no normalization)')
+    x = df_reg.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
+    y = df_reg['therapeutic_decision'].astype(int)
+    x = x.astype(float)
+    # P_values for forward and backward stepwise
+    p_in = 0.05
+    p_out = 0.05
+    logger.info('Stepwise:')
+    included = compute_stepwise(y, x, p_in, p_out, 'logistic')
+    logger.info(f'Included repressors are: {included}')
+    # Fit logistic regression model on included variables
+    fit_reg(x[included], y, 'logistic')
+
+    # Model with normalization
+    logger.info('\n Fitting Logistic regression on all variables (normalization)')
+    x_norm = df_reg_norm.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
+    x_norm = x_norm.astype(float)
+    logger.info('Stepwise:')
+    included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'logistic')
+    logger.info(f'Included repressors are: {included_norm}')
+    # Fit logistic regression model on included variables
+    fit_reg(x_norm[included_norm], y, 'logistic')
+
+    # 2. Compute metrics on models (precision, recall, AUC, ROC curve)
+    logger.info('Testing both models and computing ROC curve and AUC')
+    logger.info('No Normalization')
+    fit_model_metrics(x, y, included, path_out)
+    logger.info('Normalization')
+    fit_model_metrics(x_norm, y, included_norm, path_out, 'Log_ROC_norm')
+
+    # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
+    compute_test_myelopathy(df_reg_all)
+
+    # 4. Compute Variance of inflation to check multicolinearity
+    vif_data = pd.DataFrame()
+    data = x[included]
+    vif_data['Feature'] = data.columns
+    vif_data['VIF'] = [variance_inflation_factor(data.values, i) for i in range(len(data.columns))]
+    logger.info('\nVariance of inflation no norm:')
+    logger.info(vif_data)
+    # For normalized model
+    vif_data_norm = pd.DataFrame()
+    data_norm = x_norm[included_norm]
+    vif_data_norm['Feature'] = data_norm.columns
+    vif_data_norm['VIF'] = [variance_inflation_factor(data_norm.values, i) for i in range(len(data_norm.columns))]
+    logger.info('Variance of inflation norm:')
+    logger.info(vif_data_norm)
+
+    # 5. Compute z-score
+    df_z_score = get_z_score(df_reg_all)
+    # Do composite z_score for no norm between area, diameter_AP, diameter_RL
+    df_z_score['composite_zscore'] = df_z_score[['area_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(
+        axis=1)
+    # Do composite z_score for norm between area, diameter_AP, diameter_RL TODO: maybe remove diameter RL?
+    df_z_score['composite_zscore_norm'] = df_z_score[
+        ['area_norm_zscore', 'diameter_AP_norm_zscore', 'diameter_RL_norm_zscore']].mean(axis=1)
+    # mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
+    # print(mean_zscore['diameter_AP_zscore'])
+    mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
+    print(mean_zscore['composite_zscore'])
+    print(mean_zscore['composite_zscore_norm'])
+
+    # 6. Redo Logistic regression using composite z_score instead
+    logger.info('Testing both models and computing ROC curve and AUC with composite z_score')
+    logger.info('No Normalization')
+    x = df_z_score[['mjoa', 'level', 'composite_zscore']]
+    # Fit logistic regression model on included variables
+    fit_reg(x, y, 'logistic')
+    fit_model_metrics(x, y, path_out=path_out, filename='Log_ROC_zscore')
+    logger.info('Normalization')
+    x_norm = df_z_score[['mjoa', 'level', 'composite_zscore_norm']]
+    fit_reg(x_norm, y, 'logistic')
+    fit_model_metrics(x_norm, y, path_out=path_out, filename='Log_ROC_norm_zscore')
+
+
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std) --> DONE
@@ -641,29 +726,8 @@ def main():
     # Save a.csv file of the correlation matrix in the results folder
     corr_matrix.to_csv(corr_filename + '.csv')
 
-    # Model without normalization
-    logger.info('\nFitting Logistic regression on all variables (no normalization)')
-    x = df_reg.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
-    y = df_reg['therapeutic_decision'].astype(int)
-    x = x.astype(float)
-    # P_values for forward and backward stepwise
-    p_in = 0.05
-    p_out = 0.05
-    logger.info('Stepwise:')
-    included = compute_stepwise(y, x, p_in, p_out)
-    logger.info(f'Included repressors are: {included}')
-    # Fit logistic regression model on included variables
-    fit_logistic_reg(x[included], y)
-
-    # Model with normalization
-    logger.info('\n Fitting Logistic regression on all variables (normalization)')
-    x_norm = df_reg_norm.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
-    x_norm = x_norm.astype(float)
-    logger.info('Stepwise:')
-    included_norm = compute_stepwise(y, x_norm, p_in, p_out)
-    logger.info(f'Included repressors are: {included_norm}')
-    # Fit logistic regression model on included variables
-    fit_logistic_reg(x_norm[included_norm], y)
+    # Stepwise regressions
+    predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out)
 
 # 2. Compute metrics on models (precision, recall, AUC, ROC curve)
     logger.info('Testing both models and computing ROC curve and AUC')
