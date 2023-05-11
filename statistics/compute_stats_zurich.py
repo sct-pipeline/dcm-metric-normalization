@@ -490,7 +490,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
         mean_fpr,
         mean_tpr,
         color="b",
-        label=r"Mean ROC (AUC = %0.2f $\pm$ %0.2f)" % (mean_auc, std_auc),
+        label=r"Mean ROC (AUC = %0.2f ± %0.2f)" % (mean_auc, std_auc),
         lw=2,
         alpha=0.8
     )
@@ -504,7 +504,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
         tprs_upper,
         color="grey",
         alpha=0.2,
-        label=r"$\pm$ std.")
+        label=r"± std.")
     
     plt.plot([0, 1], [0, 1],'r--')
     plt.xlim([-0.05, 1.05])
