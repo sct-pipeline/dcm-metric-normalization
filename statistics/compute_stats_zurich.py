@@ -838,7 +838,6 @@ def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
     ax.set_ylabel('mJOA difference', fontsize=14)
     # Increase tick label size
     ax.tick_params(axis='both', which='major', labelsize=14)
-    plt.show()
     # save figure
     fname_fig = os.path.join(path_out, 'boxplot_therapeutic_decision_mjoa.png')
     plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
