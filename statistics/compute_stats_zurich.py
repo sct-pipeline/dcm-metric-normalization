@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8
-# The script compute logistic linear regression to predict the therapeutic decision in the dcm-zurich dataset
-# Author: Sandrine Bédard
+# The script computes statistics and generates figures for the dcm-zurich dataset
+#   - correlation between normalized and non-normalized metrics
+#   - stepwise logistic regression to predict the therapeutic decision (surgery vs. conservative)
+#   - stepwise linear regression to predict mJOA score after 6m and 12m and mJOA improvement (mJOA_baseline - mJOA_6m)
+#   - plot weight and height relationship per sex
+#
+#
+# Author: Sandrine Bédard, Jan Valosek
 
 import os 
 import argparse
@@ -64,14 +70,14 @@ class SmartFormatter(argparse.HelpFormatter):
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="", # TODO
+        description="Computes statistics and generates figures for the dcm-zurich dataset.",
         formatter_class=SmartFormatter
         )
     parser.add_argument(
         '-ifolder',
         required=True,
         metavar='<file_path>',
-        help="Path to folder with results")
+        help="Path to results folder with CSV files containing the metrics")
     parser.add_argument(
         '-participants-file',
         required=True,
@@ -86,7 +92,7 @@ def get_parser():
         '-path-out',
         required=True,
         metavar='<file_path>',
-        help="Path where results will be saved")
+        help="Path where results will be saved. Example: ~/statistics")
     parser.add_argument('-exclude',
                         metavar='<file>',
                         required=False,
