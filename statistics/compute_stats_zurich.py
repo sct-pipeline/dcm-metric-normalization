@@ -1,7 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8
-# The script compute logistic linear regression to predict the therapeutic decision in the dcm-zurich dataset
-# Author: Sandrine Bédard
+# The script computes statistics and generates figures for the dcm-zurich dataset
+#   - correlation between normalized and non-normalized metrics
+#   - stepwise logistic regression to predict the therapeutic decision (surgery vs. conservative)
+#   - stepwise linear regression to predict mJOA score after 6m and 12m and mJOA improvement (mJOA_baseline - mJOA_6m)
+#   - plot weight and height relationship per sex
+#
+#
+# Author: Sandrine Bédard, Jan Valosek
 
 import os 
 import argparse
@@ -64,14 +70,14 @@ class SmartFormatter(argparse.HelpFormatter):
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="", # TODO
+        description="Computes statistics and generates figures for the dcm-zurich dataset.",
         formatter_class=SmartFormatter
         )
     parser.add_argument(
         '-ifolder',
         required=True,
         metavar='<file_path>',
-        help="Path to folder with results")
+        help="Path to results folder with CSV files containing the metrics")
     parser.add_argument(
         '-participants-file',
         required=True,
@@ -86,7 +92,7 @@ def get_parser():
         '-path-out',
         required=True,
         metavar='<file_path>',
-        help="Path where results will be saved")
+        help="Path where results will be saved. Example: ~/statistics")
     parser.add_argument('-exclude',
                         metavar='<file>',
                         required=False,
@@ -860,9 +866,27 @@ def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
     ax.set_ylabel('mJOA difference', fontsize=14)
     # Increase tick label size
     ax.tick_params(axis='both', which='major', labelsize=14)
-    plt.show()
     # save figure
     fname_fig = os.path.join(path_out, 'boxplot_therapeutic_decision_mjoa.png')
+    plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
+    plt.close()
+    logger.info(f'Created: {fname_fig}.\n')
+
+
+def gen_chart_weight_height(df_reg, path_out):
+    """
+    Plot weight and height relationship per sex
+    """
+
+    sns.regplot(x='weight', y='height', data=df_reg[df_reg['sex'] == 1], label='Male', color='blue')
+    sns.regplot(x='weight', y='height', data=df_reg[df_reg['sex'] == 0], label='Female', color='red')
+    plt.legend()
+    # x axis label
+    plt.xlabel('Weight (kg)')
+    # y axis label
+    plt.ylabel('Height (m)')
+    # save figure
+    fname_fig = os.path.join(path_out, 'regplot_weight_height_relationship_persex.png')
     plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
     plt.close()
     logger.info(f'Created: {fname_fig}.\n')
@@ -979,9 +1003,9 @@ def main():
                                   'manufacturers_model_name', 
                                   'manufacturer', 
                                   'stenosis',
-                                  'maximum_stenosis',
-                                  'weight',  # missing data
-                                  'height'   # missing data
+                                  'maximum_stenosis'
+                                  #'weight',  # missing data - TODO - try this
+                                  #'height'   # missing data - TODO - try this
                                   ])
     df_reg.set_index(['participant_id'], inplace=True)
     df_reg_all = df_reg.copy()
@@ -989,6 +1013,12 @@ def main():
     df_reg_norm = df_reg.copy()
     df_reg.drop(inplace=True, columns=METRICS_NORM)
     df_reg_norm.drop(inplace=True, columns=METRICS)
+
+    # Create sns.regplot between sex and weight
+    # Drop nan for weight and height
+    df_reg.dropna(axis=0, subset=['weight', 'height'], inplace=True)
+    print(f'Number of subjects after dropping nan for weight and height: {len(df_reg)}')
+    gen_chart_weight_height(df_reg, path_out)
 
     # get mean ± std of predictors
     logger.info('Computing mean ± std')
