@@ -96,9 +96,10 @@ sct_check_dependencies -short
 # Go to folder where data will be copied and processed
 cd $PATH_DATA_PROCESSED
 
-# Copy participants.tsv file (will be used to fetch sex)
+# Copy participants.tsv file (will be used to fetch sex) to the root folder of the dataset
+PARTICIPANTS_PATH=${PATH_DATA_PROCESSED}/../participants.tsv
 if [[ ! -e ../participants.tsv ]]; then
-    rsync -avzh ${PATH_DATA}/participants.tsv ../
+    rsync -avzh ${PATH_DATA}/participants.tsv ${PARTICIPANTS_PATH}
 fi
 
 # Copy source T2w images
@@ -186,7 +187,7 @@ else
         rsync -avzh $FILE_COMPRESSION_MANUAL ${file_compression}.nii.gz
 
         # Fetch sex from participants.tsv file
-        sex=$(grep ${SUBJECT} ../participants.tsv | awk '{print $5}')
+        sex=$(grep ${SUBJECT} ${PARTICIPANTS_PATH} | awk '{print $5}')
         echo "${SUBJECT}: ${sex}"
 
         # TODO: test without angle correction too
