@@ -845,6 +845,25 @@ def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
     logger.info(f'Created: {fname_fig}.\n')
 
 
+def gen_chart_weight_height(df_reg, path_out):
+    """
+    Plot weight and height relationship per sex
+    """
+
+    sns.regplot(x='weight', y='height', data=df_reg[df_reg['sex'] == 1], label='Male', color='blue')
+    sns.regplot(x='weight', y='height', data=df_reg[df_reg['sex'] == 0], label='Female', color='red')
+    plt.legend()
+    # x axis label
+    plt.xlabel('Weight (kg)')
+    # y axis label
+    plt.ylabel('Height (m)')
+    # save figure
+    fname_fig = os.path.join(path_out, 'regplot_weight_height_relationship_persex.png')
+    plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
+    plt.close()
+    logger.info(f'Created: {fname_fig}.\n')
+
+
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std) --> DONE
@@ -956,9 +975,9 @@ def main():
                                   'manufacturers_model_name', 
                                   'manufacturer', 
                                   'stenosis',
-                                  'maximum_stenosis',
-                                  'weight',  # missing data
-                                  'height'   # missing data
+                                  'maximum_stenosis'
+                                  #'weight',  # missing data - TODO - try this
+                                  #'height'   # missing data - TODO - try this
                                   ])
     df_reg.set_index(['participant_id'], inplace=True)
     df_reg_all = df_reg.copy()
@@ -966,6 +985,12 @@ def main():
     df_reg_norm = df_reg.copy()
     df_reg.drop(inplace=True, columns=METRICS_NORM)
     df_reg_norm.drop(inplace=True, columns=METRICS)
+
+    # Create sns.regplot between sex and weight
+    # Drop nan for weight and height
+    df_reg.dropna(axis=0, subset=['weight', 'height'], inplace=True)
+    print(f'Number of subjects after dropping nan for weight and height: {len(df_reg)}')
+    gen_chart_weight_height(df_reg, path_out)
 
     # get mean ± std of predictors
     logger.info('Computing mean ± std')
