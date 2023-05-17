@@ -332,6 +332,7 @@ def fit_reg(X, y, method):
     elif method == 'logistic':
         logit_model = sm.Logit(y, X)    # Logistic Regression
     result = logit_model.fit()
+
     print(result.summary2())
 
 
@@ -478,7 +479,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
         interp_tpr[0] = 0.0
         tpr_all.append(interp_tpr)
        # plt.plot(fpr, tpr, label=f'Logistic Regression (area = %0.2f) fold {fold}' % auc_val)
-        plt.plot(fpr, tpr)
+       # plt.plot(fpr, tpr)
     
     ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
     
@@ -486,6 +487,19 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     mean_tpr[-1] = 1.0
     mean_auc = auc(mean_fpr, mean_tpr)
     std_auc = np.std(auc_all)
+    # Compute 95% confidence interval of AUC:
+    auc_all.sort()
+    confidence_lower = auc_all[int(0.05 * len(auc_all))]
+    confidence_upper = auc_all[int(0.95 * len(auc_all))]
+    logger.info("Confidence interval for the AUC: [{:0.3f} - {:0.3}]".format(
+                confidence_lower, confidence_upper))
+    # Compute 95% confidence interval of accuracy:
+    logger.info('Mean accuracy: {:0.4f} ± {:0.4f}'.format(np.mean(scores), np.std(scores)))
+    scores.sort()
+    confidence_lower_acc = scores[int(0.05 * len(scores))]
+    confidence_upper_acc = scores[int(0.95 * len(scores))]
+    logger.info("Confidence interval for accuracy: [{:0.3f} - {:0.3}]".format(
+                confidence_lower_acc, confidence_upper_acc))
     ax.plot(
         mean_fpr,
         mean_tpr,
@@ -498,14 +512,25 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     std_tpr = np.std(tpr_all, axis=0)
     tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
     tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
+    # Compute 95% confidence interval for ROC curve
+    tpr_all = np.array(tpr_all).T  # Transpose to sort bootstrap values
+    tpr_all.sort(axis=1) #Sort to get 95% interval
+    confidence_lower_tpr = tpr_all.T[int(0.05 * tpr_all.shape[1])]
+    confidence_upper_tpr = tpr_all.T[int(0.95 * tpr_all.shape[1])]
+    ax.fill_between(
+        mean_fpr,
+        confidence_lower_tpr,
+        confidence_upper_tpr,
+        color="blue",
+        alpha=0.1,
+        label=r"95% CI")
     ax.fill_between(
         mean_fpr,
         tprs_lower,
         tprs_upper,
         color="grey",
-        alpha=0.2,
+        alpha=0.3,
         label=r"± std.")
-    
     plt.plot([0, 1], [0, 1],'r--')
     plt.xlim([-0.05, 1.05])
     plt.ylim([-0.05, 1.05])
@@ -516,9 +541,6 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     #plt.legend(bbox_to_anchor=(1.05, 1), loc="center left")
     plt.savefig(os.path.join(path_out, filename), bbox_inches="tight")
     plt.close()
-
-
-    logger.info(f'Mean accuracy: {np.mean(scores)} ± {np.std(scores)}')
 
 
 def get_z_score(df):
@@ -980,10 +1002,10 @@ def main():
 
     # Stepwise regressions
     # NOTE: uncomment always only one of the following lines (because we are doing inplace operations)
-    #predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out)
+    predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out)
     #predict_mjoa_m6(df_reg, df_reg_norm)
     #predict_mjoa_m12(df_reg, df_reg_norm)
-    predict_mjoa_m6_diff(df_reg, df_reg_norm)
+   # predict_mjoa_m6_diff(df_reg, df_reg_norm)
     #predict_mjoa_m12_diff(df_reg, df_reg_norm)
 
     #compare_mjoa_between_therapeutic_decision(df_reg, path_out)
