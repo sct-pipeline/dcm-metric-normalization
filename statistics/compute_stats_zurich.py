@@ -120,6 +120,7 @@ def csv2dataFrame(filename):
     data = pd.read_csv(filename, encoding='utf-8')
     return data
 
+
 def read_MSCC(path_results, exclude, df_participants, file_metric):
     list_files_results = os.listdir(path_results)
     list_files_results = [file for file in list_files_results if '_norm.csv' in file]  # Only take norm (include both)
