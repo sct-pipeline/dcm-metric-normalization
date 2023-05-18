@@ -127,7 +127,7 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
     print(len(subjects_list))
 
     # TODO : check to simply add inside the participants.tsv 
-    columns = ['participant_id', 'id','level'] + METRICS + METRICS_NORM
+    columns = ['participant_id', 'level'] + METRICS + METRICS_NORM
     df_combined = pd.DataFrame(columns = columns) # todo add columns of metrics and 
     df_combined['participant_id'] = subjects_list
     for sub in subjects_list:
