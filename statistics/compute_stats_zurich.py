@@ -929,6 +929,8 @@ def main():
     #print(clinical_df_mjoa)
     df_participants = pd.merge(df_participants, clinical_df_mjoa, on='record_id', how='outer', sort=True)
 
+    # TODO - read table with electrophysiology, anatomical and motion data
+
     # Merge clinical data to participant.tsv
     # TODO remove when will be included in participant.tsv
 
