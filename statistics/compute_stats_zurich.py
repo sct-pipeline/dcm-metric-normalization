@@ -339,7 +339,6 @@ def fit_reg(X, y, method):
     elif method == 'logistic':
         logit_model = sm.Logit(y, X)    # Logistic Regression
     result = logit_model.fit()
-
     print(result.summary2())
 
 
@@ -548,6 +547,9 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     #plt.legend(bbox_to_anchor=(1.05, 1), loc="center left")
     plt.savefig(os.path.join(path_out, filename), bbox_inches="tight")
     plt.close()
+
+
+    logger.info(f'Mean accuracy: {np.mean(scores)} ± {np.std(scores)}')
 
 
 def get_z_score(df):
