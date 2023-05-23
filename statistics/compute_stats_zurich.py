@@ -125,6 +125,7 @@ def csv2dataFrame(filename):
     data = pd.read_csv(filename, encoding='utf-8')
     return data
 
+
 def read_MSCC(path_results, exclude, df_participants, file_metric):
     list_files_results = os.listdir(path_results)
     list_files_results = [file for file in list_files_results if '_norm.csv' in file]  # Only take norm (include both)
@@ -132,7 +133,7 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
     print(len(subjects_list))
 
     # TODO : check to simply add inside the participants.tsv 
-    columns = ['participant_id', 'id','level'] + METRICS + METRICS_NORM
+    columns = ['participant_id', 'level'] + METRICS + METRICS_NORM
     df_combined = pd.DataFrame(columns = columns) # todo add columns of metrics and 
     df_combined['participant_id'] = subjects_list
     for sub in subjects_list:
@@ -343,7 +344,6 @@ def fit_reg(X, y, method):
     elif method == 'logistic':
         logit_model = sm.Logit(y, X)    # Logistic Regression
     result = logit_model.fit()
-
     print(result.summary2())
 
 
@@ -552,6 +552,9 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     #plt.legend(bbox_to_anchor=(1.05, 1), loc="center left")
     plt.savefig(os.path.join(path_out, filename), bbox_inches="tight")
     plt.close()
+
+
+    logger.info(f'Mean accuracy: {np.mean(scores)} ± {np.std(scores)}')
 
 
 def get_z_score(df):
@@ -955,6 +958,7 @@ def main():
     #print(clinical_df_mjoa)
     df_participants = pd.merge(df_participants, clinical_df_mjoa, on='record_id', how='outer', sort=True)
 
+<<<<<<< HEAD
     # Read electrophysiolocal data
     if os.path.isfile(args.electro_file):
         print('Reading: {}'.format(args.electro_file))
@@ -962,6 +966,9 @@ def main():
     else:
         raise FileNotFoundError(f'{args.electro_file} not found')
     df_participants_electo = pd.merge(df_participants, electro_df, on='record_id', how='outer', sort=True)
+=======
+    # TODO - read table with electrophysiology, anatomical and motion data
+>>>>>>> 285483015e2a907ed3d49f00de541b01b71869cd
 
     # Merge clinical data to participant.tsv
     # TODO remove when will be included in participant.tsv
