@@ -89,6 +89,11 @@ def get_parser():
         metavar='<file_path>',
         help="excel file fo clinical data")
     parser.add_argument(
+        '-electro-file',
+        required=True,
+        metavar='<file_path>',
+        help="excel file fo clinical data")
+    parser.add_argument(
         '-path-out',
         required=True,
         metavar='<file_path>',
@@ -950,6 +955,14 @@ def main():
     #print(clinical_df_mjoa)
     df_participants = pd.merge(df_participants, clinical_df_mjoa, on='record_id', how='outer', sort=True)
 
+    # Read electrophysiolocal data
+    if os.path.isfile(args.electro_file):
+        print('Reading: {}'.format(args.electro_file))
+        electro_df = pd.read_excel(args.electro_file)
+    else:
+        raise FileNotFoundError(f'{args.electro_file} not found')
+    df_participants_electo = pd.merge(df_participants, electro_df, on='record_id', how='outer', sort=True)
+
     # Merge clinical data to participant.tsv
     # TODO remove when will be included in participant.tsv
 
@@ -963,9 +976,10 @@ def main():
 
     final_df = pd.merge(df_participants, df_combined, on='participant_id', how='outer', sort=True)
     print(final_df.columns)
-
+    final_df_electro = pd.merge(df_participants_electo, df_combined, on='participant_id', how='outer', sort=True)
+    print(df_participants_electo.columns)
     # Drop subjects with NaN values
-    final_df.dropna(axis=0, subset=['area_norm', 'mjoa', 'therapeutic_decision', 'age'], inplace=True)
+    final_df.dropna(axis=0, subset=['area_norm', 'mjoa', 'therapeutic_decision', 'age', 'height'], inplace=True)  # added height since significant predictor
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
     logger.info(f'Number of subjects (after dropping subjects with NaN values): {number_subjects}')
