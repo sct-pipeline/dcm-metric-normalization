@@ -958,7 +958,6 @@ def main():
     #print(clinical_df_mjoa)
     df_participants = pd.merge(df_participants, clinical_df_mjoa, on='record_id', how='outer', sort=True)
 
-<<<<<<< HEAD
     # Read electrophysiolocal data
     if os.path.isfile(args.electro_file):
         print('Reading: {}'.format(args.electro_file))
@@ -966,9 +965,6 @@ def main():
     else:
         raise FileNotFoundError(f'{args.electro_file} not found')
     df_participants_electo = pd.merge(df_participants, electro_df, on='record_id', how='outer', sort=True)
-=======
-    # TODO - read table with electrophysiology, anatomical and motion data
->>>>>>> 285483015e2a907ed3d49f00de541b01b71869cd
 
     # Merge clinical data to participant.tsv
     # TODO remove when will be included in participant.tsv
