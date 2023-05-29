@@ -568,10 +568,19 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     """
     The dependent variable is therapeutic_decision.
     """
-    # Drop mjoa_6m and mjoa_12m
-    df_reg.drop(inplace=True, columns=['mjoa_6m', 'mjoa_12m'])
-    df_reg_all.drop(inplace=True, columns=['mjoa_6m', 'mjoa_12m'])
-    df_reg_norm.drop(inplace=True, columns=['mjoa_6m', 'mjoa_12m'])
+    # Keep only baseline clinical scores, i.e., drop columns containing 6m and 12m
+    df_reg = df_reg[[col for col in df_reg.columns if not ('6m' in col or '12m' in col)]]
+    df_reg_all = df_reg_all[[col for col in df_reg_all.columns if not ('6m' in col or '12m' in col)]]
+    df_reg_norm = df_reg_norm[[col for col in df_reg_norm.columns if not ('6m' in col or '12m' in col)]]
+
+    # Drop rows with missing values
+    print(f'Non-normalized MRI metrics - number of rows before dropping missing values: {df_reg.shape[0]}')
+    df_reg.dropna(inplace=True)
+    print(f'Non-normalized MRI metrics - number of rows after dropping missing values: {df_reg.shape[0]}')
+
+    print(f'Normalized MRI metrics - number of rows before dropping missing values: {df_reg_norm.shape[0]}')
+    df_reg_norm.dropna(inplace=True)
+    print(f'Normalized MRI metrics - number of rows after dropping missing values: {df_reg_norm.shape[0]}')
 
     # Model without normalization
     logger.info('\nFitting Logistic regression on all variables (no normalization)')
@@ -949,14 +958,38 @@ def main():
         clinical_df = pd.read_excel(args.clinical_file)
     else:
         raise FileNotFoundError(f'{args.clinical_file} not found')
+    # mJOA
     mjoa = 'total_mjoa'         # baseline
     mjoa_6m = 'total_mjoa.1'    # 6 months
     mjoa_12m = 'total_mjoa.2'   # 12 months
-    clinical_df_mjoa = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m]]
+    # ASIA/GRASSP - lt_cervical_tot
+    lt_cervical_tot = 'lt_cervical_tot'         # baseline
+    lt_cervical_tot_6m = 'lt_cervical_tot.1'    # 6 months
+    lt_cervical_tot_12m = 'lt_cervical_tot.2'   # 12 months
+    # ASIA/GRASSP - pp_cervical_tot
+    pp_cervical_tot = 'pp_cervical_tot'        # baseline
+    pp_cervical_tot_6m = 'pp_cervical_tot.1'   # 6 months
+    pp_cervical_tot_12m = 'pp_cervical_tot.2'  # 12 months
+    # ASIA/GRASSP - total_dorsal
+    total_dorsal = 'total_dorsal'        # baseline
+    total_dorsal_6m = 'total_dorsal.1'   # 6 months
+    total_dorsal_12m = 'total_dorsal.2'  # 12 months
+
+    # Read columns of interest from clinical file
+    clinical_df = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m,
+                               lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
+                               pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
+                               total_dorsal, total_dorsal_6m, total_dorsal_12m]]
+
+    rename_dict = {mjoa: 'mjoa', mjoa_6m: 'mjoa_6m', mjoa_12m: 'mjoa_12m',
+                   lt_cervical_tot: 'lt_cervical_tot', lt_cervical_tot_6m: 'lt_cervical_tot_6m', lt_cervical_tot_12m: 'lt_cervical_tot_12m',
+                   pp_cervical_tot: 'pp_cervical_tot', pp_cervical_tot_6m: 'pp_cervical_tot_6m', pp_cervical_tot_12m: 'pp_cervical_tot_12m',
+                   total_dorsal: 'total_dorsal', total_dorsal_6m: 'total_dorsal_6m', total_dorsal_12m: 'total_dorsal_12m'}
+
     # Rename columns
-    clinical_df_mjoa = clinical_df_mjoa.rename(columns={mjoa: 'mjoa', mjoa_6m: 'mjoa_6m', mjoa_12m: 'mjoa_12m'})
-    #print(clinical_df_mjoa)
-    df_participants = pd.merge(df_participants, clinical_df_mjoa, on='record_id', how='outer', sort=True)
+    clinical_df = clinical_df.rename(columns=rename_dict)
+    #print(clinical_df)
+    df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
     # Read electrophysiolocal data
     if args.electro_file is not None:
