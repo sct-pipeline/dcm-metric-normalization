@@ -567,6 +567,9 @@ def get_z_score(df):
 def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     """
     The dependent variable is therapeutic_decision.
+    df_reg: dataframe with non-normalized MRI metrics
+    df_reg_all: dataframe with all the variables (both non-normalized and normalized MRI metrics)
+    df_reg_norm: dataframe with normalized MRI metrics
     """
     # Keep only baseline clinical scores, i.e., drop columns containing 6m and 12m
     df_reg = df_reg[[col for col in df_reg.columns if not ('6m' in col or '12m' in col)]]
