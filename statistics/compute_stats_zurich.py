@@ -969,6 +969,13 @@ def main():
     mjoa = 'total_mjoa'         # baseline
     mjoa_6m = 'total_mjoa.1'    # 6 months
     mjoa_12m = 'total_mjoa.2'   # 12 months
+
+    # mJOA subscores
+    motor_dysfunction_UE_bl = 'motor_dysfunction_UE_bl'         # baseline
+    motor_dysfunction_LE_bl = 'motor_dysfunction_LE_bl'         # baseline
+    sensory_dysfunction_LE_bl = 'sensory_dysfunction_LE_bl'     # baseline
+    sphincter_dysfunction_bl = 'sphincter_dysfunction_bl'       # baseline
+
     # ASIA/GRASSP - lt_cervical_tot
     lt_cervical_tot = 'lt_cervical_tot'         # baseline
     lt_cervical_tot_6m = 'lt_cervical_tot.1'    # 6 months
@@ -984,11 +991,14 @@ def main():
 
     # Read columns of interest from clinical file
     clinical_df = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m,
+                               motor_dysfunction_UE_bl, motor_dysfunction_LE_bl, sensory_dysfunction_LE_bl, sphincter_dysfunction_bl,
                                lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
                                pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
                                total_dorsal, total_dorsal_6m, total_dorsal_12m]]
 
     rename_dict = {mjoa: 'mjoa', mjoa_6m: 'mjoa_6m', mjoa_12m: 'mjoa_12m',
+                   motor_dysfunction_UE_bl: 'motor_dysfunction_UE_bl', motor_dysfunction_LE_bl: 'motor_dysfunction_LE_bl',
+                   sensory_dysfunction_LE_bl: 'sensory_dysfunction_LE_bl', sphincter_dysfunction_bl: 'sphincter_dysfunction_bl',
                    lt_cervical_tot: 'lt_cervical_tot', lt_cervical_tot_6m: 'lt_cervical_tot_6m', lt_cervical_tot_12m: 'lt_cervical_tot_12m',
                    pp_cervical_tot: 'pp_cervical_tot', pp_cervical_tot_6m: 'pp_cervical_tot_6m', pp_cervical_tot_12m: 'pp_cervical_tot_12m',
                    total_dorsal: 'total_dorsal', total_dorsal_6m: 'total_dorsal_6m', total_dorsal_12m: 'total_dorsal_12m'}
