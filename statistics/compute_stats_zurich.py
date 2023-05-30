@@ -364,10 +364,10 @@ def compute_stepwise(y, x, threshold_in, threshold_out, method):
         included: list of selected predictor
 
     """
-    # Print columns names for x (print list with 3 elements per line --> better for copy-paste)
+    # Print columns names for x (print list with 2 elements per line --> better for copy-paste)
     print('Candidate predictors: ')
-    for i in range(0, len(list(x.columns)), 3):
-        print(list(x.columns)[i:i+3])
+    for i in range(0, len(list(x.columns)), 2):
+        print(list(x.columns)[i:i+2])
     included = []  # Initialize a list for included predictors in the model
     while True:
         changed = False
