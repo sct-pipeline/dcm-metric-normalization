@@ -465,7 +465,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
 
     fig, ax = plt.subplots(figsize=(6, 6))
     #kf = StratifiedKFold(n_splits=10, shuffle=True)
-    kf = RepeatedStratifiedKFold(n_splits=10, n_repeats = 100)
+    kf = RepeatedStratifiedKFold(n_splits=10, n_repeats=100)
     scores = []
     fpr_all = []
     tpr_all = []
