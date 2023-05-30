@@ -556,7 +556,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     #plt.legend(bbox_to_anchor=(1.05, 1), loc="center left")
     plt.savefig(os.path.join(path_out, filename), bbox_inches="tight")
     plt.close()
-
+    print('Saved ROC curve to {}'.format(os.path.join(path_out, filename)))
 
     logger.info(f'Mean accuracy: {np.mean(scores)} ± {np.std(scores)}')
 
