@@ -237,7 +237,7 @@ def read_clinical_file(file_path):
 
 def read_electrophysiology_and_anatomical_file(file_path):
     """
-    Read electrophysiology and anatomical data
+    Read electrophysiology, anatomical, and motion data
     :param file_path: path to excel file
     :return: Pandas DataFrames
     """
@@ -1002,12 +1002,12 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
 
     # Get number of nan values for each column
     print('Number of nan values for each column:')
-    print(final_df.isnull().sum(axis=0))
+    print(anatomical_df.drop(columns=['record_id', 'participant_id']).isnull().sum(axis=0))
 
     # Identify columns with more than 25% nan values
     cols_to_drop = final_df.columns[final_df.isnull().sum(axis=0) > 0.25 * len(final_df)]
     # Drop these columns
-    print('Dropping columns with more than 25% nan values: {}'.format(cols_to_drop))
+    print('Dropping columns with more than 25% nan values:\n {}'.format(cols_to_drop))
     final_df = final_df.drop(columns=cols_to_drop)
 
     # Drop rows with nan values
