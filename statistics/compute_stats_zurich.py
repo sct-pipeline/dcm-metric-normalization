@@ -134,8 +134,8 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
 
     # TODO : check to simply add inside the participants.tsv 
     columns = ['participant_id', 'level'] + METRICS + METRICS_NORM
-    df_combined = pd.DataFrame(columns = columns) # todo add columns of metrics and 
-    df_combined['participant_id'] = subjects_list
+    df_morphometrics = pd.DataFrame(columns = columns) # todo add columns of metrics and
+    df_morphometrics['participant_id'] = subjects_list
     for sub in subjects_list:
         # Check if subject is in exlude list
         files_subject = [file for file in list_files_results if sub in file]
@@ -145,29 +145,29 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
         idx_max = all_compressed_levels.index(max_level)
         if idx_max not in df.index.to_list():
             print(f'Maximum level of compression {max_level} is not in axial FOV, excluding {sub}')
-            df_combined.drop(df_combined.loc[df_combined['participant_id']==sub].index)
+            df_morphometrics.drop(df_morphometrics.loc[df_morphometrics['participant_id']==sub].index)
             exclude.append(sub)
         else:
-            df_combined.loc[df_combined['participant_id']==sub, 'level'] = max_level
+            df_morphometrics.loc[df_morphometrics['participant_id']==sub, 'level'] = max_level
             for metric in METRICS:
                 file = [file for file in files_subject if metric in file]#[0]
                 df = csv2dataFrame(os.path.join(path_results, file[0]))
                 # Fill list to create final df
                 column_norm = 'normalized_'+ metric + '_ratio'
                 column_no_norm = metric + '_ratio'
-                df_combined.loc[df_combined['participant_id']==sub, metric] = df.loc[idx_max, column_no_norm]
+                df_morphometrics.loc[df_morphometrics['participant_id']==sub, metric] = df.loc[idx_max, column_no_norm]
                 metric_norm = metric + '_norm'
-                df_combined.loc[df_combined['participant_id']==sub, metric_norm] = df.loc[idx_max, column_norm]
+                df_morphometrics.loc[df_morphometrics['participant_id']==sub, metric_norm] = df.loc[idx_max, column_norm]
                 
             #idx_max = df.index[df['Compression Level']==max_level].tolist()
            # print(idx_max, max_level_id)
             #mscc_norm.append(df.loc[idx_max,'Normalized MSCC'])
-   # df_combined = pd.DataFrame(data_metrics)
-    df_combined.to_csv(file_metric, index=False)
-    #df_combined['subject'] = subject
-    #df_combined['level'] = level
-   # df_combined[METRICS_NORM + METRICS] = data_metrics
-    return df_combined
+   # df_morphometrics = pd.DataFrame(data_metrics)
+    df_morphometrics.to_csv(file_metric, index=False)
+    #df_morphometrics['subject'] = subject
+    #df_morphometrics['level'] = level
+   # df_morphometrics[METRICS_NORM + METRICS] = data_metrics
+    return df_morphometrics
 
 
 def read_participants_file(file_path):
@@ -1077,16 +1077,24 @@ def main():
 
     file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
     if not os.path.exists(file_metrics):
-        df_combined = read_MSCC(args.ifolder, dict_exclude_subj, df_participants, file_metrics)
+        df_morphometrics = read_MSCC(args.ifolder, dict_exclude_subj, df_participants, file_metrics)
     else:
         df_combined = pd.read_csv(file_metrics)
         df_combined = df_combined.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
     #TODO remove subjects with no values (in read MSCC)
 
-    final_df = pd.merge(df_participants, df_combined, on='participant_id', how='outer', sort=True)
-    print(final_df.columns)
-    final_df_electro = pd.merge(df_participants_electo, df_combined, on='participant_id', how='outer', sort=True)
-    print(df_participants_electo.columns)
+    # Merge morphometrics to participant.tsv
+    final_df = pd.merge(df_participants, df_morphometrics, on='participant_id', how='outer', sort=True)
+    #print(final_df.columns)
+
+    # Change SEX for 0 and 1
+    final_df = final_df.replace({"sex": {'F': 0, 'M': 1}})
+    # Change LEVELS fro numbers
+    final_df = final_df.replace({"level": DICT_DISC_LABELS})
+    # Change therapeutic decision for 0 and 1
+    final_df = final_df.replace({"therapeutic_decision": {'conservative': 0, 'operative': 1}})
+    # Replace previous_surgery for 0 and 1
+    final_df = final_df.replace({"previous_surgery": {'no': 0, 'yes': 1}})
 
     # Drop subjects with NaN values
     final_df.dropna(axis=0, subset=['area_norm', 'mjoa', 'therapeutic_decision', 'age', 'height'], inplace=True)  # added height since significant predictor
