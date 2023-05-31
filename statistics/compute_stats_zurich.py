@@ -1082,7 +1082,7 @@ def main():
     # Plot correlation matrix for clinical scores
     plot_correlation_for_clinical_scores(clinical_df, path_out)
 
-    # Merge clinical data to participant.tsv
+    # Merge clinical scores (mJOA, ASIA, GRASSP) to participant.tsv
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
     # Read electrophysiology and anatomical data
@@ -1118,7 +1118,7 @@ def main():
     final_df = final_df.replace({"previous_surgery": {'no': 0, 'yes': 1}})
 
     # Drop subjects with NaN values
-    final_df.dropna(axis=0, subset=['area_norm', 'mjoa', 'therapeutic_decision', 'age', 'height'], inplace=True)  # added height since significant predictor
+    final_df.dropna(axis=0, subset=['area_norm', 'total_mjoa', 'therapeutic_decision', 'age', 'height'], inplace=True)  # added height since significant predictor
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
     logger.info(f'Number of subjects (after dropping subjects with NaN values): {number_subjects}')
@@ -1134,15 +1134,6 @@ def main():
     # Create sub-dataset to compute logistic regression
     df_reg = final_df.copy()
 
-    # Change SEX for 0 and 1
-    df_reg = df_reg.replace({"sex": {'F': 0, 'M': 1}})
-    # Change LEVELS fro numbers
-    df_reg = df_reg.replace({"level": DICT_DISC_LABELS})
-    # Change therapeutic decision for 0 and 1
-    df_reg = df_reg.replace({"therapeutic_decision": {'conservative': 0, 'operative': 1}})
-    # Replace previous_surgery for 0 and 1
-    df_reg = df_reg.replace({"previous_surgery": {'no': 0, 'yes': 1}})
-    
     # Change myelopathy for yes no column
     df_reg['myelopathy'].fillna(0, inplace=True)
     df_reg.loc[df_reg['myelopathy'] != 0, 'myelopathy'] = 1
