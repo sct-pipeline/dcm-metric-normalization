@@ -955,6 +955,19 @@ def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
     logger.info(f'Created: {fname_fig}.\n')
 
 
+def plot_correlation_for_clinical_scores(clinical_df, path_out):
+    """
+    Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
+    """
+    corr_matrix = clinical_df.drop(columns=['record_id']).corr()
+    corr_matrix.to_csv(os.path.join(path_out, 'corr_matrix.csv'))
+    corr_matrix = corr_matrix.round(2)
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
+    plt.savefig(os.path.join(path_out, 'corr_matrix.png'), dpi=300, bbox_inches='tight')
+    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_matrix.png')))
+
+
 def gen_chart_weight_height(df_reg, path_out):
     """
     Plot weight and height relationship per sex
@@ -1023,14 +1036,8 @@ def main():
     # Read file with clinical scores (mJOA, ASIA, GRASSP)
     clinical_df = read_clinical_file(args.clinical_file)
 
-    # Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
-    corr_matrix = clinical_df.drop(columns=['record_id']).corr()
-    corr_matrix.to_csv(os.path.join(path_out, 'corr_matrix.csv'))
-    corr_matrix = corr_matrix.round(2)
-    fig, ax = plt.subplots(figsize=(10, 10))
-    sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
-    plt.savefig(os.path.join(path_out, 'corr_matrix.png'), dpi=300, bbox_inches='tight')
-    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_matrix.png')))
+    # Plot correlation matrix for clinical scores
+    plot_correlation_for_clinical_scores(clinical_df, path_out)
 
     # Merge clinical data to participant.tsv
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
