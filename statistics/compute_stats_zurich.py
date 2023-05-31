@@ -1073,7 +1073,7 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
         fig, ax = plt.subplots(figsize=(15, 10))
         sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
         # Put level and number of subjects to the title
-        ax.set_title('Level: {}, number of subjects = {}'.format(str(int(level)), len(corr_df)))
+        ax.set_title('Number of subjects = {}'.format(len(corr_df)))
         plt.savefig(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_{}.png'.format(str(int(level)))), dpi=300, bbox_inches='tight')
         plt.close()
         print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_{}.png'.format(level))))
