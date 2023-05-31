@@ -87,12 +87,12 @@ def get_parser():
         '-clinical-file',
         required=True,
         metavar='<file_path>',
-        help="excel file fo clinical data")
+        help="excel file with clinical data")
     parser.add_argument(
         '-electro-file',
-        required=False,
+        required=True,
         metavar='<file_path>',
-        help="excel file fo clinical data")
+        help="excel file with electrophysiology and anatomical data")
     parser.add_argument(
         '-path-out',
         required=True,
