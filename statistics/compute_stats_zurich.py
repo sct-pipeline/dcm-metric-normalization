@@ -227,17 +227,11 @@ def read_clinical_file(file_path):
                                pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
                                total_dorsal, total_dorsal_6m, total_dorsal_12m]]
 
-    rename_dict = {mjoa: 'mjoa', mjoa_6m: 'mjoa_6m', mjoa_12m: 'mjoa_12m',
-                   motor_dysfunction_UE_bl: 'motor_dysfunction_UE_bl', motor_dysfunction_LE_bl: 'motor_dysfunction_LE_bl',
-                   sensory_dysfunction_LE_bl: 'sensory_dysfunction_LE_bl', sphincter_dysfunction_bl: 'sphincter_dysfunction_bl',
-                   lt_cervical_tot: 'lt_cervical_tot', lt_cervical_tot_6m: 'lt_cervical_tot_6m', lt_cervical_tot_12m: 'lt_cervical_tot_12m',
-                   pp_cervical_tot: 'pp_cervical_tot', pp_cervical_tot_6m: 'pp_cervical_tot_6m', pp_cervical_tot_12m: 'pp_cervical_tot_12m',
-                   total_dorsal: 'total_dorsal', total_dorsal_6m: 'total_dorsal_6m', total_dorsal_12m: 'total_dorsal_12m'}
+    # Rename .1 to 6m and .2 to 12m
+    clinical_df.columns = clinical_df.columns.str.replace('.1', '_6m')
+    clinical_df.columns = clinical_df.columns.str.replace('.2', '_12m')
 
-    # Rename columns
-    clinical_df = clinical_df.rename(columns=rename_dict)
     #print(clinical_df)
-
     return clinical_df
 
 
