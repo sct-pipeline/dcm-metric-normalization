@@ -984,11 +984,11 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
     Plot and save correlation matrix for anatomical (aSCOR and aMSCC) and morphometric metrics
     """
 
+    # Change LEVELS from numbers
+    df_morphometrics = df_morphometrics.replace({"level": DICT_DISC_LABELS})
+
     # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
     final_df = pd.merge(anatomical_df, df_morphometrics, on='participant_id', how='outer', sort=True)
-
-    # Drop columns that are not needed for correlation matrix
-    final_df = final_df.drop(columns=['record_id', 'participant_id', 'level'])
 
     # Get number of nan values for each column
     print('Number of nan values for each column:')
@@ -1003,15 +1003,48 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
     # Drop rows with nan values
     final_df = final_df.dropna(axis=0)
 
+    # Drop columns that are not needed for correlation matrix
+    corr_df = final_df.drop(columns=['record_id', 'participant_id', 'level'])
 
-    corr_matrix = final_df.corr()
-    corr_matrix.to_csv(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.csv'))
+    # All levels together
+    corr_matrix = corr_df.corr()
+    corr_matrix.to_csv(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_all_levels.csv'))
     corr_matrix = corr_matrix.round(2)
     fig, ax = plt.subplots(figsize=(15, 10))
     sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
-    plt.savefig(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.png'), dpi=300, bbox_inches='tight')
+    plt.savefig(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_all_levels.png'), dpi=300, bbox_inches='tight')
     plt.close()
-    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.png')))
+    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_all_levels.png')))
+
+    # Count number of compression levels
+    print('Number of compression levels:')
+    print(final_df['level'].value_counts())
+
+    # Per level
+    for level in final_df['level'].unique():
+        # skip level 7 -- a lot of missing data
+        if level == '7':
+            continue
+        # Keep only rows for the current level
+        corr_df = final_df[final_df['level'] == level]
+        # Drop columns that are not needed for correlation matrix
+        corr_df = corr_df.drop(columns=['record_id', 'participant_id', 'level'])
+        # Get column names with anatomical metrics relevant for the current level (for example, for level '6',
+        # keep only aSCOR_C6)
+        columns_to_keep = list(corr_df[corr_df.columns[corr_df.columns.str.contains(str(int(level)))]].columns)
+        # Keep only columns relevant for the current level and all morphometric metrics
+        corr_df = corr_df[columns_to_keep + METRICS + METRICS_NORM]
+        # Compute correlation matrix
+        corr_matrix = corr_df.corr()
+        corr_matrix.to_csv(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_{}.csv'.format(str(int(level)))))
+        corr_matrix = corr_matrix.round(2)
+        fig, ax = plt.subplots(figsize=(15, 10))
+        sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
+        # Put level and number of subjects to the title
+        ax.set_title('Level: {}, number of subjects = {}'.format(str(int(level)), len(corr_df)))
+        plt.savefig(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_{}.png'.format(str(int(level)))), dpi=300, bbox_inches='tight')
+        plt.close()
+        print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_{}.png'.format(level))))
 
 
 def plot_correlation_for_clinical_scores(clinical_df, path_out):
