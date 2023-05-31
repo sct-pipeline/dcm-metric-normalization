@@ -1035,15 +1035,17 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
         # skip level 7 -- a lot of missing data
         if level == '7':
             continue
-        # Keep only rows for the current level
-        corr_df = final_df[final_df['level'] == level]
+        # Keep only rows for the current level and level above
+        corr_df = final_df[(final_df['level'] == level) | (final_df['level'] == level - 1)]
         # Drop columns that are not needed for correlation matrix
         corr_df = corr_df.drop(columns=['record_id', 'participant_id', 'level'])
         # Get column names with anatomical metrics relevant for the current level (for example, for level '6',
-        # keep only aSCOR_C6)
-        columns_to_keep = list(corr_df[corr_df.columns[corr_df.columns.str.contains(str(int(level)))]].columns)
+        # keep aSCOR_C6)
+        columns_to_keep_level = list(corr_df[corr_df.columns[corr_df.columns.str.contains(str(int(level)))]].columns)
+        # And level above (for example, for level '6', keep also aSCOR_C5)
+        columns_to_keep_level_above = list(corr_df[corr_df.columns[corr_df.columns.str.contains(str(int(level-1)))]].columns)
         # Keep only columns relevant for the current level and all morphometric metrics
-        corr_df = corr_df[columns_to_keep + METRICS + METRICS_NORM]
+        corr_df = corr_df[columns_to_keep_level + columns_to_keep_level_above + METRICS + METRICS_NORM]
         # Compute correlation matrix
         corr_matrix = corr_df.corr()
         corr_matrix.to_csv(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_{}.csv'.format(str(int(level)))))
