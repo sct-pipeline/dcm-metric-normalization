@@ -1098,6 +1098,32 @@ def compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphomet
     print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.png')))
 
 
+def create_regplot_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out):
+    """
+    Create regplot for anatomical (aSCOR and aMSCC) and morphometric metrics
+    """
+
+    # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
+    final_df = pd.merge(anatomical_df[['aSCOR_C3', 'participant_id']], df_morphometrics[['area', 'area_norm','participant_id']],
+                        on='participant_id', how='outer', sort=True)
+
+    # Drop rows with nan values
+    final_df = final_df.dropna(axis=0)
+
+    sns.regplot(x='area', y='aSCOR_C3', data=final_df, label='area', color='blue')
+    sns.regplot(x='area_norm', y='aSCOR_C3', data=final_df, label='area_norm', color='red')
+    plt.legend()
+    # x axis label
+    plt.xlabel('area and area_norm')
+    # y axis label
+    plt.ylabel('aSCOR_C3')
+    # save figure
+    fname_fig = os.path.join(path_out, 'regplot_aSCOR_C3_area.png')
+    plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
+    plt.close()
+    logger.info(f'Created: {fname_fig}.\n')
+
+
 def plot_correlation_for_clinical_scores(clinical_df, path_out):
     """
     Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
@@ -1211,6 +1237,8 @@ def main():
 
     # Plot and save correlation matrix for anatomical (aSCOR and aMSCC) and morphometric metrics
     compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out)
+
+    create_regplot_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out)
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
     compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out)
