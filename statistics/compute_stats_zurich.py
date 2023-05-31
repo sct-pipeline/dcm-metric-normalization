@@ -1057,6 +1057,45 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
         print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_{}.png'.format(level))))
 
 
+def compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out):
+    """
+    Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
+    """
+
+    # Change LEVELS from numbers
+    df_morphometrics = df_morphometrics.replace({"level": DICT_DISC_LABELS})
+
+    # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
+    final_df = pd.merge(motion_df, df_morphometrics, on='participant_id', how='outer', sort=True)
+
+    # Get number of nan values for each column
+    print('Number of nan values for each column:')
+    print(motion_df.drop(columns=['record_id', 'participant_id']).isnull().sum(axis=0))
+
+    # Identify columns with more than 25% nan values
+    cols_to_drop = final_df.columns[final_df.isnull().sum(axis=0) > 0.25 * len(final_df)]
+    # Drop these columns
+    print('Dropping columns with more than 25% nan values:\n {}'.format(cols_to_drop))
+    final_df = final_df.drop(columns=cols_to_drop)
+
+    # Drop rows with nan values
+    final_df = final_df.dropna(axis=0)
+
+    # Drop columns that are not needed for correlation matrix
+    corr_df = final_df.drop(columns=['record_id', 'participant_id', 'level'])
+
+    corr_matrix = corr_df.corr()
+    corr_matrix.to_csv(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.csv'))
+    corr_matrix = corr_matrix.round(2)
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
+    # Put level and number of subjects to the title
+    ax.set_title('Number of subjects = {}'.format(len(corr_df)))
+    plt.savefig(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.png'), dpi=300, bbox_inches='tight')
+    plt.close()
+    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.png')))
+
+
 def plot_correlation_for_clinical_scores(clinical_df, path_out):
     """
     Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
@@ -1170,6 +1209,9 @@ def main():
 
     # Plot and save correlation matrix for anatomical (aSCOR and aMSCC) and morphometric metrics
     compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out)
+
+    # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
+    compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out)
 
     # Merge morphometrics to participant.tsv
     final_df = pd.merge(df_participants, df_morphometrics, on='participant_id', how='outer', sort=True)
