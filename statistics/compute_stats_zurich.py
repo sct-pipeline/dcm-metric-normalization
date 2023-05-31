@@ -239,27 +239,30 @@ def read_electrophysiology_and_anatomical_file(file_path):
     """
     Read electrophysiology and anatomical data
     :param file_path: path to excel file
-    :return: Pandas DataFrame
+    :return: Pandas DataFrames
     """
     if os.path.isfile(file_path):
         print('Reading: {}'.format(file_path))
-        electrophysiology_df = pd.read_excel(file_path)
+        electrophysiology_and_anatomical_df = pd.read_excel(file_path)
     else:
         raise FileNotFoundError(f'{file_path} not found')
 
     # Anatomical data:
     #   - adapted spinal canal occupation ratio (aSCOR) = spinal cord area/spinal canal area
     #   - adapted maximum spinal cord compression (aMSCC) = ratio of spinal cord CSA in segment/spinal cord area at C2) - computed only at baseline so far
-    electrophysiology_df = electrophysiology_df[['record_id', 'aSCOR_C2', 'aSCOR_C3', 'aSCOR_C4', 'aSCOR_C5', 'aSCOR_C6', 'aSCOR_C7',
+    anatomical_df = electrophysiology_and_anatomical_df[['record_id', 'aSCOR_C2', 'aSCOR_C3', 'aSCOR_C4', 'aSCOR_C5', 'aSCOR_C6', 'aSCOR_C7',
                                                  'aSCOR_C2_6mth', 'aSCOR_C3_6mth', 'aSCOR_C4_6mth', 'aSCOR_C5_6mth', 'aSCOR_C6_6mth', 'aSCOR_C7_6mth',
                                                  'aSCOR_C2_12mth', 'aSCOR_C3_12mth', 'aSCOR_C4_12mth', 'aSCOR_C5_12mth', 'aSCOR_C6_12mth', 'aSCOR_C7_12mth',
                                                  'aMSCC_C3toC2', 'aMSCC_C4toC2', 'aMSCC_C5toC2', 'aMSCC_C6toC2', 'aMSCC_C7toC2']]
 
     # Rename 6mnt and 12mnt columns to 6m and 12m
-    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_6mth', '_6m')
-    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_12mth', '_12m')
+    anatomical_df.columns = anatomical_df.columns.str.replace('_6mth', '_6m')
+    anatomical_df.columns = anatomical_df.columns.str.replace('_12mth', '_12m')
 
-    return electrophysiology_df
+    # Just empty dataframe for now
+    electrophysiology_df = pd.DataFrame()
+
+    return anatomical_df, electrophysiology_df
 
 
 def compute_spearmans(a,b):
@@ -1065,9 +1068,12 @@ def main():
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
     # Read electrophysiology and anatomical data
-    electrophysiology_df = read_electrophysiology_and_anatomical_file(args.electro_file)
-
-    df_participants_electo = pd.merge(df_participants, electrophysiology_df, on='record_id', how='outer', sort=True)
+    anatomical_df, electrophysiology_df = read_electrophysiology_and_anatomical_file(args.electro_file)
+    # Insert participant_id column from df_participants to anatomical_df based on record_id
+    anatomical_df = pd.merge(anatomical_df, df_participants[['record_id', 'participant_id']], on='record_id',
+                             how='outer', sort=True)
+    # Drop subjects with NaN values for participant_id
+    anatomical_df.dropna(axis=0, subset=['participant_id'], inplace=True)
 
     file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
     if not os.path.exists(file_metrics):
