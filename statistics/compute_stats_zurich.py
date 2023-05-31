@@ -979,6 +979,24 @@ def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
     logger.info(f'Created: {fname_fig}.\n')
 
 
+def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out):
+    """
+    Plot and save correlation matrix for anatomical (aSCOR and aMSCC) and morphometric metrics
+    """
+
+    # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
+    final_df = pd.merge(anatomical_df, df_morphometrics, on='participant_id', how='outer', sort=True)
+
+    corr_matrix = final_df.drop(columns=['record_id', 'participant_id', 'level']).corr()
+    corr_matrix.to_csv(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.csv'))
+    corr_matrix = corr_matrix.round(2)
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
+    plt.savefig(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.png'), dpi=300, bbox_inches='tight')
+    plt.close()
+    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.png')))
+
+
 def plot_correlation_for_clinical_scores(clinical_df, path_out):
     """
     Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
@@ -1079,9 +1097,12 @@ def main():
     if not os.path.exists(file_metrics):
         df_morphometrics = read_MSCC(args.ifolder, dict_exclude_subj, df_participants, file_metrics)
     else:
-        df_combined = pd.read_csv(file_metrics)
-        df_combined = df_combined.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
-    #TODO remove subjects with no values (in read MSCC)
+        df_morphometrics = pd.read_csv(file_metrics)
+        df_morphometrics = df_morphometrics.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
+        # TODO remove subjects with no values (in read_MSCC)
+
+    # Plot and save correlation matrix for anatomical (aSCOR and aMSCC) and morphometric metrics
+    compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out)
 
     # Merge morphometrics to participant.tsv
     final_df = pd.merge(df_participants, df_morphometrics, on='participant_id', how='outer', sort=True)
