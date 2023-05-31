@@ -173,14 +173,72 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
 def read_participants_file(file_path):
     """
     Read participants.tsv file and return Pandas DataFrame
-    :param file_path:
-    :return:
+    :param file_path: path to participants.tsv file
+    :return: Pandas DataFrame
     """
     if os.path.isfile(file_path):
         participants_pd = pd.read_csv(file_path, sep='\t')
-        return participants_pd
     else:
         raise FileNotFoundError(f'{file_path} not found')
+
+    # print(df_participants)
+    return participants_pd
+
+
+def read_clinical_file(file_path):
+    """
+    Read file with clinical scores (mJOA, ASIA, GRASSP) and return Pandas DataFrame
+    :param file_path: path to excel file
+    :return: Pandas DataFrame
+    """
+    if os.path.isfile(file_path):
+        print('Reading: {}'.format(file_path))
+        clinical_df = pd.read_excel(file_path)
+    else:
+        raise FileNotFoundError(f'{file_path} not found')
+    # mJOA
+    mjoa = 'total_mjoa'         # baseline
+    mjoa_6m = 'total_mjoa.1'    # 6 months
+    mjoa_12m = 'total_mjoa.2'   # 12 months
+
+    # mJOA subscores
+    motor_dysfunction_UE_bl = 'motor_dysfunction_UE_bl'         # baseline
+    motor_dysfunction_LE_bl = 'motor_dysfunction_LE_bl'         # baseline
+    sensory_dysfunction_LE_bl = 'sensory_dysfunction_LE_bl'     # baseline
+    sphincter_dysfunction_bl = 'sphincter_dysfunction_bl'       # baseline
+
+    # ASIA/GRASSP - lt_cervical_tot
+    lt_cervical_tot = 'lt_cervical_tot'         # baseline
+    lt_cervical_tot_6m = 'lt_cervical_tot.1'    # 6 months
+    lt_cervical_tot_12m = 'lt_cervical_tot.2'   # 12 months
+    # ASIA/GRASSP - pp_cervical_tot
+    pp_cervical_tot = 'pp_cervical_tot'        # baseline
+    pp_cervical_tot_6m = 'pp_cervical_tot.1'   # 6 months
+    pp_cervical_tot_12m = 'pp_cervical_tot.2'  # 12 months
+    # ASIA/GRASSP - total_dorsal
+    total_dorsal = 'total_dorsal'        # baseline
+    total_dorsal_6m = 'total_dorsal.1'   # 6 months
+    total_dorsal_12m = 'total_dorsal.2'  # 12 months
+
+    # Read columns of interest from clinical file
+    clinical_df = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m,
+                               motor_dysfunction_UE_bl, motor_dysfunction_LE_bl, sensory_dysfunction_LE_bl, sphincter_dysfunction_bl,
+                               lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
+                               pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
+                               total_dorsal, total_dorsal_6m, total_dorsal_12m]]
+
+    rename_dict = {mjoa: 'mjoa', mjoa_6m: 'mjoa_6m', mjoa_12m: 'mjoa_12m',
+                   motor_dysfunction_UE_bl: 'motor_dysfunction_UE_bl', motor_dysfunction_LE_bl: 'motor_dysfunction_LE_bl',
+                   sensory_dysfunction_LE_bl: 'sensory_dysfunction_LE_bl', sphincter_dysfunction_bl: 'sphincter_dysfunction_bl',
+                   lt_cervical_tot: 'lt_cervical_tot', lt_cervical_tot_6m: 'lt_cervical_tot_6m', lt_cervical_tot_12m: 'lt_cervical_tot_12m',
+                   pp_cervical_tot: 'pp_cervical_tot', pp_cervical_tot_6m: 'pp_cervical_tot_6m', pp_cervical_tot_12m: 'pp_cervical_tot_12m',
+                   total_dorsal: 'total_dorsal', total_dorsal_6m: 'total_dorsal_6m', total_dorsal_12m: 'total_dorsal_12m'}
+
+    # Rename columns
+    clinical_df = clinical_df.rename(columns=rename_dict)
+    #print(clinical_df)
+
+    return clinical_df
 
 
 def compute_spearmans(a,b):
@@ -958,54 +1016,12 @@ def main():
         dict_exclude_subj = []
 
     logger.info('Exlcuded subjects: {}'.format(dict_exclude_subj))
+
+    # Read participants.tsv file
     df_participants = read_participants_file(args.participants_file)
-   # print(df_participants)
-    if os.path.isfile(args.clinical_file):
-        print('Reading: {}'.format(args.clinical_file))
-        clinical_df = pd.read_excel(args.clinical_file)
-    else:
-        raise FileNotFoundError(f'{args.clinical_file} not found')
-    # mJOA
-    mjoa = 'total_mjoa'         # baseline
-    mjoa_6m = 'total_mjoa.1'    # 6 months
-    mjoa_12m = 'total_mjoa.2'   # 12 months
 
-    # mJOA subscores
-    motor_dysfunction_UE_bl = 'motor_dysfunction_UE_bl'         # baseline
-    motor_dysfunction_LE_bl = 'motor_dysfunction_LE_bl'         # baseline
-    sensory_dysfunction_LE_bl = 'sensory_dysfunction_LE_bl'     # baseline
-    sphincter_dysfunction_bl = 'sphincter_dysfunction_bl'       # baseline
-
-    # ASIA/GRASSP - lt_cervical_tot
-    lt_cervical_tot = 'lt_cervical_tot'         # baseline
-    lt_cervical_tot_6m = 'lt_cervical_tot.1'    # 6 months
-    lt_cervical_tot_12m = 'lt_cervical_tot.2'   # 12 months
-    # ASIA/GRASSP - pp_cervical_tot
-    pp_cervical_tot = 'pp_cervical_tot'        # baseline
-    pp_cervical_tot_6m = 'pp_cervical_tot.1'   # 6 months
-    pp_cervical_tot_12m = 'pp_cervical_tot.2'  # 12 months
-    # ASIA/GRASSP - total_dorsal
-    total_dorsal = 'total_dorsal'        # baseline
-    total_dorsal_6m = 'total_dorsal.1'   # 6 months
-    total_dorsal_12m = 'total_dorsal.2'  # 12 months
-
-    # Read columns of interest from clinical file
-    clinical_df = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m,
-                               motor_dysfunction_UE_bl, motor_dysfunction_LE_bl, sensory_dysfunction_LE_bl, sphincter_dysfunction_bl,
-                               lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
-                               pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
-                               total_dorsal, total_dorsal_6m, total_dorsal_12m]]
-
-    rename_dict = {mjoa: 'mjoa', mjoa_6m: 'mjoa_6m', mjoa_12m: 'mjoa_12m',
-                   motor_dysfunction_UE_bl: 'motor_dysfunction_UE_bl', motor_dysfunction_LE_bl: 'motor_dysfunction_LE_bl',
-                   sensory_dysfunction_LE_bl: 'sensory_dysfunction_LE_bl', sphincter_dysfunction_bl: 'sphincter_dysfunction_bl',
-                   lt_cervical_tot: 'lt_cervical_tot', lt_cervical_tot_6m: 'lt_cervical_tot_6m', lt_cervical_tot_12m: 'lt_cervical_tot_12m',
-                   pp_cervical_tot: 'pp_cervical_tot', pp_cervical_tot_6m: 'pp_cervical_tot_6m', pp_cervical_tot_12m: 'pp_cervical_tot_12m',
-                   total_dorsal: 'total_dorsal', total_dorsal_6m: 'total_dorsal_6m', total_dorsal_12m: 'total_dorsal_12m'}
-
-    # Rename columns
-    clinical_df = clinical_df.rename(columns=rename_dict)
-    #print(clinical_df)
+    # Read file with clinical scores (mJOA, ASIA, GRASSP)
+    clinical_df = read_clinical_file(args.clinical_file)
 
     # Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
     corr_matrix = clinical_df.drop(columns=['record_id']).corr()
