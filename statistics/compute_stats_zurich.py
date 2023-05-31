@@ -987,10 +987,27 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
     # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
     final_df = pd.merge(anatomical_df, df_morphometrics, on='participant_id', how='outer', sort=True)
 
-    corr_matrix = final_df.drop(columns=['record_id', 'participant_id', 'level']).corr()
+    # Drop columns that are not needed for correlation matrix
+    final_df = final_df.drop(columns=['record_id', 'participant_id', 'level'])
+
+    # Get number of nan values for each column
+    print('Number of nan values for each column:')
+    print(final_df.isnull().sum(axis=0))
+
+    # Identify columns with more than 25% nan values
+    cols_to_drop = final_df.columns[final_df.isnull().sum(axis=0) > 0.25 * len(final_df)]
+    # Drop these columns
+    print('Dropping columns with more than 25% nan values: {}'.format(cols_to_drop))
+    final_df = final_df.drop(columns=cols_to_drop)
+
+    # Drop rows with nan values
+    final_df = final_df.dropna(axis=0)
+
+
+    corr_matrix = final_df.corr()
     corr_matrix.to_csv(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.csv'))
     corr_matrix = corr_matrix.round(2)
-    fig, ax = plt.subplots(figsize=(10, 10))
+    fig, ax = plt.subplots(figsize=(15, 10))
     sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
     plt.savefig(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix.png'), dpi=300, bbox_inches='tight')
     plt.close()
