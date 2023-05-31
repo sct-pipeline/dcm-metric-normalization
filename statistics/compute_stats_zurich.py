@@ -259,10 +259,20 @@ def read_electrophysiology_and_anatomical_file(file_path):
     anatomical_df.columns = anatomical_df.columns.str.replace('_6mth', '_6m')
     anatomical_df.columns = anatomical_df.columns.str.replace('_12mth', '_12m')
 
+    # Segmental motion data:
+    #   - displacement [mm] = area under the curve of the motion plot
+    #   - amplitude [cm/s] = range from maximum positive to maximum negativ velocity values
+    motion_df = electrophysiology_and_anatomical_df[['record_id', 'C2_amp_ax_or_sag', 'C2_disp_ax_or_sag',
+                                                     'C3_amp_ax_or_sag', 'C3_disp_ax_or_sag',
+                                                     'C4_amp_ax_or_sag', 'C4_disp_ax_or_sag',
+                                                     'C5_amp_ax_or_sag', 'C5_disp_ax_or_sag',
+                                                     'C6_amp_ax_or_sag', 'C6_disp_ax_or_sag',
+                                                     'C7_amp_ax_or_sag']]
+
     # Just empty dataframe for now
     electrophysiology_df = pd.DataFrame()
 
-    return anatomical_df, electrophysiology_df
+    return anatomical_df, motion_df, electrophysiology_df
 
 
 def compute_spearmans(a,b):
@@ -1135,13 +1145,20 @@ def main():
     # Merge clinical scores (mJOA, ASIA, GRASSP) to participant.tsv
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
-    # Read electrophysiology and anatomical data
-    anatomical_df, electrophysiology_df = read_electrophysiology_and_anatomical_file(args.electro_file)
+    # Read electrophysiology, anatomical, and motion data
+    anatomical_df, motion_df, electrophysiology_df = read_electrophysiology_and_anatomical_file(args.electro_file)
+
     # Insert participant_id column from df_participants to anatomical_df based on record_id
     anatomical_df = pd.merge(anatomical_df, df_participants[['record_id', 'participant_id']], on='record_id',
                              how='outer', sort=True)
     # Drop subjects with NaN values for participant_id
     anatomical_df.dropna(axis=0, subset=['participant_id'], inplace=True)
+
+    # Insert participant_id column from df_participants to motion_df based on record_id
+    motion_df = pd.merge(motion_df, df_participants[['record_id', 'participant_id']], on='record_id',
+                         how='outer', sort=True)
+    # Drop subjects with NaN values for participant_id
+    motion_df.dropna(axis=0, subset=['participant_id'], inplace=True)
 
     file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
     if not os.path.exists(file_metrics):
