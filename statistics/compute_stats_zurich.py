@@ -1006,6 +1006,17 @@ def main():
     # Rename columns
     clinical_df = clinical_df.rename(columns=rename_dict)
     #print(clinical_df)
+
+    # Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
+    corr_matrix = clinical_df.drop(columns=['record_id']).corr()
+    corr_matrix.to_csv(os.path.join(path_out, 'corr_matrix.csv'))
+    corr_matrix = corr_matrix.round(2)
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
+    plt.savefig(os.path.join(path_out, 'corr_matrix.png'), dpi=300, bbox_inches='tight')
+    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_matrix.png')))
+
+    # Merge clinical data to participant.tsv
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
     # Read electrophysiolocal data
