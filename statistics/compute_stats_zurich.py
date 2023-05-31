@@ -959,6 +959,7 @@ def plot_correlation_for_clinical_scores(clinical_df, path_out):
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
     plt.savefig(os.path.join(path_out, 'corr_matrix.png'), dpi=300, bbox_inches='tight')
+    plt.close()
     print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_matrix.png')))
 
 
