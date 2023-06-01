@@ -1090,6 +1090,9 @@ def compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphomet
     Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
     """
 
+    # Drop subjects with NaN values for participant_id
+    motion_df.dropna(axis=0, subset=['participant_id'], inplace=True)
+
     # Change LEVELS from numbers
     df_morphometrics = df_morphometrics.replace({"level": DICT_DISC_LABELS})
 
@@ -1128,6 +1131,9 @@ def create_regplot_anatomical_and_morphometric_metrics(anatomical_df, df_morphom
     """
     Create regplot for anatomical (aSCOR and aMSCC) and morphometric metrics
     """
+
+    # Drop subjects with NaN values for participant_id
+    anatomical_df.dropna(axis=0, subset=['participant_id'], inplace=True)
 
     for metric in ['aMSCC_C3toC2', 'aSCOR_C3']:
         # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
@@ -1270,12 +1276,6 @@ def main():
     # Read electrophysiology, anatomical, and motion data
     anatomical_df, motion_df, electrophysiology_df = read_electrophysiology_anatomical_and_motion_file(
         args.electro_file, df_participants)
-
-    # Drop subjects with NaN values for participant_id
-    anatomical_df.dropna(axis=0, subset=['participant_id'], inplace=True)
-
-    # Drop subjects with NaN values for participant_id
-    motion_df.dropna(axis=0, subset=['participant_id'], inplace=True)
 
     file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
     if not os.path.exists(file_metrics):
