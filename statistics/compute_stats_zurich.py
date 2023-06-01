@@ -1140,6 +1140,12 @@ def create_regplot_anatomical_and_morphometric_metrics(anatomical_df, df_morphom
         sns.regplot(x='area', y=metric, data=final_df, label='area', color='blue')
         sns.regplot(x='area_norm', y=metric, data=final_df, label='area_norm', color='red')
         plt.legend()
+        # Insert text box with correlation coefficient
+        corr_coef_area = final_df[metric].corr(final_df['area'])
+        corr_coef_area_norm = final_df[metric].corr(final_df['area_norm'])
+        plt.text(0.6, 0.1, 'Corr coef area = {:.2f}\nCorr coef area_norm = {:.2f}'.
+                 format(corr_coef_area, corr_coef_area_norm), transform=plt.gca().transAxes)
+
         # x axis label
         plt.xlabel('area and area_norm')
         # y axis label
