@@ -1139,19 +1139,28 @@ def create_regplot_anatomical_and_morphometric_metrics(anatomical_df, df_morphom
         # Drop rows with nan values
         final_df = final_df.dropna(axis=0)
 
-        sns.regplot(x='area', y=metric, data=final_df, label='area', color='blue')
-        sns.regplot(x='area_norm', y=metric, data=final_df, label='area_norm', color='red')
+        sns.regplot(x='area', y=metric, data=final_df, label='area ratio', color='blue')
+        sns.regplot(x='area_norm', y=metric, data=final_df, label='area ratio norm', color='red')
         plt.legend()
-        # Insert text box with correlation coefficient
-        corr_coef_area = final_df[metric].corr(final_df['area'])
-        corr_coef_area_norm = final_df[metric].corr(final_df['area_norm'])
-        plt.text(0.6, 0.1, 'Corr coef area = {:.2f}\nCorr coef area_norm = {:.2f}'.
-                 format(corr_coef_area, corr_coef_area_norm), transform=plt.gca().transAxes)
+        # Compute correlation coefficient and p-value
+        corr_coef_area, p_value_area = pearsonr(final_df['area'], final_df[metric])
+        corr_coef_area_norm, p_value_area_norm = pearsonr(final_df['area_norm'], final_df[metric])
+        # Add textbox with correlation coefficient and p-value
+        plt.text(0.05, 0.15, 'area ratio: corr_coef = {:.2f}; p_value = {:.3f}'
+                             '\narea ratio norm: corr_coef = {:.2f}; p_value = {:.3f}'.format(corr_coef_area,
+                                                                                              p_value_area,
+                                                                                              corr_coef_area_norm,
+                                                                                              p_value_area_norm),
+                 horizontalalignment='left', verticalalignment='top', transform=plt.gca().transAxes,
+                 bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=1'))
 
         # x axis label
-        plt.xlabel('area and area_norm')
+        plt.xlabel('area ratio and area ratio norm')
         # y axis label
         plt.ylabel(metric)
+        # Modify y axis limits for aSCOR
+        if metric == 'aSCOR_C3':
+            plt.ylim(10, 105)
         # save figure
         fname_fig = os.path.join(path_out, 'regplot_' + metric + '_area.png')
         plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
