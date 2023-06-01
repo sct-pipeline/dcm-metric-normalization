@@ -1159,6 +1159,10 @@ def gen_chart_weight_height(df_reg, path_out):
     Plot weight and height relationship per sex
     """
 
+    # Drop nan for weight and height
+    df_reg.dropna(axis=0, subset=['weight', 'height'], inplace=True)
+    print(f'Number of subjects after dropping nan for weight and height: {len(df_reg)}')
+
     sns.regplot(x='weight', y='height', data=df_reg[df_reg['sex'] == 1], label='Male', color='blue')
     sns.regplot(x='weight', y='height', data=df_reg[df_reg['sex'] == 0], label='Female', color='red')
     plt.legend()
@@ -1306,9 +1310,6 @@ def main():
     df_reg_norm.drop(inplace=True, columns=METRICS)
 
     # Create sns.regplot between sex and weight
-    # Drop nan for weight and height
-    df_reg.dropna(axis=0, subset=['weight', 'height'], inplace=True)
-    print(f'Number of subjects after dropping nan for weight and height: {len(df_reg)}')
     gen_chart_weight_height(df_reg, path_out)
 
     # get mean ± std of predictors
