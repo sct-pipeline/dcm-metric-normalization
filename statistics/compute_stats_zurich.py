@@ -1047,6 +1047,8 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
     corr_matrix = corr_matrix.round(2)
     fig, ax = plt.subplots(figsize=(15, 10))
     sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
+    # Put level and number of subjects to the title
+    ax.set_title('Number of subjects = {}'.format(len(corr_df)))
     plt.savefig(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_all_levels.png'), dpi=300, bbox_inches='tight')
     plt.close()
     print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_anatomical_and_morphometrics_matrix_all_levels.png')))
@@ -1161,14 +1163,26 @@ def plot_correlation_for_clinical_scores(clinical_df, path_out):
     """
     Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
     """
-    corr_matrix = clinical_df.drop(columns=['record_id']).corr()
+
+    # Identify columns with more than 25% nan values
+    cols_to_drop = clinical_df.columns[clinical_df.isnull().sum(axis=0) > 0.25 * len(clinical_df)]
+    # Drop these columns
+    print('Dropping columns with more than 25% nan values:\n {}'.format(cols_to_drop))
+    final_df = clinical_df.drop(columns=cols_to_drop)
+
+    # Drop rows with nan values
+    final_df = final_df.dropna(axis=0)
+
+    corr_matrix = final_df.drop(columns=['record_id']).corr()
     corr_matrix.to_csv(os.path.join(path_out, 'corr_matrix.csv'))
     corr_matrix = corr_matrix.round(2)
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
-    plt.savefig(os.path.join(path_out, 'corr_matrix.png'), dpi=300, bbox_inches='tight')
+    # Put level and number of subjects to the title
+    ax.set_title('Number of subjects = {}'.format(len(final_df)))
+    plt.savefig(os.path.join(path_out, 'corr_matrix_clinical_scores.png'), dpi=300, bbox_inches='tight')
     plt.close()
-    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_matrix.png')))
+    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_matrix_clinical_scores.png')))
 
 
 def gen_chart_weight_height(df_reg, path_out):
