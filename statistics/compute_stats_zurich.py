@@ -1017,8 +1017,10 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
     # Change LEVELS from numbers
     df_morphometrics = df_morphometrics.replace({"level": DICT_DISC_LABELS})
 
-    # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
-    final_df = pd.merge(anatomical_df, df_morphometrics, on='participant_id', how='outer', sort=True)
+    # Drop 6m and 12m columns. Because we have only baseline values for our morphometric metrics
+    cols_to_drop = [col for col in anatomical_df if col.endswith('_6m') or col.endswith('_12m')]
+    print('Dropping 6m and 12m columns:\n {}'.format(cols_to_drop))
+    anatomical_df = anatomical_df.drop(columns=cols_to_drop)
 
     # Get number of nan values for each column
     print('Number of nan values for each column:')
