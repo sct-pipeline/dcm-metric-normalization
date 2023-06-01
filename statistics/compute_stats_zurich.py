@@ -243,17 +243,17 @@ def read_electrophysiology_and_anatomical_file(file_path):
     """
     if os.path.isfile(file_path):
         print('Reading: {}'.format(file_path))
-        electrophysiology_and_anatomical_df = pd.read_excel(file_path)
+        df_all = pd.read_excel(file_path)
     else:
         raise FileNotFoundError(f'{file_path} not found')
 
     # Anatomical data:
     #   - adapted spinal canal occupation ratio (aSCOR) = spinal cord area/spinal canal area
     #   - adapted maximum spinal cord compression (aMSCC) = ratio of spinal cord CSA in segment/spinal cord area at C2) - computed only at baseline so far
-    anatomical_df = electrophysiology_and_anatomical_df[['record_id', 'aSCOR_C2', 'aSCOR_C3', 'aSCOR_C4', 'aSCOR_C5', 'aSCOR_C6', 'aSCOR_C7',
-                                                 'aSCOR_C2_6mth', 'aSCOR_C3_6mth', 'aSCOR_C4_6mth', 'aSCOR_C5_6mth', 'aSCOR_C6_6mth', 'aSCOR_C7_6mth',
-                                                 'aSCOR_C2_12mth', 'aSCOR_C3_12mth', 'aSCOR_C4_12mth', 'aSCOR_C5_12mth', 'aSCOR_C6_12mth', 'aSCOR_C7_12mth',
-                                                 'aMSCC_C3toC2', 'aMSCC_C4toC2', 'aMSCC_C5toC2', 'aMSCC_C6toC2', 'aMSCC_C7toC2']]
+    anatomical_df = df_all[['record_id', 'aSCOR_C2', 'aSCOR_C3', 'aSCOR_C4', 'aSCOR_C5', 'aSCOR_C6', 'aSCOR_C7',
+                            'aSCOR_C2_6mth', 'aSCOR_C3_6mth', 'aSCOR_C4_6mth', 'aSCOR_C5_6mth', 'aSCOR_C6_6mth', 'aSCOR_C7_6mth',
+                            'aSCOR_C2_12mth', 'aSCOR_C3_12mth', 'aSCOR_C4_12mth', 'aSCOR_C5_12mth', 'aSCOR_C6_12mth', 'aSCOR_C7_12mth',
+                            'aMSCC_C3toC2', 'aMSCC_C4toC2', 'aMSCC_C5toC2', 'aMSCC_C6toC2', 'aMSCC_C7toC2']]
 
     # Rename 6mnt and 12mnt columns to 6m and 12m
     anatomical_df.columns = anatomical_df.columns.str.replace('_6mth', '_6m')
@@ -262,12 +262,12 @@ def read_electrophysiology_and_anatomical_file(file_path):
     # Segmental motion data:
     #   - displacement [mm] = area under the curve of the motion plot
     #   - amplitude [cm/s] = range from maximum positive to maximum negativ velocity values
-    motion_df = electrophysiology_and_anatomical_df[['record_id', 'C2_amp_ax_or_sag', 'C2_disp_ax_or_sag',
-                                                     'C3_amp_ax_or_sag', 'C3_disp_ax_or_sag',
-                                                     'C4_amp_ax_or_sag', 'C4_disp_ax_or_sag',
-                                                     'C5_amp_ax_or_sag', 'C5_disp_ax_or_sag',
-                                                     'C6_amp_ax_or_sag', 'C6_disp_ax_or_sag',
-                                                     'C7_amp_ax_or_sag']]
+    motion_df = df_all[['record_id', 'C2_amp_ax_or_sag', 'C2_disp_ax_or_sag',
+                        'C3_amp_ax_or_sag', 'C3_disp_ax_or_sag',
+                        'C4_amp_ax_or_sag', 'C4_disp_ax_or_sag',
+                        'C5_amp_ax_or_sag', 'C5_disp_ax_or_sag',
+                        'C6_amp_ax_or_sag', 'C6_disp_ax_or_sag',
+                        'C7_amp_ax_or_sag']]
 
     # Just empty dataframe for now
     electrophysiology_df = pd.DataFrame()
