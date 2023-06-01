@@ -1064,14 +1064,8 @@ def compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
         output_pathname = os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png')
         generate_correlation_matrix(final_df, output_pathname)
 
-        # Plot pairplot
-        sns.set(font_scale=1.5)
-        sns.pairplot(final_df, kind="reg", diag_kws={'color': 'orange'})
-        plt.savefig(os.path.join(path_out, 'pairplot_anatomical_and_morphometrics_' + key + '.png'), dpi=300,
-                    bbox_inches='tight')
-        plt.close()
-        print('Pairplot saved to: {}'.format(os.path.join(path_out,
-                                                          'pairplot_anatomical_and_morphometrics_' + key + '.png')))
+        output_pathname = os.path.join(path_out, 'pairplot_anatomical_and_morphometrics_' + key + '.png')
+        generate_pairplot(final_df, output_pathname)
 
 
 def compute_correlations_motion_and_morphometric_metrics(final_df, path_out):
@@ -1127,6 +1121,19 @@ def generate_correlation_matrix(df, output_pathname):
     plt.savefig(output_pathname, dpi=300, bbox_inches='tight')
     plt.close()
     print('Correlation matrix saved to: {}'.format(output_pathname))
+
+
+def generate_pairplot(df, output_pathname):
+    """"
+    Plot and save pairplot
+    df: dataframe to use
+    path_out: path to save the pairplot
+    """
+    sns.set(font_scale=1.5)
+    sns.pairplot(df, kind="reg", diag_kws={'color': 'orange'})
+    plt.savefig(output_pathname, dpi=300, bbox_inches='tight')
+    plt.close()
+    print('Pairplot saved to: {}'.format(output_pathname))
 
 
 def gen_chart_weight_height(df_reg, path_out):
