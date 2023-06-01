@@ -1019,7 +1019,8 @@ def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
 
 def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometric):
     """
-    Merge anatomical and motion scores with computed morphometrics to get the scores at the maximum level of compression.
+    Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
+    morphometrics
     """
     final_df = df_morphometric.copy()
     # set index of participant to have the same index
