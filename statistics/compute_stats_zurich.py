@@ -1082,6 +1082,9 @@ def compute_correlations_motion_and_morphometric_metrics(final_df, path_out):
     output_pathname = os.path.join(path_out, 'corr_matrix_motion_and_morphometrics.png')
     generate_correlation_matrix(corr_df, output_pathname)
 
+    output_pathname = os.path.join(path_out, 'pairplot_motion_and_morphometrics.png')
+    generate_pairplot(corr_df, output_pathname)
+
 
 def plot_correlation_for_clinical_scores(clinical_df, path_out):
     """
@@ -1101,6 +1104,9 @@ def plot_correlation_for_clinical_scores(clinical_df, path_out):
 
     output_pathname = os.path.join(path_out, 'corr_matrix_clinical_scores.png')
     generate_correlation_matrix(corr_df, output_pathname)
+
+    output_pathname = os.path.join(path_out, 'pairplot_clinical_scores.png')
+    generate_pairplot(corr_df, output_pathname)
 
 
 def generate_correlation_matrix(df, output_pathname):
