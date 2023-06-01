@@ -1061,20 +1061,8 @@ def compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
         # Drop rows with nan values
         final_df = final_df.dropna(axis=0)
 
-        # All levels together
-        sns.set(font_scale=1)
-        corr_matrix = final_df.corr()
-        corr_matrix.to_csv(os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.csv'))
-        corr_matrix = corr_matrix.round(2)
-        fig, ax = plt.subplots(figsize=(15, 10))
-        sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
-        # Put level and number of subjects to the title
-        ax.set_title('Number of subjects = {}'.format(len(final_df)))
-        plt.savefig(os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png'), dpi=300,
-                    bbox_inches='tight')
-        plt.close()
-        print('Correlation matrix saved to: {}'.format(
-            os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png')))
+        output_pathname = os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png')
+        generate_correlation_matrix(final_df, output_pathname)
 
         # Plot pairplot
         sns.set(font_scale=1.5)
@@ -1097,19 +1085,8 @@ def compute_correlations_motion_and_morphometric_metrics(final_df, path_out):
     # Drop rows with nan values
     corr_df = final_df.dropna(axis=0)
 
-    # Drop columns that are not needed for correlation matrix
-    corr_df = final_df.drop(columns=['record_id', 'participant_id', 'level'])
-
-    corr_matrix = corr_df.corr()
-    corr_matrix.to_csv(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.csv'))
-    corr_matrix = corr_matrix.round(2)
-    fig, ax = plt.subplots(figsize=(10, 10))
-    sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
-    # Put level and number of subjects to the title
-    ax.set_title('Number of subjects = {}'.format(len(corr_df)))
-    plt.savefig(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.png'), dpi=300, bbox_inches='tight')
-    plt.close()
-    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.png')))
+    output_pathname = os.path.join(path_out, 'corr_matrix_motion_and_morphometrics.png')
+    generate_correlation_matrix(corr_df, output_pathname)
 
 
 def plot_correlation_for_clinical_scores(clinical_df, path_out):
@@ -1125,17 +1102,31 @@ def plot_correlation_for_clinical_scores(clinical_df, path_out):
 
     # Drop rows with nan values
     final_df = final_df.dropna(axis=0)
+    # Drop record_id column
+    corr_df = final_df.drop(columns=['record_id'])
 
-    corr_matrix = final_df.drop(columns=['record_id']).corr()
-    corr_matrix.to_csv(os.path.join(path_out, 'corr_matrix.csv'))
+    output_pathname = os.path.join(path_out, 'corr_matrix_clinical_scores.png')
+    generate_correlation_matrix(corr_df, output_pathname)
+
+
+def generate_correlation_matrix(df, output_pathname):
+    """
+    Plot and save correlation matrix as .csv and .png
+    df: dataframe to use
+    output_pathname: path to save the correlation matrix
+    """
+
+    sns.set(font_scale=1)
+    corr_matrix = df.corr()
+    corr_matrix.to_csv(output_pathname.replace('.png', '.csv'))
     corr_matrix = corr_matrix.round(2)
     fig, ax = plt.subplots(figsize=(10, 10))
     sns.heatmap(corr_matrix, annot=True, linewidths=.5, ax=ax)
     # Put level and number of subjects to the title
-    ax.set_title('Number of subjects = {}'.format(len(final_df)))
-    plt.savefig(os.path.join(path_out, 'corr_matrix_clinical_scores.png'), dpi=300, bbox_inches='tight')
+    ax.set_title('Number of subjects = {}'.format(len(df)))
+    plt.savefig(output_pathname, dpi=300, bbox_inches='tight')
     plt.close()
-    print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_matrix_clinical_scores.png')))
+    print('Correlation matrix saved to: {}'.format(output_pathname))
 
 
 def gen_chart_weight_height(df_reg, path_out):
