@@ -235,7 +235,7 @@ def read_clinical_file(file_path):
     return clinical_df
 
 
-def read_electrophysiology_anatomical_and_motion_file(file_path):
+def read_electrophysiology_anatomical_and_motion_file(file_path, df_participants):
     """
     Read electrophysiology, anatomical, and motion data
     :param file_path: path to excel file
@@ -261,6 +261,11 @@ def read_electrophysiology_anatomical_and_motion_file(file_path):
     anatomical_df.columns = anatomical_df.columns.str.replace('_6mth', '_6m')
     anatomical_df.columns = anatomical_df.columns.str.replace('_12mth', '_12m')
 
+    # Insert participant_id column from df_participants to anatomical_df based on record_id
+    anatomical_df = pd.merge(anatomical_df, df_participants[['record_id', 'participant_id']], on='record_id',
+                             how='outer', sort=True)
+    anatomical_df = anatomical_df.set_index(['participant_id'])
+
     # Segmental motion data:
     #   - displacement [mm] = area under the curve of the motion plot
     #   - amplitude [cm/s] = range from maximum positive to maximum negativ velocity values
@@ -270,6 +275,11 @@ def read_electrophysiology_anatomical_and_motion_file(file_path):
                         'C5_amp_ax_or_sag', 'C5_disp_ax_or_sag',
                         'C6_amp_ax_or_sag', 'C6_disp_ax_or_sag',
                         'C7_amp_ax_or_sag']]
+
+    # Insert participant_id column from df_participants to motion_df based on record_id
+    motion_df = pd.merge(motion_df, df_participants[['record_id', 'participant_id']], on='record_id',
+                         how='outer', sort=True)
+    motion_df = motion_df.set_index(['participant_id'])
 
     # Electrophysiology data:
     # - dermatomal SEP (dSEP) with stimulation at C6 and C8 (only few pathologic results)
@@ -282,6 +292,11 @@ def read_electrophysiology_anatomical_and_motion_file(file_path):
     # Rename 6mnt and 12mnt columns to 6m and 12m
     electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_6mth', '_6m')
     electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_12mth', '_12m')
+
+    # Insert participant_id column from df_participants to electrophysiology_df based on record_id
+    electrophysiology_df = pd.merge(electrophysiology_df, df_participants[['record_id', 'participant_id']],
+                                    on='record_id', how='outer', sort=True)
+    electrophysiology_df = electrophysiology_df.set_index(['participant_id'])
 
     return anatomical_df, motion_df, electrophysiology_df
 
@@ -1009,8 +1024,6 @@ def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_m
     final_df = df_morphometric.copy()
     # set index of participant to have the same index
     final_df = final_df.set_index(['participant_id'])
-    anatomical_df = anatomical_df.set_index(['participant_id'])
-    motion_df = motion_df.set_index(['participant_id'])
     # Loop through levels to get the corresponding motion or anatomical metric or the maximum compressed level
     levels = np.unique(final_df['level'].to_list())
     levels = levels[:-1]  # nan value
@@ -1256,17 +1269,11 @@ def main():
 
     # Read electrophysiology, anatomical, and motion data
     anatomical_df, motion_df, electrophysiology_df = read_electrophysiology_anatomical_and_motion_file(
-        args.electro_file)
+        args.electro_file, df_participants)
 
-    # Insert participant_id column from df_participants to anatomical_df based on record_id
-    anatomical_df = pd.merge(anatomical_df, df_participants[['record_id', 'participant_id']], on='record_id',
-                             how='outer', sort=True)
     # Drop subjects with NaN values for participant_id
     anatomical_df.dropna(axis=0, subset=['participant_id'], inplace=True)
 
-    # Insert participant_id column from df_participants to motion_df based on record_id
-    motion_df = pd.merge(motion_df, df_participants[['record_id', 'participant_id']], on='record_id',
-                         how='outer', sort=True)
     # Drop subjects with NaN values for participant_id
     motion_df.dropna(axis=0, subset=['participant_id'], inplace=True)
 
