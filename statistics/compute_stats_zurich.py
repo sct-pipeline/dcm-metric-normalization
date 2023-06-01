@@ -534,7 +534,7 @@ def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=False, i
 
 def compute_test_myelopathy(df):
     logger.info('\nTest Myelopathy and Ratio')
-    for metric in METRICS + METRICS_NORM + ['mjoa']: # TODO encode MJOA
+    for metric in METRICS + METRICS_NORM + ['total_mjoa']: # TODO encode MJOA
         logger.info(f'\n {metric}')
         df_myelo = df[df['myelopathy'] == 1][metric]
         df_no_myelo = df[df['myelopathy'] == 0][metric]
@@ -731,6 +731,7 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     logger.info(vif_data_norm)
 
     # 5. Compute z-score
+    y_z_score = df_reg_all['therapeutic_decision'].astype(int)
     df_z_score = get_z_score(df_reg_all)
     # Do composite z_score for no norm between area, diameter_AP, diameter_RL
     df_z_score['composite_zscore'] = df_z_score[['area_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(
@@ -747,14 +748,15 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     # 6. Redo Logistic regression using composite z_score instead
     logger.info('Testing both models and computing ROC curve and AUC with composite z_score')
     logger.info('No Normalization')
-    x = df_z_score[['mjoa', 'level', 'composite_zscore']]
+    x = df_z_score[['total_mjoa', 'level', 'composite_zscore']]
     # Fit logistic regression model on included variables
-    fit_reg(x, y, 'logistic')
-    fit_model_metrics(x, y, path_out=path_out, filename='Log_ROC_zscore')
+    print(x, y)
+    fit_reg(x, y_z_score, 'logistic')
+    fit_model_metrics(x, y_z_score, path_out=path_out, filename='Log_ROC_zscore')
     logger.info('Normalization')
-    x_norm = df_z_score[['mjoa', 'level', 'composite_zscore_norm']]
-    fit_reg(x_norm, y, 'logistic')
-    fit_model_metrics(x_norm, y, path_out=path_out, filename='Log_ROC_norm_zscore')
+    x_norm = df_z_score[['total_mjoa', 'level', 'composite_zscore_norm']]
+    fit_reg(x_norm, y_z_score, 'logistic')
+    fit_model_metrics(x_norm, y_z_score, path_out=path_out, filename='Log_ROC_norm_zscore')
 
 
 def predict_mjoa_m6(df_reg, df_reg_norm):
@@ -1326,11 +1328,11 @@ def main():
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
     logger.info(f'Number of subjects (after dropping subjects with NaN values): {number_subjects}')
-
+    
     # Loop across metrics
     for metric in METRICS:
         # Create charts mJOA vs individual metrics (both normalized and not normalized)
-        gen_chart_corr_mjoa_mscc(final_df, metric, 'mjoa', path_out)
+        gen_chart_corr_mjoa_mscc(final_df, metric, 'total_mjoa', path_out)
         # Plot scatter plot normalized vs not normalized
         logger.info(f'Correlation {metric} norm vs no norm')
         gen_chart_norm_vs_no_norm(final_df, metric, path_out)
