@@ -1026,6 +1026,9 @@ def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_m
     print('Number of nan values for each column:')
     print(anatomical_df.drop(columns=['record_id', 'participant_id']).isnull().sum(axis=0))
 
+    # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
+    final_df = pd.merge(anatomical_df, df_morphometrics, on='participant_id', how='outer', sort=True)
+
     # Identify columns with more than 25% nan values
     cols_to_drop = final_df.columns[final_df.isnull().sum(axis=0) > 0.25 * len(final_df)]
     # Drop these columns
