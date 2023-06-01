@@ -1086,32 +1086,16 @@ def compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
                                                           'pairplot_anatomical_and_morphometrics_' + key + '.png')))
 
 
-def compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out):
+def compute_correlations_motion_and_morphometric_metrics(final_df, path_out):
     """
     Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
     """
 
-    # Drop subjects with NaN values for participant_id
-    motion_df.dropna(axis=0, subset=['participant_id'], inplace=True)
-
-    # Change LEVELS from numbers
-    df_morphometrics = df_morphometrics.replace({"level": DICT_DISC_LABELS})
-
-    # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
-    final_df = pd.merge(motion_df, df_morphometrics, on='participant_id', how='outer', sort=True)
-
-    # Get number of nan values for each column
-    print('Number of nan values for each column:')
-    print(motion_df.drop(columns=['record_id', 'participant_id']).isnull().sum(axis=0))
-
-    # Identify columns with more than 25% nan values
-    cols_to_drop = final_df.columns[final_df.isnull().sum(axis=0) > 0.25 * len(final_df)]
-    # Drop these columns
-    print('Dropping columns with more than 25% nan values:\n {}'.format(cols_to_drop))
-    final_df = final_df.drop(columns=cols_to_drop)
+    # Keep only motion and morphometric metrics
+    final_df = final_df[['amp_ax_or_sag', 'disp_ax_or_sag'] + METRICS + METRICS_NORM]
 
     # Drop rows with nan values
-    final_df = final_df.dropna(axis=0)
+    corr_df = final_df.dropna(axis=0)
 
     # Drop columns that are not needed for correlation matrix
     corr_df = final_df.drop(columns=['record_id', 'participant_id', 'level'])
@@ -1254,7 +1238,7 @@ def main():
     compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
-    compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out)
+    compute_correlations_motion_and_morphometric_metrics(final_df, path_out)
 
     # Change SEX for 0 and 1
     final_df = final_df.replace({"sex": {'F': 0, 'M': 1}})
