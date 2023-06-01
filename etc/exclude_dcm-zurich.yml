@@ -7,3 +7,4 @@
 - sub-796358    # imperfect stitching of axial images, see https://github.com/sct-pipeline/dcm-metric-normalization/issues/11
 - sub-561017    # no clinical data (stenosis, date_of_scan)
 - sub-250791    # max compression not in axial FOV
+- sub-895299    # no sex in participants.tsv
