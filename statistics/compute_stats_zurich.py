@@ -1244,9 +1244,10 @@ def main():
         df_morphometrics = df_morphometrics.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
         # TODO remove subjects with no values (in read_MSCC)
 
-    # Merge all dataframes for prediction
+    # Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
+    # morphometrics
     df_clinical_all = merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometrics)
-    # Merge morphometrics to participant.tsv
+    # Merge df_clinical_all to participant.tsv
     final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
 
     # Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
@@ -1254,10 +1255,6 @@ def main():
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
     compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out)
-
-    # Merge morphometrics to participant.tsv
-    #final_df = pd.merge(df_participants, df_morphometrics, on='participant_id', how='outer', sort=True)
-    #print(final_df.columns)
 
     # Change SEX for 0 and 1
     final_df = final_df.replace({"sex": {'F': 0, 'M': 1}})
