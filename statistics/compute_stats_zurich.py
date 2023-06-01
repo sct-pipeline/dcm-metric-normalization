@@ -988,26 +988,30 @@ def compare_mjoa_between_therapeutic_decision(df_reg, path_out):
     plt.close()
     logger.info(f'Created: {fname_fig}.\n')
 
+
 def merge_anatomical_morphological_final_for_pred(anatomical_df, df_motion, df_morphometric):
     final_df = df_morphometric.copy()
     final_df = final_df.set_index(['participant_id'])
     anatomical_df = anatomical_df.set_index(['participant_id'])
+
     # Loop through levels to get the corresponding motion or anatomical metric or the maximum compressed level
     levels = np.unique(final_df['level'].to_list())
     levels = levels[:-1]  # nan value
     for level in levels:
         print(level)
-        level_conversion = 'C'+ str(int(DICT_DISC_LABELS[level]))
+        level_conversion = 'C' + str(int(DICT_DISC_LABELS[level]))
         print(final_df.index[final_df['level']==level].tolist())
-        final_df['aSCOR'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR_' + level_conversion]
-        final_df['aMSCC'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC_' + level_conversion + 'toC2']
+        final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR_' + level_conversion]
+        if not level == 'C1/C2':
+            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC_' + level_conversion + 'toC2']
         #final_df['amp_ax_or_sag']
         #final_df=['disp_ax_or_sag']
         # TODO add here other scores
     final_df.dropna(axis=0, subset=['aSCOR'], inplace=True)
-    print(final_df)
+    #print(final_df)
 
     return final_df
+
 
 def compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out):
     """
@@ -1293,6 +1297,9 @@ def main():
 
     # Merge all dataframes for prediction
     df_clinical_all = merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometrics)
+    # Merge morphometrics to participant.tsv
+    final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
+
     # Plot and save correlation matrix for anatomical (aSCOR and aMSCC) and morphometric metrics
     compute_correlations_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out)
 
@@ -1302,7 +1309,7 @@ def main():
     compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out)
 
     # Merge morphometrics to participant.tsv
-    final_df = pd.merge(df_participants, df_morphometrics, on='participant_id', how='outer', sort=True)
+    #final_df = pd.merge(df_participants, df_morphometrics, on='participant_id', how='outer', sort=True)
     #print(final_df.columns)
 
     # Change SEX for 0 and 1
