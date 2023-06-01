@@ -1127,52 +1127,6 @@ def compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphomet
     print('Correlation matrix saved to: {}'.format(os.path.join(path_out, 'corr_motion_and_morphometrics_matrix.png')))
 
 
-def create_regplot_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out):
-    """
-    Create regplot for anatomical (aSCOR and aMSCC) and morphometric metrics
-    """
-
-    # Drop subjects with NaN values for participant_id
-    anatomical_df.dropna(axis=0, subset=['participant_id'], inplace=True)
-
-    for metric in ['aMSCC_C3toC2', 'aSCOR_C3']:
-        # Merge anatomical data (aSCOR and aMSCC) with morphometrics based on participant_id
-        final_df = pd.merge(anatomical_df[[metric, 'participant_id']],
-                            df_morphometrics[['area', 'area_norm','participant_id']],
-                            on='participant_id', how='outer', sort=True)
-
-        # Drop rows with nan values
-        final_df = final_df.dropna(axis=0)
-
-        sns.regplot(x='area', y=metric, data=final_df, label='area ratio', color='blue')
-        sns.regplot(x='area_norm', y=metric, data=final_df, label='area ratio norm', color='red')
-        plt.legend()
-        # Compute correlation coefficient and p-value
-        corr_coef_area, p_value_area = pearsonr(final_df['area'], final_df[metric])
-        corr_coef_area_norm, p_value_area_norm = pearsonr(final_df['area_norm'], final_df[metric])
-        # Add textbox with correlation coefficient and p-value
-        plt.text(0.05, 0.15, 'area ratio: corr_coef = {:.2f}; p_value = {:.3f}'
-                             '\narea ratio norm: corr_coef = {:.2f}; p_value = {:.3f}'.format(corr_coef_area,
-                                                                                              p_value_area,
-                                                                                              corr_coef_area_norm,
-                                                                                              p_value_area_norm),
-                 horizontalalignment='left', verticalalignment='top', transform=plt.gca().transAxes,
-                 bbox=dict(facecolor='white', edgecolor='black', boxstyle='round,pad=1'))
-
-        # x axis label
-        plt.xlabel('area ratio and area ratio norm')
-        # y axis label
-        plt.ylabel(metric)
-        # Modify y axis limits for aSCOR
-        if metric == 'aSCOR_C3':
-            plt.ylim(10, 105)
-        # save figure
-        fname_fig = os.path.join(path_out, 'regplot_' + metric + '_area.png')
-        plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
-        plt.close()
-        logger.info(f'Created: {fname_fig}.\n')
-
-
 def plot_correlation_for_clinical_scores(clinical_df, path_out):
     """
     Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
@@ -1290,10 +1244,8 @@ def main():
     # Merge morphometrics to participant.tsv
     final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
 
-    # Plot and save correlation matrix for anatomical (aSCOR and aMSCC) and morphometric metrics
+    # Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
     compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
-
-    create_regplot_anatomical_and_morphometric_metrics(anatomical_df, df_morphometrics, path_out)
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
     compute_correlations_motion_and_morphometric_metrics(motion_df, df_morphometrics, path_out)
