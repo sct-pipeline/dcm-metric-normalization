@@ -1135,6 +1135,7 @@ def generate_pairplot(df, output_pathname):
     df: dataframe to use
     path_out: path to save the pairplot
     """
+    print('Generating pairplot...(it may take a while)...')
     sns.set(font_scale=1.5)
     sns.pairplot(df, kind="reg", diag_kws={'color': 'orange'})
     plt.savefig(output_pathname, dpi=300, bbox_inches='tight')
