@@ -192,24 +192,24 @@ else
 
         # TODO: test without angle correction too
         # Compute compression morphometrics for diameter_AP with and without normalization to PAM50
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -sex ${sex} -o ${PATH_RESULTS}/${file_t2_ax}_diameter_AP_norm.csv
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -o ${PATH_RESULTS}/${file_t2_ax}_diameter_AP.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -o ${PATH_RESULTS}/${file_t2_ax}_diameter_AP_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 0 -o ${PATH_RESULTS}/${file_t2_ax}_diameter_AP.csv
 
         # Compute compression morphometrics for cross-sectional area with and without normalization
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -sex ${sex} -metric area -o ${PATH_RESULTS}/${file_t2_ax}_area_norm.csv
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric area -o ${PATH_RESULTS}/${file_t2_ax}_area.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric area -o ${PATH_RESULTS}/${file_t2_ax}_area_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 0 -metric area -o ${PATH_RESULTS}/${file_t2_ax}_area.csv
 
         # Compute compression morphometrics for diameter_RL with and without normalization
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -sex ${sex} -metric diameter_RL -o ${PATH_RESULTS}/${file_t2_ax}_diameter_RL_norm.csv
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric diameter_RL -o ${PATH_RESULTS}/${file_t2_ax}_diameter_RL.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric diameter_RL -o ${PATH_RESULTS}/${file_t2_ax}_diameter_RL_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 0 -metric diameter_RL -o ${PATH_RESULTS}/${file_t2_ax}_diameter_RL.csv
 
         # Compute compression morphometrics for eccentricity with and without normalization
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -sex ${sex} -metric eccentricity -o ${PATH_RESULTS}/${file_t2_ax}_eccentricity_norm.csv
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric eccentricity -o ${PATH_RESULTS}/${file_t2_ax}_eccentricity.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric eccentricity -o ${PATH_RESULTS}/${file_t2_ax}_eccentricity_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 0 -metric eccentricity -o ${PATH_RESULTS}/${file_t2_ax}_eccentricity.csv
 
         # Compute compression morphometrics for solidity with and without normalization
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/${file_t2_ax}_solidity_norm.csv
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize 0 -metric solidity -o ${PATH_RESULTS}/${file_t2_ax}_solidity.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/${file_t2_ax}_solidity_norm.csv
+        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 0 -metric solidity -o ${PATH_RESULTS}/${file_t2_ax}_solidity.csv
 
     fi
 fi
