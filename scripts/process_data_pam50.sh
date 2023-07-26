@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Run sct_process_segmentation with the '-normalize-PAM50' flag on spine-generic multi-subject T2w images
+# Run sct_process_segmentation with the '-normalize-PAM50' flag on whole-spine internal dataset T2w images
 #
 # Spinal cord segmentation and disc labels from /derivatives are used
 # Note: files in /derivatives were created from reoriented and resampled T2w images. Thus, the same preprocessing steps
@@ -44,7 +44,7 @@ segment_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name
-  FILESEG="${file/_RPI_r/}_seg"      # remove '_RPI_r' to match derivatives/labels files
+  FILESEG="${file/_RPI/}_seg"      # remove '_RPI' to match derivatives/labels files
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
@@ -66,7 +66,7 @@ label_if_does_not_exist(){
   local file_seg="$2"
   local contrast="$3"
   # Update global variable with segmentation file name
-  FILELABEL="${file/_RPI_r/}_labels-disc"
+  FILELABEL="${file/_RPI/}_labels-disc"
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
@@ -110,10 +110,9 @@ cd ${SUBJECT}/anat
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
 file_t2="${SUBJECT//[\/]/_}"_T2w
 
-# Reorient and resample (to match spine-generic derivatives/labels files)
+# Reorient (to match whole-spine derivatives/labels files)
 sct_image -i ${file_t2}.nii.gz -setorient RPI -o ${file_t2}_RPI.nii.gz
-sct_resample -i ${file_t2}_RPI.nii.gz -mm 0.8x0.8x0.8 -o ${file_t2}_RPI_r.nii.gz
-file_t2="${file_t2}_RPI_r"
+file_t2="${file_t2}_RPI"
 
 # Copy SC segmentation from /derivatives
 segment_if_does_not_exist ${file_t2} 't2'
@@ -124,7 +123,7 @@ label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50' flag)
 # Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
 # files will have the same number of rows, regardless of the subject's vertebral levels.
-sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/${file_t2/_RPI_r/}_PAM50.csv
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/${file_t2/_RPI/}_PAM50.csv
 
 # ------------------------------------------------------------------------------
 # End
