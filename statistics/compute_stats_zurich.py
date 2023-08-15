@@ -1280,11 +1280,25 @@ def main():
 
     file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
     if not os.path.exists(file_metrics):
-        df_morphometrics = read_MSCC(args.ifolder, dict_exclude_subj, df_participants, file_metrics)
+        df_morphometrics_mscc = read_MSCC(args.ifolder, dict_exclude_subj, df_participants, file_metrics)
     else:
-        df_morphometrics = pd.read_csv(file_metrics)
-        df_morphometrics = df_morphometrics.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
+        df_morphometrics_mscc = pd.read_csv(file_metrics)
+        df_morphometrics_mscc = df_morphometrics_mscc.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
         # TODO remove subjects with no values (in read_MSCC)
+
+    # set index of participant to have the same index
+    df_morphometrics_mscc = df_morphometrics_mscc.set_index(['participant_id'])
+    # check if index is repeated, if so, print it
+    if df_morphometrics_mscc.index.duplicated().any():
+        repeated_indices_mscc = df_morphometrics_mscc.index[df_morphometrics_mscc.index.duplicated()].tolist()
+        print(repeated_indices_mscc)
+
+    # set index of participant to have the same index
+    df_morphometrics = df_morphometrics.set_index(['participant_id'])
+    # check if index is repeated, if so, print it
+    if df_morphometrics.index.duplicated().any():
+        repeated_indices = df_morphometrics.index[df_morphometrics.index.duplicated()].tolist()
+        print(repeated_indices)
 
     # Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
     # morphometrics
