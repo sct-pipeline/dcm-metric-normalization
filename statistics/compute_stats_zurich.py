@@ -9,7 +9,8 @@
 #
 # Author: Sandrine Bédard, Jan Valosek
 
-import os 
+import os
+import re
 import argparse
 import pandas as pd
 import logging
@@ -75,9 +76,14 @@ def get_parser():
         )
     parser.add_argument(
         '-ifolder',
-        required=True,
+        required=False,
         metavar='<file_path>',
         help="Path to results folder with CSV files containing the metrics")
+    parser.add_argument(
+        '-input-file',
+        required=False,
+        metavar='<file_path>',
+        help="Path to csv file with computed metrics")
     parser.add_argument(
         '-participants-file',
         required=True,
@@ -167,6 +173,31 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
     #df_morphometrics['subject'] = subject
     #df_morphometrics['level'] = level
    # df_morphometrics[METRICS_NORM + METRICS] = data_metrics
+    return df_morphometrics
+
+
+def read_metric_file(file_path):
+    """
+    Read CSV file with computed metrics and return Pandas DataFrame
+    :param file_path: path to participants.tsv file
+    :return: Pandas DataFrame
+    """
+    if os.path.isfile(file_path):
+        df_morphometrics = pd.read_csv(file_path)
+    else:
+        raise FileNotFoundError(f'{file_path} not found')
+
+    list_participant_id = list()
+    # Loop across rows
+    for index, row in df_morphometrics.iterrows():
+        participant_id = fetch_participant_id(row['filename'])
+        list_participant_id.append(participant_id)
+    # Insert list of subIDs into pandas DF
+    df_morphometrics.insert(1, "participant_id", list_participant_id)
+    # Delete column 'filename'
+    df_morphometrics.drop('filename', axis=1, inplace=True)
+
+    # print(df_participants)
     return df_morphometrics
 
 
@@ -1166,6 +1197,18 @@ def gen_chart_weight_height(df_reg, path_out):
     logger.info(f'Created: {fname_fig}.\n')
 
 
+def fetch_participant_id(filename):
+    """
+    Get participant ID from the input BIDS-compatible filename
+    :param filename_path: input nifti filename (e.g., sub-001_ses-01_T1w.nii.gz)
+    :return: participant_id: subject ID (e.g., sub-001)
+    """
+    participant_id = re.search('sub-(.*?)[_/]', filename)  # [_/] slash or underscore
+    participant_id = participant_id.group(0)[:-1] if participant_id else ""  # [:-1] removes the last underscore or slash
+
+    return participant_id
+
+
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std) --> DONE
@@ -1224,6 +1267,16 @@ def main():
     # Read electrophysiology, anatomical, and motion data
     anatomical_df, motion_df, electrophysiology_df = read_electrophysiology_anatomical_and_motion_file(
         args.electro_file, df_participants)
+
+    # Read CSV file with computed metrics as Pandas DataFrame
+    df_morphometrics = read_metric_file(args.input_file)
+    # Merge df_participants['maximum_stenosis'] to df_morphometrics
+    df_morphometrics = pd.merge(df_morphometrics, df_participants[['participant_id', 'maximum_stenosis']],
+                                on='participant_id', how='outer')
+    # Change coding of 'maximum_stenosis' column (e.g., from to 'C1/C2' to '2') based on DICT_DISC_LABELS
+    df_morphometrics['level'] = df_morphometrics['maximum_stenosis'].map(DICT_DISC_LABELS)
+    # Keep only maximum level of compression (rows with maximum_stenosis == 'compression_level')
+    df_morphometrics = df_morphometrics[df_morphometrics['level'] == df_morphometrics['compression_level']]
 
     file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
     if not os.path.exists(file_metrics):
