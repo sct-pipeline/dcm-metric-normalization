@@ -47,12 +47,12 @@ METRICS = [
 ]
 
 DICT_DISC_LABELS = {
-                    'C1/C2':2,
-                    'C2/C3':3,
-                    'C3/C4':4,
-                    'C4/C5':5,
-                    'C5/C6':6,
-                    'C6/C7':7
+                    'C1/C2': 2,
+                    'C2/C3': 3,
+                    'C3/C4': 4,
+                    'C4/C5': 5,
+                    'C5/C6': 6,
+                    'C6/C7': 7
 }
 
 
@@ -134,10 +134,10 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
 
     # TODO : check to simply add inside the participants.tsv 
     columns = ['participant_id', 'level'] + METRICS + METRICS_NORM
-    df_morphometrics = pd.DataFrame(columns = columns) # todo add columns of metrics and
+    df_morphometrics = pd.DataFrame(columns=columns) # todo add columns of metrics and
     df_morphometrics['participant_id'] = subjects_list
     for sub in subjects_list:
-        # Check if subject is in exlude list
+        # Check if subject is in exclude list
         files_subject = [file for file in list_files_results if sub in file]
         df = csv2dataFrame(os.path.join(path_results, files_subject[0]))
         max_level = df_participants.loc[df_participants['participant_id']==sub, 'maximum_stenosis'].to_list()[0]
