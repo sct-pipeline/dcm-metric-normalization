@@ -1286,20 +1286,6 @@ def main():
         df_morphometrics_mscc = df_morphometrics_mscc.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
         # TODO remove subjects with no values (in read_MSCC)
 
-    # set index of participant to have the same index
-    df_morphometrics_mscc = df_morphometrics_mscc.set_index(['participant_id'])
-    # check if index is repeated, if so, print it
-    if df_morphometrics_mscc.index.duplicated().any():
-        repeated_indices_mscc = df_morphometrics_mscc.index[df_morphometrics_mscc.index.duplicated()].tolist()
-        print(repeated_indices_mscc)
-
-    # set index of participant to have the same index
-    df_morphometrics = df_morphometrics.set_index(['participant_id'])
-    # check if index is repeated, if so, print it
-    if df_morphometrics.index.duplicated().any():
-        repeated_indices = df_morphometrics.index[df_morphometrics.index.duplicated()].tolist()
-        print(repeated_indices)
-
     # Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
     # morphometrics
     df_clinical_all = merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometrics)
