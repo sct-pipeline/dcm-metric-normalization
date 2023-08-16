@@ -1294,7 +1294,7 @@ def main():
         # Initialize empty list
         dict_exclude_subj = []
 
-    logger.info('Exlcuded subjects: {}'.format(dict_exclude_subj))
+    logger.info('Excluded subjects: {}'.format(dict_exclude_subj))
 
     # Read participants.tsv file
     df_participants = read_participants_file(args.participants_file)
