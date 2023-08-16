@@ -184,11 +184,13 @@ def read_metric_file(file_path, dict_exclude_subj, df_participants):
     :param df_participants: Pandas DataFrame with participants.tsv file
     :return: Pandas DataFrame
     """
+    # Load CSV file
     if os.path.isfile(file_path):
         df_morphometrics = pd.read_csv(file_path)
     else:
         raise FileNotFoundError(f'{file_path} not found')
 
+    # Fetch participant_id from filename
     list_participant_id = list()
     # Loop across rows
     for index, row in df_morphometrics.iterrows():
