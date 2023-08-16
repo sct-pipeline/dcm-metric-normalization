@@ -40,12 +40,14 @@ logging.root.addHandler(hdlr)
 
 
 METRICS = [
-    'area',
-    'diameter_AP',
-    'diameter_RL',
-    'eccentricity',
-    'solidity'
+    'area_ratio',
+    'diameter_AP_ratio',
+    'diameter_RL_ratio',
+    'eccentricity_ratio',
+    'solidity_ratio',
 ]
+
+METRICS_NORM = [metric + '_PAM50_normalized' for metric in METRICS]
 
 DICT_DISC_LABELS = {
                     'C1/C2': 2,
@@ -55,9 +57,6 @@ DICT_DISC_LABELS = {
                     'C5/C6': 6,
                     'C6/C7': 7
 }
-
-
-METRICS_NORM = [metric + '_norm' for metric in METRICS]
 
 
 class SmartFormatter(argparse.HelpFormatter):
