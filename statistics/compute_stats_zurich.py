@@ -1101,10 +1101,10 @@ def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_m
     final_df = final_df.set_index(['participant_id'])
     # Loop through levels to get the corresponding motion or anatomical metric or the maximum compressed level
     levels = np.unique(final_df['level'].to_list())
-    levels = levels[:-1]  # nan value
     for level in levels:
-        if not level == 'C1/C2':
-            level_conversion = 'C' + str(int(DICT_DISC_LABELS[level])-1)  # -1 to convert to zurich disc
+        # Skip C1/C2 level (2)
+        if not level == 2:
+            level_conversion = 'C' + str(int(level)-1)  # -1 to convert to zurich disc
             # Add scores at maximum level of compression
             final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR_' + level_conversion]
             final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC_' + level_conversion + 'toC2']
