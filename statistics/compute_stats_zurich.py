@@ -1290,6 +1290,7 @@ def main():
             except yaml.YAMLError as exc:
                 logger.error(exc)
     else:
+        # TODO: name dict_exclude_subj is confusing, it's not a dict, it's a list
         # Initialize empty list
         dict_exclude_subj = []
 
