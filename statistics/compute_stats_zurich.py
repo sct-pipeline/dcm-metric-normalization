@@ -76,9 +76,9 @@ def get_parser():
         )
     parser.add_argument(
         '-input-file',
-        required=False,
+        required=True,
         metavar='<file_path>',
-        help="Path to csv file with computed metrics")
+        help="Path to csv file with computed morphometric metrics")
     parser.add_argument(
         '-participants-file',
         required=True,
