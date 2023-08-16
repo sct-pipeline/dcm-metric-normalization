@@ -176,10 +176,12 @@ def read_MSCC(path_results, exclude, df_participants, file_metric):
     return df_morphometrics
 
 
-def read_metric_file(file_path):
+def read_metric_file(file_path, dict_exclude_subj, df_participants):
     """
     Read CSV file with computed metrics and return Pandas DataFrame
-    :param file_path: path to participants.tsv file
+    :param file_path: path to the CSV file with computed metrics
+    :param dict_exclude_subj: list with subjects to exclude
+    :param df_participants: Pandas DataFrame with participants.tsv file
     :return: Pandas DataFrame
     """
     if os.path.isfile(file_path):
@@ -197,7 +199,46 @@ def read_metric_file(file_path):
     # Delete column 'filename'
     df_morphometrics.drop('filename', axis=1, inplace=True)
 
-    # print(df_participants)
+    # Merge df_participants['maximum_stenosis'] to df_morphometrics
+    df_morphometrics = pd.merge(df_morphometrics, df_participants[['participant_id', 'maximum_stenosis']],
+                                on='participant_id', how='left')
+    # Change coding of 'maximum_stenosis' column (e.g., from to 'C1/C2' to '2') based on DICT_DISC_LABELS
+    df_morphometrics['level'] = df_morphometrics['maximum_stenosis'].map(DICT_DISC_LABELS)
+    # NOTE: after this merge, df_morphometrics has the following columns:
+    #   'compression_level' - obtained from sct_compute_compression function based on vert labeling, example 5
+    #   'maximum_stenosis' - obtained from participants.tsv file, example 'C5/C6'
+    #   'level' - obtained from participants.tsv file and recoded using DICT_DISC_LABELS, example 6
+
+    # Subjects might have multiple levels of compression --> keep only the maximally compressed level (MCL)
+    # Get unique list of subjects
+    unique_subjects = df_morphometrics['participant_id'].unique().tolist()
+    # Loop across subjects
+    for sub in unique_subjects:
+        # First, get the maximally compressed level
+        max_level = df_participants.loc[df_participants['participant_id'] == sub, 'maximum_stenosis'].to_list()[0]
+        # Second, get all the compressed levels
+        all_compressed_levels = df_participants.loc[df_participants['participant_id'] == sub, 'stenosis'].to_list()[
+            0].split(', ')
+        # Third, get the index of the maximally compressed level
+        idx_max = all_compressed_levels.index(max_level)
+
+        # Get all rows of the subject from df_motphometrics
+        # Note: we are resetting the index to be able to use the index as a list, also we use the drop parameter to
+        # avoid the old index being added as a column
+        df_sub = df_morphometrics.loc[df_morphometrics['participant_id'] == sub].reset_index(drop=True)
+
+        # Check if the maximally compressed level is in the axial FOV (i.e., in the df_sub)
+        if idx_max not in df_sub.index.to_list():
+            print(f'Maximum level of compression {max_level} is not in axial FOV, excluding {sub}')
+            df_morphometrics.drop(df_morphometrics.loc[df_morphometrics['participant_id'] == sub].index, inplace=True)
+            dict_exclude_subj.append(sub)
+        # If the maximally compressed level is in the axial FOV, keep only this row
+        else:
+            # Get 'slice(I->S)' of df_sub with the maximally compressed level
+            slice_max = df_sub.loc[idx_max, 'slice(I->S)']
+            df_morphometrics = df_morphometrics.drop(df_morphometrics.loc[(df_morphometrics['participant_id'] == sub) &
+                                                          (df_morphometrics['slice(I->S)'] != slice_max)].index)
+
     return df_morphometrics
 
 
@@ -1269,14 +1310,7 @@ def main():
         args.electro_file, df_participants)
 
     # Read CSV file with computed metrics as Pandas DataFrame
-    df_morphometrics = read_metric_file(args.input_file)
-    # Merge df_participants['maximum_stenosis'] to df_morphometrics
-    df_morphometrics = pd.merge(df_morphometrics, df_participants[['participant_id', 'maximum_stenosis']],
-                                on='participant_id', how='outer')
-    # Change coding of 'maximum_stenosis' column (e.g., from to 'C1/C2' to '2') based on DICT_DISC_LABELS
-    df_morphometrics['level'] = df_morphometrics['maximum_stenosis'].map(DICT_DISC_LABELS)
-    # Keep only maximum level of compression (rows with maximum_stenosis == 'compression_level')
-    df_morphometrics = df_morphometrics[df_morphometrics['level'] == df_morphometrics['compression_level']]
+    df_morphometrics = read_metric_file(args.input_file, dict_exclude_subj, df_participants)
 
     file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
     if not os.path.exists(file_metrics):
