@@ -75,11 +75,6 @@ def get_parser():
         formatter_class=SmartFormatter
         )
     parser.add_argument(
-        '-ifolder',
-        required=False,
-        metavar='<file_path>',
-        help="Path to results folder with CSV files containing the metrics")
-    parser.add_argument(
         '-input-file',
         required=False,
         metavar='<file_path>',
@@ -130,50 +125,6 @@ def csv2dataFrame(filename):
     #print(filename)
     data = pd.read_csv(filename, encoding='utf-8')
     return data
-
-
-def read_MSCC(path_results, exclude, df_participants, file_metric):
-    list_files_results = os.listdir(path_results)
-    list_files_results = [file for file in list_files_results if '_norm.csv' in file]  # Only take norm (include both)
-    subjects_list = np.unique([sub.split('_')[0] for sub in list_files_results])
-    print(len(subjects_list))
-
-    # TODO : check to simply add inside the participants.tsv 
-    columns = ['participant_id', 'level'] + METRICS + METRICS_NORM
-    df_morphometrics = pd.DataFrame(columns=columns) # todo add columns of metrics and
-    df_morphometrics['participant_id'] = subjects_list
-    for sub in subjects_list:
-        # Check if subject is in exclude list
-        files_subject = [file for file in list_files_results if sub in file]
-        df = csv2dataFrame(os.path.join(path_results, files_subject[0]))
-        max_level = df_participants.loc[df_participants['participant_id']==sub, 'maximum_stenosis'].to_list()[0]
-        all_compressed_levels = df_participants.loc[df_participants['participant_id']==sub, 'stenosis'].to_list()[0].split(', ')
-        idx_max = all_compressed_levels.index(max_level)
-        if idx_max not in df.index.to_list():
-            print(f'Maximum level of compression {max_level} is not in axial FOV, excluding {sub}')
-            df_morphometrics.drop(df_morphometrics.loc[df_morphometrics['participant_id']==sub].index)
-            exclude.append(sub)
-        else:
-            df_morphometrics.loc[df_morphometrics['participant_id']==sub, 'level'] = max_level
-            for metric in METRICS:
-                file = [file for file in files_subject if metric in file]#[0]
-                df = csv2dataFrame(os.path.join(path_results, file[0]))
-                # Fill list to create final df
-                column_norm = 'normalized_'+ metric + '_ratio'
-                column_no_norm = metric + '_ratio'
-                df_morphometrics.loc[df_morphometrics['participant_id']==sub, metric] = df.loc[idx_max, column_no_norm]
-                metric_norm = metric + '_norm'
-                df_morphometrics.loc[df_morphometrics['participant_id']==sub, metric_norm] = df.loc[idx_max, column_norm]
-                
-            #idx_max = df.index[df['Compression Level']==max_level].tolist()
-           # print(idx_max, max_level_id)
-            #mscc_norm.append(df.loc[idx_max,'Normalized MSCC'])
-   # df_morphometrics = pd.DataFrame(data_metrics)
-    df_morphometrics.to_csv(file_metric, index=False)
-    #df_morphometrics['subject'] = subject
-    #df_morphometrics['level'] = level
-   # df_morphometrics[METRICS_NORM + METRICS] = data_metrics
-    return df_morphometrics
 
 
 def read_metric_file(file_path, dict_exclude_subj, df_participants):
@@ -1314,14 +1265,6 @@ def main():
 
     # Read CSV file with computed metrics as Pandas DataFrame
     df_morphometrics = read_metric_file(args.input_file, dict_exclude_subj, df_participants)
-
-    file_metrics = os.path.join(path_out, 'metric_ratio_combined.csv')
-    if not os.path.exists(file_metrics):
-        df_morphometrics_mscc = read_MSCC(args.ifolder, dict_exclude_subj, df_participants, file_metrics)
-    else:
-        df_morphometrics_mscc = pd.read_csv(file_metrics)
-        df_morphometrics_mscc = df_morphometrics_mscc.rename(columns={'subject': 'participant_id'})  # TODO remove when rerun
-        # TODO remove subjects with no values (in read_MSCC)
 
     # Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
     # morphometrics
