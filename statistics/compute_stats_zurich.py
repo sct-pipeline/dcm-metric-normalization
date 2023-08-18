@@ -340,7 +340,7 @@ def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
     fig, ax = plt.subplots()
     #ax.set_box_aspect(1)
     # MSCC with mJOA
-    metric_norm = metric + '_norm'
+    metric_norm = metric+'_PAM50_normalized'
     x_vals = df[metric]
     y_vals_mscc = df[metric_norm]
     r_mscc, p_mscc = compute_spearmans(x_vals, y_vals_mscc)
@@ -373,7 +373,7 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     # MSCC with mJOA
     x_vals = df[mjoa]
     y_vals_mscc = df[metric]
-    metric_norm = metric + '_norm'
+    metric_norm = METRICS_NORM[metric+'_PAM50_normalized']
     y_vals_mscc_norm = df[metric_norm]
 
     r_mscc, p_mscc = compute_spearmans(x_vals, y_vals_mscc)
@@ -383,8 +383,8 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     logger.info(f'{metric_norm} ratio: Spearman r = {r_mscc_norm} and p = {p_mscc_norm}')
 
     sns.regplot(x=x_vals, y=y_vals_mscc, label=(metric+' ratio')) #ci=None,
-    sns.regplot(x=x_vals, y=y_vals_mscc_norm, color='crimson', label=(metric_norm + ' ratio')) # ci=None,
-    plt.ylabel((metric + ' ratio'), fontsize=16)
+    sns.regplot(x=x_vals, y=y_vals_mscc_norm, color='crimson', label=metric_norm) # ci=None,
+    plt.ylabel(metric, fontsize=16)
     plt.xlabel('mJOA', fontsize=16)
     plt.xlim([min(x_vals)-1, max(x_vals)+1])
     plt.tight_layout()
@@ -784,11 +784,11 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     y_z_score = df_reg_all['therapeutic_decision'].astype(int)
     df_z_score = get_z_score(df_reg_all)
     # Do composite z_score for no norm between area, diameter_AP, diameter_RL
-    df_z_score['composite_zscore'] = df_z_score[['area_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(
+    df_z_score['composite_zscore'] = df_z_score[['area_ratio_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(
         axis=1)
     # Do composite z_score for norm between area, diameter_AP, diameter_RL TODO: maybe remove diameter RL?
     df_z_score['composite_zscore_norm'] = df_z_score[
-        ['area_norm_zscore', 'diameter_AP_norm_zscore', 'diameter_RL_norm_zscore']].mean(axis=1)
+        ['area_ratio_PAM50_normalized_zscore', 'diameter_AP_PAM50_normalized_zscore', 'diameter_RL_PAM50_normalized_zscore']].mean(axis=1)
     # mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
     # print(mean_zscore['diameter_AP_zscore'])
     mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
@@ -1071,7 +1071,7 @@ def compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
 
     # Keep only anatomical and morphometric metrics
     metrics_dict = {'all_metrics': METRICS + METRICS_NORM + ['aSCOR', 'aMSCC'],
-                    'area': ['area', 'area_norm', 'aSCOR', 'aMSCC']}
+                    'area_ratio': ['area_ratio', 'area_ratio_PAM50_normalized', 'aSCOR', 'aMSCC']}
 
     # Either all metrics or only area
     for key, value in metrics_dict.items():
@@ -1287,7 +1287,7 @@ def main():
     final_df = final_df.replace({"previous_surgery": {'no': 0, 'yes': 1}})
 
     # Drop subjects with NaN values
-    final_df.dropna(axis=0, subset=['area_norm', 'total_mjoa', 'therapeutic_decision', 'age', 'height'], inplace=True)  # added height since significant predictor
+    final_df.dropna(axis=0, subset=['area_ratio_PAM50_normalized', 'total_mjoa', 'therapeutic_decision', 'age', 'height'], inplace=True)  # added height since significant predictor
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
     logger.info(f'Number of subjects (after dropping subjects with NaN values): {number_subjects}')
