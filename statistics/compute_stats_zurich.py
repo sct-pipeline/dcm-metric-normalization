@@ -1316,7 +1316,7 @@ def main():
                                   'manufacturers_model_name', 
                                   'manufacturer', 
                                   'stenosis',
-                                  'maximum_stenosis'
+                                  'maximum_stenosis'  # TODO to change
                                   #'weight',  # missing data - TODO - try this
                                   #'height'   # missing data - TODO - try this
                                   ])
