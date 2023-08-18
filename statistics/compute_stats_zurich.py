@@ -1306,20 +1306,30 @@ def main():
     # Change myelopathy for yes no column
     df_reg['myelopathy'].fillna(0, inplace=True)
     df_reg.loc[df_reg['myelopathy'] != 0, 'myelopathy'] = 1
-
+    print(df_reg.columns)
     # Drop useless columns
-    df_reg = df_reg.drop(columns=['record_id', 
-                                  'pathology', 
-                                  'date_previous_surgery', 
-                                  'surgery_date', 
-                                  'date_of_scan', 
-                                  'manufacturers_model_name', 
-                                  'manufacturer', 
+    df_reg = df_reg.drop(columns=['record_id',
+                                  'pathology',
+                                  'date_previous_surgery',
+                                  'surgery_date',
+                                  'date_of_scan',
+                                  'manufacturers_model_name',
+                                  'manufacturer',
                                   'stenosis',
-                                  'maximum_stenosis'  # TODO to change
+                                  'maximum_stenosis_y',
+                                  'maximum_stenosis_x',
+                                  'slice(I->S)',
+                                  'eccentricity_ratio_PAM50',
+                                  'diameter_RL_ratio_PAM50',
+                                  'diameter_AP_ratio_PAM50',
+                                  'area_ratio_PAM50',
+                                  'solidity_ratio_PAM50',
+                                  'eccentricity_ratio_PAM50'
+
                                   #'weight',  # missing data - TODO - try this
                                   #'height'   # missing data - TODO - try this
                                   ])
+    
     df_reg.set_index(['participant_id'], inplace=True)
     df_reg_all = df_reg.copy()
     print(df_reg.columns.values)
