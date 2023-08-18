@@ -373,7 +373,7 @@ def gen_chart_corr_mjoa_mscc(df, metric, mjoa, path_out=""):
     # MSCC with mJOA
     x_vals = df[mjoa]
     y_vals_mscc = df[metric]
-    metric_norm = METRICS_NORM[metric+'_PAM50_normalized']
+    metric_norm = metric+'_PAM50_normalized'
     y_vals_mscc_norm = df[metric_norm]
 
     r_mscc, p_mscc = compute_spearmans(x_vals, y_vals_mscc)
