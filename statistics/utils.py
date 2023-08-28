@@ -2,7 +2,10 @@ import os
 import re
 import argparse
 
+import numpy as np
 import pandas as pd
+
+from scipy.stats import spearmanr
 
 DICT_DISC_LABELS = {
                     'C1/C2': 2,
@@ -259,3 +262,13 @@ def format_pvalue(p_value, alpha=0.001, decimal_places=3, include_space=False, i
             p_value = space + str(round(p_value, decimal_places))
 
     return p_value
+
+
+def compute_spearmans(a, b):
+    """
+    Compute Spearman's correlation coefficient and p-value for two arrays.
+    """
+    a = np.array(a)
+    b = np.array(b)
+    return spearmanr(a, b)
+
