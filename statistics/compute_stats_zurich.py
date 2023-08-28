@@ -106,19 +106,6 @@ def get_parser():
     return parser
 
 
-def csv2dataFrame(filename):
-    """
-    Loads a .csv file and builds a pandas dataFrame of the data
-    Args:
-        filename (str): filename of the .csv file
-    Returns:
-        data (pd.dataFrame): pandas dataframe of the .csv file's data
-    """
-    #print(filename)
-    data = pd.read_csv(filename, encoding='utf-8')
-    return data
-
-
 def read_metric_file(file_path, dict_exclude_subj, df_participants):
     """
     Read CSV file with computed metrics and return Pandas DataFrame
