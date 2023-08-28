@@ -31,6 +31,8 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
+from utils import SmartFormatter
+
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
 logger = logging.getLogger(__name__)
