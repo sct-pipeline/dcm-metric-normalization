@@ -17,7 +17,6 @@ import math
 import sys
 import yaml
 import numpy as np
-from scipy.stats import spearmanr, pearsonr
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 from textwrap import dedent
@@ -31,7 +30,7 @@ from sklearn.metrics import auc
 import statsmodels.api as sm
 
 from utils import SmartFormatter, read_metric_file, read_participants_file, read_clinical_file, \
-    read_electrophysiology_anatomical_and_motion_file, format_pvalue
+    read_electrophysiology_anatomical_and_motion_file, format_pvalue, compute_spearmans
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
@@ -104,12 +103,6 @@ def get_parser():
                                  - sub-1000498_T1w.nii.gz
                                  """))
     return parser
-
-
-def compute_spearmans(a,b):
-    a = np.array(a)
-    b = np.array(b)
-    return spearmanr(a,b)
 
 
 def gen_chart_norm_vs_no_norm(df, metric, path_out=""):
