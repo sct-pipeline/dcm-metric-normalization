@@ -29,8 +29,9 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
-from utils import SmartFormatter, read_metric_file, read_participants_file, read_clinical_file, \
-    read_electrophysiology_anatomical_and_motion_file, format_pvalue, compute_spearmans
+from utils.utils import SmartFormatter, format_pvalue, compute_spearmans
+from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
+    read_electrophysiology_anatomical_and_motion_file
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
