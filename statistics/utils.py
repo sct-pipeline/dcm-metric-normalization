@@ -163,7 +163,6 @@ def read_clinical_file(file_path):
     clinical_df.columns = clinical_df.columns.str.replace('.1', '_6m')
     clinical_df.columns = clinical_df.columns.str.replace('.2', '_12m')
 
-    #print(clinical_df)
     return clinical_df
 
 
