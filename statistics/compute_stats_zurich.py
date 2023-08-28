@@ -30,7 +30,7 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
-from utils import SmartFormatter, read_metric_file, read_participants_file
+from utils import SmartFormatter, read_metric_file, read_participants_file, read_clinical_file
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
@@ -103,56 +103,6 @@ def get_parser():
                                  - sub-1000498_T1w.nii.gz
                                  """))
     return parser
-
-
-def read_clinical_file(file_path):
-    """
-    Read file with clinical scores (mJOA, ASIA, GRASSP) and return Pandas DataFrame
-    :param file_path: path to excel file
-    :return: Pandas DataFrame
-    """
-    if os.path.isfile(file_path):
-        print('Reading: {}'.format(file_path))
-        clinical_df = pd.read_excel(file_path)
-    else:
-        raise FileNotFoundError(f'{file_path} not found')
-    # mJOA
-    mjoa = 'total_mjoa'         # baseline
-    mjoa_6m = 'total_mjoa.1'    # 6 months
-    mjoa_12m = 'total_mjoa.2'   # 12 months
-
-    # mJOA subscores
-    motor_dysfunction_UE_bl = 'motor_dysfunction_UE_bl'         # baseline
-    motor_dysfunction_LE_bl = 'motor_dysfunction_LE_bl'         # baseline
-    sensory_dysfunction_LE_bl = 'sensory_dysfunction_LE_bl'     # baseline
-    sphincter_dysfunction_bl = 'sphincter_dysfunction_bl'       # baseline
-
-    # ASIA/GRASSP - lt_cervical_tot
-    lt_cervical_tot = 'lt_cervical_tot'         # baseline
-    lt_cervical_tot_6m = 'lt_cervical_tot.1'    # 6 months
-    lt_cervical_tot_12m = 'lt_cervical_tot.2'   # 12 months
-    # ASIA/GRASSP - pp_cervical_tot
-    pp_cervical_tot = 'pp_cervical_tot'        # baseline
-    pp_cervical_tot_6m = 'pp_cervical_tot.1'   # 6 months
-    pp_cervical_tot_12m = 'pp_cervical_tot.2'  # 12 months
-    # ASIA/GRASSP - total_dorsal
-    total_dorsal = 'total_dorsal'        # baseline
-    total_dorsal_6m = 'total_dorsal.1'   # 6 months
-    total_dorsal_12m = 'total_dorsal.2'  # 12 months
-
-    # Read columns of interest from clinical file
-    clinical_df = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m,
-                               motor_dysfunction_UE_bl, motor_dysfunction_LE_bl, sensory_dysfunction_LE_bl, sphincter_dysfunction_bl,
-                               lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
-                               pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
-                               total_dorsal, total_dorsal_6m, total_dorsal_12m]]
-
-    # Rename .1 to 6m and .2 to 12m
-    clinical_df.columns = clinical_df.columns.str.replace('.1', '_6m')
-    clinical_df.columns = clinical_df.columns.str.replace('.2', '_12m')
-
-    #print(clinical_df)
-    return clinical_df
 
 
 def read_electrophysiology_anatomical_and_motion_file(file_path, df_participants):
