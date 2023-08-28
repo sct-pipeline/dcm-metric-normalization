@@ -30,7 +30,7 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
-from utils import SmartFormatter, read_metric_file
+from utils import SmartFormatter, read_metric_file, read_participants_file
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
@@ -103,21 +103,6 @@ def get_parser():
                                  - sub-1000498_T1w.nii.gz
                                  """))
     return parser
-
-
-def read_participants_file(file_path):
-    """
-    Read participants.tsv file and return Pandas DataFrame
-    :param file_path: path to participants.tsv file
-    :return: Pandas DataFrame
-    """
-    if os.path.isfile(file_path):
-        participants_pd = pd.read_csv(file_path, sep='\t')
-    else:
-        raise FileNotFoundError(f'{file_path} not found')
-
-    # print(df_participants)
-    return participants_pd
 
 
 def read_clinical_file(file_path):

@@ -103,3 +103,16 @@ def read_metric_file(file_path, dict_exclude_subj, df_participants):
     return df_morphometrics
 
 
+def read_participants_file(file_path):
+    """
+    Read participants.tsv file and return Pandas DataFrame
+    :param file_path: path to participants.tsv file
+    :return: Pandas DataFrame
+    """
+    if os.path.isfile(file_path):
+        participants_pd = pd.read_csv(file_path, sep='\t')
+    else:
+        raise FileNotFoundError(f'{file_path} not found')
+
+    return participants_pd
+
