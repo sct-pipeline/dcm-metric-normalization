@@ -157,16 +157,12 @@ def compute_mean_std(df, path_out):
     logger.info(f'Conservative:{pct_of_no_sub} %; Operative: {(100-pct_of_no_sub)} %')
 
     # Maximum level of compression
-    ratio =  df['level'].value_counts(normalize=True)*100
+    ratio = df['level'].value_counts(normalize=True)*100
     logger.info(f'Levels (%): \n{ratio}')
 
-
     # Maximum level of compression seperated for therapeutic decision
-    ratio2 =  df.groupby('therapeutic_decision')['level'].value_counts(normalize=True)*100
+    ratio2 = df.groupby('therapeutic_decision')['level'].value_counts(normalize=True)*100
     logger.info(f'Levels (%): \n{ratio2}')
-
-
-
 
 
 def compute_stepwise(y, x, threshold_in, threshold_out, method):
