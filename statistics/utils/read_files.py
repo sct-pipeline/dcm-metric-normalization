@@ -1,6 +1,7 @@
 import os
 import re
 
+import numpy as np
 import pandas as pd
 
 DICT_DISC_LABELS = {
@@ -220,3 +221,26 @@ def read_electrophysiology_anatomical_and_motion_file(file_path, df_participants
     electrophysiology_df = electrophysiology_df.set_index(['participant_id'])
 
     return anatomical_df, motion_df, electrophysiology_df
+
+
+def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometric):
+    """
+    Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
+    morphometrics
+    """
+    final_df = df_morphometric.copy()
+    # set index of participant to have the same index
+    final_df = final_df.set_index(['participant_id'])
+    # Loop through levels to get the corresponding motion or anatomical metric or the maximum compressed level
+    levels = np.unique(final_df['level'].to_list())
+    for level in levels:
+        # Skip C1/C2 level (2)
+        if not level == 2:
+            level_conversion = 'C' + str(int(level)-1)  # -1 to convert to zurich disc
+            # Add scores at maximum level of compression
+            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR_' + level_conversion]
+            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC_' + level_conversion + 'toC2']
+            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'amp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_amp_ax_or_sag']
+            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'disp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_disp_ax_or_sag']
+
+    return final_df

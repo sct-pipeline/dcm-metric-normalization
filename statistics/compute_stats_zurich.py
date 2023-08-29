@@ -30,7 +30,7 @@ import statsmodels.api as sm
 
 from utils.utils import SmartFormatter, format_pvalue, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
-    read_electrophysiology_anatomical_and_motion_file
+    read_electrophysiology_anatomical_and_motion_file, merge_anatomical_morphological_final_for_pred
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, gen_chart_weight_height, \
     plot_correlation_for_clinical_scores, plot_correlations_motion_and_morphometric_metrics, \
     plot_correlations_anatomical_and_morphometric_metrics
@@ -641,29 +641,6 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
     logger.info(f'Included repressors are: {included_norm}')
     # Fit linear regression model on included variables
     fit_reg(x_norm[included_norm], y, 'linear')
-
-
-def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometric):
-    """
-    Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
-    morphometrics
-    """
-    final_df = df_morphometric.copy()
-    # set index of participant to have the same index
-    final_df = final_df.set_index(['participant_id'])
-    # Loop through levels to get the corresponding motion or anatomical metric or the maximum compressed level
-    levels = np.unique(final_df['level'].to_list())
-    for level in levels:
-        # Skip C1/C2 level (2)
-        if not level == 2:
-            level_conversion = 'C' + str(int(level)-1)  # -1 to convert to zurich disc
-            # Add scores at maximum level of compression
-            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR_' + level_conversion]
-            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC_' + level_conversion + 'toC2']
-            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'amp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_amp_ax_or_sag']
-            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'disp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_disp_ax_or_sag']
-
-    return final_df
 
 
 # TODO:
