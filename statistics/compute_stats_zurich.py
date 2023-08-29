@@ -32,7 +32,8 @@ from utils.utils import SmartFormatter, format_pvalue, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
     read_electrophysiology_anatomical_and_motion_file
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, generate_correlation_matrix, \
-    generate_pairplot, gen_chart_weight_height, plot_correlation_for_clinical_scores
+    generate_pairplot, gen_chart_weight_height, plot_correlation_for_clinical_scores, \
+    plot_correlations_motion_and_morphometric_metrics
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
@@ -693,24 +694,6 @@ def compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
         generate_pairplot(final_df, output_pathname, logger)
 
 
-def compute_correlations_motion_and_morphometric_metrics(final_df, path_out):
-    """
-    Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
-    """
-
-    # Keep only motion and morphometric metrics
-    final_df = final_df[['amp_ax_or_sag', 'disp_ax_or_sag'] + METRICS + METRICS_NORM]
-
-    # Drop rows with nan values
-    corr_df = final_df.dropna(axis=0)
-
-    output_pathname = os.path.join(path_out, 'corr_matrix_motion_and_morphometrics.png')
-    generate_correlation_matrix(corr_df, output_pathname)
-
-    output_pathname = os.path.join(path_out, 'pairplot_motion_and_morphometrics.png')
-    generate_pairplot(corr_df, output_pathname, logger)
-
-
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std) --> DONE
@@ -784,7 +767,7 @@ def main():
     compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
-    compute_correlations_motion_and_morphometric_metrics(final_df, path_out)
+    plot_correlations_motion_and_morphometric_metrics(final_df, path_out, logger)
 
     # Change SEX for 0 and 1
     final_df = final_df.replace({"sex": {'F': 0, 'M': 1}})
