@@ -1,6 +1,7 @@
 import argparse
 
 import numpy as np
+import statsmodels.api as sm
 
 from scipy.stats import spearmanr
 
@@ -51,3 +52,17 @@ def compute_spearmans(a, b):
     b = np.array(b)
     return spearmanr(a, b)
 
+
+def fit_reg(X, y, method):
+    """
+    Fit either linear regression (the dependent variable is non-binary) or logistic regression (the dependent variable
+    is binary) and print summary.
+    Args:
+        method: 'linear' or 'logistic'
+    """
+    if method == 'linear':
+        logit_model = sm.OLS(y, X)      # Ordinary Least Squares Regression
+    elif method == 'logistic':
+        logit_model = sm.Logit(y, X)    # Logistic Regression
+    result = logit_model.fit()
+    print(result.summary2())

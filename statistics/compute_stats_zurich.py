@@ -28,7 +28,7 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
-from utils.utils import SmartFormatter, format_pvalue, compute_spearmans
+from utils.utils import SmartFormatter, format_pvalue, compute_spearmans, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
     read_electrophysiology_anatomical_and_motion_file
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, generate_correlation_matrix, \
@@ -166,19 +166,7 @@ def compute_mean_std(df, path_out):
     logger.info(f'Levels (%): \n{ratio2}')
 
 
-def fit_reg(X, y, method):
-    """
-    Fit either linear regression (the dependent variable is non-binary) or logistic regression (the dependent variable
-    is binary) and print summary.
-    Args:
-        method: 'linear' or 'logistic'
-    """
-    if method == 'linear':
-        logit_model = sm.OLS(y, X)      # Ordinary Least Squares Regression
-    elif method == 'logistic':
-        logit_model = sm.Logit(y, X)    # Logistic Regression
-    result = logit_model.fit()
-    print(result.summary2())
+
 
 
 def compute_stepwise(y, x, threshold_in, threshold_out, method):
