@@ -192,3 +192,26 @@ def gen_chart_weight_height(df_reg, path_out, logger=None):
     plt.savefig(fname_fig, dpi=200, bbox_inches="tight")
     plt.close()
     logger.info(f'Created: {fname_fig}.\n')
+
+
+def plot_correlation_for_clinical_scores(clinical_df, path_out, logger=None):
+    """
+    Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
+    """
+
+    # Identify columns with more than 25% nan values
+    cols_to_drop = clinical_df.columns[clinical_df.isnull().sum(axis=0) > 0.25 * len(clinical_df)]
+    # Drop these columns
+    print('Dropping columns with more than 25% nan values:\n {}'.format(cols_to_drop))
+    final_df = clinical_df.drop(columns=cols_to_drop)
+
+    # Drop rows with nan values
+    final_df = final_df.dropna(axis=0)
+    # Drop record_id column
+    corr_df = final_df.drop(columns=['record_id'])
+
+    output_pathname = os.path.join(path_out, 'corr_matrix_clinical_scores.png')
+    generate_correlation_matrix(corr_df, output_pathname)
+
+    output_pathname = os.path.join(path_out, 'pairplot_clinical_scores.png')
+    generate_pairplot(corr_df, output_pathname, logger)
