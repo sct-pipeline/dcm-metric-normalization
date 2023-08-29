@@ -4,7 +4,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from utils import format_pvalue, compute_spearmans
+from .utils import format_pvalue, compute_spearmans
 
 METRICS = [
     'area_ratio',
