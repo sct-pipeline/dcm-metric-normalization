@@ -32,7 +32,7 @@ from utils.utils import SmartFormatter, format_pvalue, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
     read_electrophysiology_anatomical_and_motion_file
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, generate_correlation_matrix, \
-    generate_pairplot, gen_chart_weight_height
+    generate_pairplot, gen_chart_weight_height, plot_correlation_for_clinical_scores
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
@@ -708,29 +708,6 @@ def compute_correlations_motion_and_morphometric_metrics(final_df, path_out):
     generate_correlation_matrix(corr_df, output_pathname)
 
     output_pathname = os.path.join(path_out, 'pairplot_motion_and_morphometrics.png')
-    generate_pairplot(corr_df, output_pathname, logger)
-
-
-def plot_correlation_for_clinical_scores(clinical_df, path_out):
-    """
-    Plot and save correlation matrix for mJOA, mJOA subscores, and ASIA/GRASSP
-    """
-
-    # Identify columns with more than 25% nan values
-    cols_to_drop = clinical_df.columns[clinical_df.isnull().sum(axis=0) > 0.25 * len(clinical_df)]
-    # Drop these columns
-    print('Dropping columns with more than 25% nan values:\n {}'.format(cols_to_drop))
-    final_df = clinical_df.drop(columns=cols_to_drop)
-
-    # Drop rows with nan values
-    final_df = final_df.dropna(axis=0)
-    # Drop record_id column
-    corr_df = final_df.drop(columns=['record_id'])
-
-    output_pathname = os.path.join(path_out, 'corr_matrix_clinical_scores.png')
-    generate_correlation_matrix(corr_df, output_pathname)
-
-    output_pathname = os.path.join(path_out, 'pairplot_clinical_scores.png')
     generate_pairplot(corr_df, output_pathname, logger)
 
 
