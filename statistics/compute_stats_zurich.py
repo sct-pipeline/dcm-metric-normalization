@@ -31,9 +31,9 @@ import statsmodels.api as sm
 from utils.utils import SmartFormatter, format_pvalue, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
     read_electrophysiology_anatomical_and_motion_file
-from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, generate_correlation_matrix, \
-    generate_pairplot, gen_chart_weight_height, plot_correlation_for_clinical_scores, \
-    plot_correlations_motion_and_morphometric_metrics, plot_correlations_anatomical_and_morphometric_metrics
+from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, gen_chart_weight_height, \
+    plot_correlation_for_clinical_scores, plot_correlations_motion_and_morphometric_metrics, \
+    plot_correlations_anatomical_and_morphometric_metrics
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
