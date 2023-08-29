@@ -28,7 +28,7 @@ from statsmodels.stats.outliers_influence import variance_inflation_factor
 from sklearn.metrics import auc
 import statsmodels.api as sm
 
-from utils.utils import SmartFormatter, format_pvalue, compute_spearmans, fit_reg
+from utils.utils import SmartFormatter, format_pvalue, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
     read_electrophysiology_anatomical_and_motion_file
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, generate_correlation_matrix, \
