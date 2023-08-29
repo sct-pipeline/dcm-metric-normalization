@@ -745,7 +745,7 @@ def main():
     clinical_df = read_clinical_file(args.clinical_file)
 
     # Plot correlation matrix for clinical scores
-    plot_correlation_for_clinical_scores(clinical_df, path_out)
+    plot_correlation_for_clinical_scores(clinical_df, path_out, logger)
 
     # Merge clinical scores (mJOA, ASIA, GRASSP) to participant.tsv
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
