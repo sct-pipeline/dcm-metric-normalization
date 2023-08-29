@@ -33,7 +33,7 @@ from utils.read_files import read_metric_file, read_participants_file, read_clin
     read_electrophysiology_anatomical_and_motion_file
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, generate_correlation_matrix, \
     generate_pairplot, gen_chart_weight_height, plot_correlation_for_clinical_scores, \
-    plot_correlations_motion_and_morphometric_metrics
+    plot_correlations_motion_and_morphometric_metrics, plot_correlations_anatomical_and_morphometric_metrics
 
 FNAME_LOG = 'log_stats.txt'
 # Initialize logging
@@ -666,34 +666,6 @@ def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_m
     return final_df
 
 
-def compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out):
-    """
-    Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
-    """
-
-    # Keep only anatomical and morphometric metrics
-    metrics_dict = {'all_metrics': METRICS + METRICS_NORM + ['aSCOR', 'aMSCC'],
-                    'area_ratio': ['area_ratio', 'area_ratio_PAM50_normalized', 'aSCOR', 'aMSCC']}
-
-    # Either all metrics or only area
-    for key, value in metrics_dict.items():
-        final_df = final_df[value]
-
-        # Make 'aSCOR' and 'aMSCC' first and second columns
-        cols = final_df.columns.tolist()
-        cols = cols[-2:] + cols[:-2]
-        final_df = final_df[cols]
-
-        # Drop rows with nan values
-        final_df = final_df.dropna(axis=0)
-
-        output_pathname = os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png')
-        generate_correlation_matrix(final_df, output_pathname)
-
-        output_pathname = os.path.join(path_out, 'pairplot_anatomical_and_morphometrics_' + key + '.png')
-        generate_pairplot(final_df, output_pathname, logger)
-
-
 # TODO:
 # 0. Exclude subjects
 # 1. Calcul statistique 2 groupes (mean ± std) --> DONE
@@ -764,7 +736,7 @@ def main():
     final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
 
     # Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
-    compute_correlations_anatomical_and_morphometric_metrics(final_df, path_out)
+    plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger)
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
     plot_correlations_motion_and_morphometric_metrics(final_df, path_out, logger)

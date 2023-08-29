@@ -243,3 +243,31 @@ def plot_correlations_motion_and_morphometric_metrics(final_df, path_out, logger
 
     output_pathname = os.path.join(path_out, 'pairplot_motion_and_morphometrics.png')
     generate_pairplot(corr_df, output_pathname, logger)
+
+
+def plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger=None):
+    """
+    Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
+    """
+
+    # Keep only anatomical and morphometric metrics
+    metrics_dict = {'all_metrics': METRICS + METRICS_NORM + ['aSCOR', 'aMSCC'],
+                    'area_ratio': ['area_ratio', 'area_ratio_PAM50_normalized', 'aSCOR', 'aMSCC']}
+
+    # Either all metrics or only area
+    for key, value in metrics_dict.items():
+        final_df = final_df[value]
+
+        # Make 'aSCOR' and 'aMSCC' first and second columns
+        cols = final_df.columns.tolist()
+        cols = cols[-2:] + cols[:-2]
+        final_df = final_df[cols]
+
+        # Drop rows with nan values
+        final_df = final_df.dropna(axis=0)
+
+        output_pathname = os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png')
+        generate_correlation_matrix(final_df, output_pathname)
+
+        output_pathname = os.path.join(path_out, 'pairplot_anatomical_and_morphometrics_' + key + '.png')
+        generate_pairplot(final_df, output_pathname, logger)
