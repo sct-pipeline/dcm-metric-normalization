@@ -221,7 +221,7 @@ def plot_correlation_for_clinical_scores(clinical_df, path_out, logger=None):
     corr_df = final_df.drop(columns=['record_id'])
 
     output_pathname = os.path.join(path_out, 'corr_matrix_clinical_scores.png')
-    generate_correlation_matrix(corr_df, output_pathname)
+    generate_correlation_matrix(corr_df, output_pathname, logger)
 
     output_pathname = os.path.join(path_out, 'pairplot_clinical_scores.png')
     generate_pairplot(corr_df, output_pathname, logger)
@@ -239,7 +239,7 @@ def plot_correlations_motion_and_morphometric_metrics(final_df, path_out, logger
     corr_df = final_df.dropna(axis=0)
 
     output_pathname = os.path.join(path_out, 'corr_matrix_motion_and_morphometrics.png')
-    generate_correlation_matrix(corr_df, output_pathname)
+    generate_correlation_matrix(corr_df, output_pathname, logger)
 
     output_pathname = os.path.join(path_out, 'pairplot_motion_and_morphometrics.png')
     generate_pairplot(corr_df, output_pathname, logger)
@@ -267,7 +267,7 @@ def plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, lo
         final_df = final_df.dropna(axis=0)
 
         output_pathname = os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png')
-        generate_correlation_matrix(final_df, output_pathname)
+        generate_correlation_matrix(final_df, output_pathname, logger)
 
         output_pathname = os.path.join(path_out, 'pairplot_anatomical_and_morphometrics_' + key + '.png')
         generate_pairplot(final_df, output_pathname, logger)
