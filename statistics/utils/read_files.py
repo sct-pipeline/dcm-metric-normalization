@@ -157,13 +157,45 @@ def read_clinical_file(file_path):
     return clinical_df
 
 
-def read_electrophysiology_anatomical_and_motion_file(file_path, df_participants):
+def read_electrophysiology_file(file_path, df_participants):
     """
-    Read electrophysiology, anatomical, and motion data
+    Read electrophysiology data
     :param file_path: path to excel file
-    :return anatomical_df: Pandas DataFrame with anatomical data
-    :return motion_df: Pandas DataFrame with motion data
+        :param df_participants: Pandas DataFrame with participant data
     :return electrophysiology_df: Pandas DataFrame with electrophysiology data
+    """
+    if os.path.isfile(file_path):
+        print('Reading: {}'.format(file_path))
+        df_all = pd.read_excel(file_path)
+    else:
+        raise FileNotFoundError(f'{file_path} not found')
+
+    # Electrophysiology data:
+    # - dermatomal SEP (dSEP) with stimulation at C6 and C8 (only few pathologic results)
+    # - dermatomal contact heat evoked potentials (CHEPS) with stimulation at C6, C8 and T4
+    electrophysiology_df = df_all[['record_id', 'dSEP_C6_both_patho_bl', 'dSEP_C8_both_patho_bl', 'CHEPS_C6_patho_bl', 'CHEPS_C8_patho_bl', 'CHEPS_T4_grading_patho_bl',
+                                   'dSEP_C6_both_patho_6mth', 'dSEP_C8_both_patho_6mth', 'CHEPS_C6_patho_6mth', 'CHEPS_C8_patho_6mth', 'CHEPS_T4_patho_6mth',
+                                   'dSEP_C6_both_patho_12mth', 'dSEP_C8_both_patho_12mth', 'CHEPS_C6_patho_12mth', 'CHEPS_C8_patho_12mth', 'CHEPS_T4_patho_12mth',
+                                   'CHEPS_C6_diff_6mth_bl', 'CHEPS_C6_diff_12mth_bl', 'CHEPS_C8_diff_6mth_bl', 'CHEPS_C8_diff_12mth_bl', 'CHEPS_T4_diff_6mth_bl', 'CHEPS_T4_diff_12mth_bl']]
+
+    # Rename 6mnt and 12mnt columns to 6m and 12m
+    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_6mth', '_6m')
+    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_12mth', '_12m')
+
+    # Insert participant_id column from df_participants to electrophysiology_df based on record_id
+    electrophysiology_df = pd.merge(electrophysiology_df, df_participants[['record_id', 'participant_id']],
+                                    on='record_id', how='outer', sort=True)
+    electrophysiology_df = electrophysiology_df.set_index(['participant_id'])
+
+    return electrophysiology_df
+
+
+def read_anatomical_file(file_path, df_participants):
+    """
+    Read anatomical data
+    :param file_path: path to excel file
+    :param df_participants: Pandas DataFrame with participant data
+    :return anatomical_df: Pandas DataFrame with anatomical data
     """
     if os.path.isfile(file_path):
         print('Reading: {}'.format(file_path))
@@ -188,6 +220,22 @@ def read_electrophysiology_anatomical_and_motion_file(file_path, df_participants
                              how='outer', sort=True)
     anatomical_df = anatomical_df.set_index(['participant_id'])
 
+    return anatomical_df
+
+
+def read_motion_file(file_path, df_participants):
+    """
+    Read electrophysiology, anatomical, and motion data
+    :param file_path: path to excel file
+    :param df_participants: Pandas DataFrame with participant data
+    :return motion_df: Pandas DataFrame with motion data
+    """
+    if os.path.isfile(file_path):
+        print('Reading: {}'.format(file_path))
+        df_all = pd.read_excel(file_path)
+    else:
+        raise FileNotFoundError(f'{file_path} not found')
+
     # Segmental motion data:
     #   - displacement [mm] = area under the curve of the motion plot
     #   - amplitude [cm/s] = range from maximum positive to maximum negativ velocity values
@@ -203,24 +251,7 @@ def read_electrophysiology_anatomical_and_motion_file(file_path, df_participants
                          how='outer', sort=True)
     motion_df = motion_df.set_index(['participant_id'])
 
-    # Electrophysiology data:
-    # - dermatomal SEP (dSEP) with stimulation at C6 and C8 (only few pathologic results)
-    # - dermatomal contact heat evoked potentials (CHEPS) with stimulation at C6, C8 and T4
-    electrophysiology_df = df_all[['record_id', 'dSEP_C6_both_patho_bl', 'dSEP_C8_both_patho_bl', 'CHEPS_C6_patho_bl', 'CHEPS_C8_patho_bl', 'CHEPS_T4_grading_patho_bl',
-                                   'dSEP_C6_both_patho_6mth', 'dSEP_C8_both_patho_6mth', 'CHEPS_C6_patho_6mth', 'CHEPS_C8_patho_6mth', 'CHEPS_T4_patho_6mth',
-                                   'dSEP_C6_both_patho_12mth', 'dSEP_C8_both_patho_12mth', 'CHEPS_C6_patho_12mth', 'CHEPS_C8_patho_12mth', 'CHEPS_T4_patho_12mth',
-                                   'CHEPS_C6_diff_6mth_bl', 'CHEPS_C6_diff_12mth_bl', 'CHEPS_C8_diff_6mth_bl', 'CHEPS_C8_diff_12mth_bl', 'CHEPS_T4_diff_6mth_bl', 'CHEPS_T4_diff_12mth_bl']]
-
-    # Rename 6mnt and 12mnt columns to 6m and 12m
-    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_6mth', '_6m')
-    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_12mth', '_12m')
-
-    # Insert participant_id column from df_participants to electrophysiology_df based on record_id
-    electrophysiology_df = pd.merge(electrophysiology_df, df_participants[['record_id', 'participant_id']],
-                                    on='record_id', how='outer', sort=True)
-    electrophysiology_df = electrophysiology_df.set_index(['participant_id'])
-
-    return anatomical_df, motion_df, electrophysiology_df
+    return motion_df
 
 
 def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometric):
