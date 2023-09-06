@@ -30,7 +30,7 @@ import statsmodels.api as sm
 
 from utils.utils import SmartFormatter, format_pvalue, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
-    read_electrophysiology_anatomical_and_motion_file, merge_anatomical_morphological_final_for_pred
+    read_electrophysiology_file, read_anatomical_file, read_motion_file, merge_anatomical_morphological_final_for_pred
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, gen_chart_weight_height, \
     plot_correlation_for_clinical_scores, plot_correlations_motion_and_morphometric_metrics, \
     plot_correlations_anatomical_and_morphometric_metrics
@@ -72,22 +72,33 @@ def get_parser():
         '-input-file',
         required=True,
         metavar='<file_path>',
-        help="Path to csv file with computed morphometric metrics")
+        help="Path to the CSV file with computed morphometric metrics")
     parser.add_argument(
         '-participants-file',
         required=True,
         metavar='<file_path>',
-        help="dcm-zurich participants.tsv file")
+        help="Path to the dcm-zurich participants.tsv file")
     parser.add_argument(
         '-clinical-file',
         required=True,
         metavar='<file_path>',
-        help="excel file with clinical data")
+        help="Path to the Excel file with clinical scores such as mJOA, Nurick, ASIA. Example: clinical_scores.xlsx")
+    parser.add_argument(
+        '-anatomical-file',
+        required=True,
+        metavar='<file_path>',
+        help="Path to the Excel file with anatomical data (aSCOR and aMSCC). Example: anatomical_data.xlsx")
     parser.add_argument(
         '-electro-file',
         required=True,
         metavar='<file_path>',
-        help="excel file with electrophysiology and anatomical data")
+        help="Path to the Excel file with electrophysiology such as SEP, CHEPS. Example: "
+             "electrophysiological_measurements.xlsx")
+    parser.add_argument(
+        '-motion-file',
+        required=True,
+        metavar='<file_path>',
+        help="Path to the Excel file with motion data (amplitude and displacement). Example: motion_data.xlsx")
     parser.add_argument(
         '-path-out',
         required=True,
@@ -700,8 +711,9 @@ def main():
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
     # Read electrophysiology, anatomical, and motion data
-    anatomical_df, motion_df, electrophysiology_df = read_electrophysiology_anatomical_and_motion_file(
-        args.electro_file, df_participants)
+    electrophysiology_df = read_electrophysiology_file(args.electro_file, df_participants)
+    anatomical_df = read_anatomical_file(args.anatomical_file, df_participants)
+    motion_df = read_motion_file(args.motion_file, df_participants)
 
     # Read CSV file with computed metrics as Pandas DataFrame
     df_morphometrics = read_metric_file(args.input_file, dict_exclude_subj, df_participants)
