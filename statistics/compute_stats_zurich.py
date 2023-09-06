@@ -264,7 +264,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     if regressors:
         X = X[regressors]
 
-    fig, ax = plt.subplots(figsize=(6, 6))
+    fig, ax = plt.subplots(figsize=(10, 6))
     #kf = StratifiedKFold(n_splits=10, shuffle=True)
     kf = RepeatedStratifiedKFold(n_splits=10, n_repeats=100)
     scores = []
@@ -443,11 +443,11 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     y_z_score = df_reg_all['therapeutic_decision'].astype(int)
     df_z_score = get_z_score(df_reg_all)
     # Do composite z_score for no norm between area, diameter_AP, diameter_RL
-    df_z_score['composite_zscore'] = df_z_score[['area_ratio_zscore', 'diameter_AP_zscore', 'diameter_RL_zscore']].mean(
+    df_z_score['composite_zscore'] = df_z_score[['area_ratio_zscore', 'diameter_AP_ratio_zscore', 'diameter_RL_ratio_zscore']].mean(
         axis=1)
     # Do composite z_score for norm between area, diameter_AP, diameter_RL TODO: maybe remove diameter RL?
     df_z_score['composite_zscore_norm'] = df_z_score[
-        ['area_ratio_PAM50_normalized_zscore', 'diameter_AP_PAM50_normalized_zscore', 'diameter_RL_PAM50_normalized_zscore']].mean(axis=1)
+        ['area_ratio_PAM50_normalized_zscore', 'diameter_AP_ratio_PAM50_normalized_zscore', 'diameter_RL_ratio_PAM50_normalized_zscore']].mean(axis=1)
     # mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
     # print(mean_zscore['diameter_AP_zscore'])
     mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
@@ -712,6 +712,7 @@ def main():
 
     # Read electrophysiology, anatomical, and motion data
     electrophysiology_df = read_electrophysiology_file(args.electro_file, df_participants)
+    print(electrophysiology_df)
     anatomical_df = read_anatomical_file(args.anatomical_file, df_participants)
     motion_df = read_motion_file(args.motion_file, df_participants)
 
@@ -777,7 +778,9 @@ def main():
                                   'diameter_AP_ratio_PAM50',
                                   'area_ratio_PAM50',
                                   'solidity_ratio_PAM50',
-                                  'eccentricity_ratio_PAM50'
+                                  'eccentricity_ratio_PAM50',
+                                  'amp_ax_or_sag',
+                                  'disp_ax_or_sag'
 
                                   #'weight',  # missing data - TODO - try this
                                   #'height'   # missing data - TODO - try this
