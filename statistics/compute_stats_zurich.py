@@ -20,6 +20,7 @@ import numpy as np
 import scipy.stats as stats
 import matplotlib.pyplot as plt
 from textwrap import dedent
+import seaborn as sns
 from sklearn.linear_model import LogisticRegression
 import sklearn.metrics
 from sklearn.feature_selection import RFE
@@ -195,6 +196,11 @@ def compute_stepwise(y, x, threshold_in, threshold_out, method):
 
     """
     # Print columns names for x (print list with 2 elements per line --> better for copy-paste)
+    # Shuffle columns of x:
+    import random
+    columns = list(x.columns)
+    random.shuffle(columns)
+    x = x.reindex(columns=columns)
     print('Candidate predictors: ')
     for i in range(0, len(list(x.columns)), 2):
         print(list(x.columns)[i:i+2])
@@ -210,9 +216,12 @@ def compute_stepwise(y, x, threshold_in, threshold_out, method):
             if method == 'linear':
                 model = sm.OLS(y, x[included+[new_column]]).fit()       # Computes linear regression
             elif method == 'logistic':
+                print('columns:', included+[new_column])
                 model = sm.Logit(y, x[included+[new_column]]).fit()     # Computes logistic regression
+            print(model.pvalues[new_column])
             new_pval[new_column] = model.pvalues[new_column]
         best_pval = new_pval.min()
+        print(best_pval)
         if best_pval < threshold_in:
             best_predictor = excluded[new_pval.argmin()]  # Gets the predictor with the lowest p_value
             included.append(best_predictor)  # Adds best predictor to included predictor list
@@ -264,7 +273,8 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     if regressors:
         X = X[regressors]
 
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=(6, 6))
+    sns.set_style("ticks", {'axes.grid': True})
     #kf = StratifiedKFold(n_splits=10, shuffle=True)
     kf = RepeatedStratifiedKFold(n_splits=10, n_repeats=100)
     scores = []
@@ -272,19 +282,19 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     tpr_all = []
     auc_all = []
     mean_fpr = np.linspace(0, 1, 100)
-    
+
     for fold, (train, test) in enumerate(kf.split(X, y)):
         x_train = X.iloc[train]
         x_test = X.iloc[test]
         y_train = y.iloc[train]
         y_test = y.iloc[test]
-        logreg = LogisticRegression()
+        logreg = LogisticRegression(solver='liblinear')
         logreg.fit(x_train, y_train)
         scores.append(logreg.score(x_test, y_test))
 
         y_pred = logreg.predict(x_test)
-      #  print('Accuracy of logistic regression classifier on test set: {:.6f}'.format(logreg.score(x_test, y_test)))
-       # print(sklearn.metrics.classification_report(y_test, y_pred))
+        # print('Accuracy of logistic regression classifier on test set: {:.6f}'.format(logreg.score(x_test, y_test)))
+        # print(sklearn.metrics.classification_report(y_test, y_pred))
 
         # ROC and AUC
         auc_val = sklearn.metrics.roc_auc_score(y_test, y_pred)
@@ -296,9 +306,9 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
         tpr_all.append(interp_tpr)
        # plt.plot(fpr, tpr, label=f'Logistic Regression (area = %0.2f) fold {fold}' % auc_val)
        # plt.plot(fpr, tpr)
-    
+
     ax.plot([0, 1], [0, 1], "k--", label="chance level (AUC = 0.5)")
-    
+
     mean_tpr = np.mean(np.array(tpr_all), axis=0)
     mean_tpr[-1] = 1.0
     mean_auc = auc(mean_fpr, mean_tpr)
@@ -324,7 +334,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
         lw=2,
         alpha=0.8
     )
-    
+
     std_tpr = np.std(tpr_all, axis=0)
     tprs_upper = np.minimum(mean_tpr + std_tpr, 1)
     tprs_lower = np.maximum(mean_tpr - std_tpr, 0)
@@ -417,6 +427,7 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     # 2. Compute metrics on models (precision, recall, AUC, ROC curve)
     logger.info('Testing both models and computing ROC curve and AUC')
     logger.info('No Normalization')
+
     fit_model_metrics(x, y, included, path_out)
     logger.info('Normalization')
     fit_model_metrics(x_norm, y, included_norm, path_out, 'Log_ROC_norm')
@@ -654,13 +665,21 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
     fit_reg(x_norm[included_norm], y, 'linear')
 
 
-# TODO:
-# 0. Exclude subjects
-# 1. Calcul statistique 2 groupes (mean ± std) --> DONE
-# 1.1. Calcul de proportion  --> DONE
-# 1.2. Matrice de correlation   --> DONE
-# 2. Binary logistic regression (stepwise)
-# 3. Stastitical test myelopathy with Ratio --> if worse compression is associated with Myelopathy --> DONE
+def compute_pca(df):
+    print(df.columns)
+    df = df.dropna(axis=0)
+    df = df.drop(columns=['therapeutic_decision'])
+    from sklearn.preprocessing import StandardScaler
+    # Preprocess
+    std_scaler = StandardScaler()
+    scaled_df = std_scaler.fit_transform(df)
+
+    # Run PCA
+    from sklearn.decomposition import PCA
+    pca = PCA(n_components=6)
+    pca.fit_transform(scaled_df)
+    logger.info(pca.components_)
+    print(pca.explained_variance_ratio_)
 
 
 def main():
@@ -705,14 +724,13 @@ def main():
     clinical_df = read_clinical_file(args.clinical_file)
 
     # Plot correlation matrix for clinical scores
-    plot_correlation_for_clinical_scores(clinical_df, path_out, logger)
+   # plot_correlation_for_clinical_scores(clinical_df, path_out, logger)
 
     # Merge clinical scores (mJOA, ASIA, GRASSP) to participant.tsv
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
     # Read electrophysiology, anatomical, and motion data
     electrophysiology_df = read_electrophysiology_file(args.electro_file, df_participants)
-    print(electrophysiology_df)
     anatomical_df = read_anatomical_file(args.anatomical_file, df_participants)
     motion_df = read_motion_file(args.motion_file, df_participants)
 
@@ -726,14 +744,14 @@ def main():
     final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
 
     # Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
-    plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger)
+   # plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger)
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
-    plot_correlations_motion_and_morphometric_metrics(final_df, path_out, logger)
+  #  plot_correlations_motion_and_morphometric_metrics(final_df, path_out, logger)
 
     # Change SEX for 0 and 1
     final_df = final_df.replace({"sex": {'F': 0, 'M': 1}})
-    # Change LEVELS fro numbers
+    # Change LEVELS for numbers
     final_df = final_df.replace({"level": DICT_DISC_LABELS})
     # Change therapeutic decision for 0 and 1
     final_df = final_df.replace({"therapeutic_decision": {'conservative': 0, 'operative': 1}})
@@ -745,22 +763,23 @@ def main():
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
     logger.info(f'Number of subjects (after dropping subjects with NaN values): {number_subjects}')
-    
+
     # Loop across metrics
-    for metric in METRICS:
-        # Create charts mJOA vs individual metrics (both normalized and not normalized)
-        gen_chart_corr_mjoa_mscc(final_df, metric, 'total_mjoa', path_out, logger)
-        # Plot scatter plot normalized vs not normalized
-        logger.info(f'Correlation {metric} norm vs no norm')
-        gen_chart_norm_vs_no_norm(final_df, metric, path_out, logger)
-    
+    # for metric in METRICS:
+    #     # Create charts mJOA vs individual metrics (both normalized and not normalized)
+    #     gen_chart_corr_mjoa_mscc(final_df, metric, 'total_mjoa', path_out, logger)
+    #     # Plot scatter plot normalized vs not normalized
+    #     logger.info(f'Correlation {metric} norm vs no norm')
+    #     gen_chart_norm_vs_no_norm(final_df, metric, path_out, logger)
+
     # Create sub-dataset to compute logistic regression
     df_reg = final_df.copy()
 
     # Change myelopathy for yes no column
     df_reg['myelopathy'].fillna(0, inplace=True)
     df_reg.loc[df_reg['myelopathy'] != 0, 'myelopathy'] = 1
-    print(df_reg.columns)
+
+
     # Drop useless columns
     df_reg = df_reg.drop(columns=['record_id',
                                   'pathology',
@@ -780,13 +799,15 @@ def main():
                                   'solidity_ratio_PAM50',
                                   'eccentricity_ratio_PAM50',
                                   'amp_ax_or_sag',
-                                  'disp_ax_or_sag'
+                                  'disp_ax_or_sag'#,
 
                                   #'weight',  # missing data - TODO - try this
                                   #'height'   # missing data - TODO - try this
                                   ])
-    
+    # Do a PCA
+
     df_reg.set_index(['participant_id'], inplace=True)
+    #compute_pca(df_reg)
     df_reg_all = df_reg.copy()
     print(df_reg.columns.values)
     df_reg_norm = df_reg.copy()
@@ -794,7 +815,7 @@ def main():
     df_reg_norm.drop(inplace=True, columns=METRICS)
 
     # Create sns.regplot between sex and weight
-    gen_chart_weight_height(df_reg, path_out, logger)
+  #  gen_chart_weight_height(df_reg, path_out, logger)
 
     # get mean ± std of predictors
     logger.info('Computing mean ± std')
