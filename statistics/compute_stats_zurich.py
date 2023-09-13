@@ -31,7 +31,8 @@ import statsmodels.api as sm
 
 from utils.utils import SmartFormatter, format_pvalue, fit_reg
 from utils.read_files import read_metric_file, read_participants_file, read_clinical_file, \
-    read_electrophysiology_file, read_anatomical_file, read_motion_file, merge_anatomical_morphological_final_for_pred
+    read_electrophysiology_file, read_anatomical_file, read_motion_file, read_motion_file_maximum_stenosis,\
+    merge_anatomical_morphological_final_for_pred
 from utils.generate_figures import gen_chart_norm_vs_no_norm, gen_chart_corr_mjoa_mscc, gen_chart_weight_height, \
     plot_correlation_for_clinical_scores, plot_correlations_motion_and_morphometric_metrics, \
     plot_correlations_anatomical_and_morphometric_metrics
@@ -99,7 +100,8 @@ def get_parser():
         '-motion-file',
         required=True,
         metavar='<file_path>',
-        help="Path to the Excel file with motion data (amplitude and displacement). Example: motion_data.xlsx")
+        help="Path to the Excel file with motion data (amplitude and displacement). Example: motion_data.xlsx or "
+             "motion_data_maximum_stenosis.xlsx")
     parser.add_argument(
         '-path-out',
         required=True,
@@ -729,19 +731,29 @@ def main():
     # Merge clinical scores (mJOA, ASIA, GRASSP) to participant.tsv
     df_participants = pd.merge(df_participants, clinical_df, on='record_id', how='outer', sort=True)
 
-    # Read electrophysiology, anatomical, and motion data
-    electrophysiology_df = read_electrophysiology_file(args.electro_file, df_participants)
-    anatomical_df = read_anatomical_file(args.anatomical_file, df_participants)
-    motion_df = read_motion_file(args.motion_file, df_participants)
-
     # Read CSV file with computed metrics as Pandas DataFrame
     df_morphometrics = read_metric_file(args.input_file, dict_exclude_subj, df_participants)
 
-    # Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
-    # morphometrics
-    df_clinical_all = merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometrics)
-    # Merge df_clinical_all to participant.tsv
-    final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
+    # Read electrophysiology, anatomical, and motion data
+    electrophysiology_df = read_electrophysiology_file(args.electro_file, df_participants)
+    anatomical_df = read_anatomical_file(args.anatomical_file, df_participants)
+    if 'maximum_stenosis' in args.motion_file:
+        motion_df = read_motion_file_maximum_stenosis(args.motion_file, df_participants)
+        # Aggregate anatomical from the maximum level of compression and merge them with computed morphometrics
+        # Note: we do not aggregate motion scores because we are reading the maximum stenosis file the command before
+        df_clinical_all = merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometrics,
+                                                                        add_motion=False)
+        # Merge df_clinical_all to participant.tsv
+        final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
+        final_df = pd.merge(final_df, motion_df, on='participant_id', how='outer', sort=True)
+    else:
+        motion_df = read_motion_file(args.motion_file, df_participants)
+        # Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
+        # morphometrics
+        df_clinical_all = merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometrics,
+                                                                        add_motion=True)
+        # Merge df_clinical_all to participant.tsv
+        final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
 
     # Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
    # plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger)

@@ -225,7 +225,7 @@ def read_anatomical_file(file_path, df_participants):
 
 def read_motion_file(file_path, df_participants):
     """
-    Read electrophysiology, anatomical, and motion data
+    Read motion data
     :param file_path: path to excel file
     :param df_participants: Pandas DataFrame with participant data
     :return motion_df: Pandas DataFrame with motion data
@@ -254,7 +254,36 @@ def read_motion_file(file_path, df_participants):
     return motion_df
 
 
-def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometric):
+def read_motion_file_maximum_stenosis(file_path, df_participants):
+    """
+    Read motion data from the maximum stenosis
+    :param file_path: path to excel file
+    :param df_participants: Pandas DataFrame with participant data
+    :return motion_df: Pandas DataFrame with motion data
+    """
+    if os.path.isfile(file_path):
+        print('Reading: {}'.format(file_path))
+        df_all = pd.read_excel(file_path)
+    else:
+        raise FileNotFoundError(f'{file_path} not found')
+
+    # Segmental motion data:
+    #   - displacement [mm] = area under the curve of the motion plot
+    #   - amplitude [cm/s] = range from maximum positive to maximum negativ velocity values
+    motion_df = df_all[['record_ID_bl', 'amp_max_sten_sag_or_ax1_or_ax2_bl', 'disp_max_sten_sag_or_ax1_or_ax2_mm_bl']]
+
+    # Rename record_ID_bl to record_id
+    motion_df = motion_df.rename(columns={'record_ID_bl': 'record_id'})
+
+    # Insert participant_id column from df_participants to motion_df based on record_id
+    motion_df = pd.merge(motion_df, df_participants[['record_id', 'participant_id']], on='record_id',
+                         how='outer', sort=True)
+    motion_df = motion_df.set_index(['participant_id'])
+
+    return motion_df
+
+
+def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_morphometric, add_motion=False):
     """
     Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
     morphometrics
@@ -271,7 +300,8 @@ def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_m
             # Add scores at maximum level of compression
             final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aSCOR_' + level_conversion]
             final_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC'] = anatomical_df.loc[final_df.index[final_df['level']==level].tolist(), 'aMSCC_' + level_conversion + 'toC2']
-            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'amp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_amp_ax_or_sag']
-            final_df.loc[final_df.index[final_df['level']==level].tolist(), 'disp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_disp_ax_or_sag']
+            if add_motion:
+                final_df.loc[final_df.index[final_df['level']==level].tolist(), 'amp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_amp_ax_or_sag']
+                final_df.loc[final_df.index[final_df['level']==level].tolist(), 'disp_ax_or_sag'] = motion_df.loc[final_df.index[final_df['level']==level].tolist(), level_conversion+ '_disp_ax_or_sag']
 
     return final_df
