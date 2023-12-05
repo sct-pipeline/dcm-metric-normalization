@@ -203,27 +203,30 @@ def compute_stepwise(y, x, threshold_in, threshold_out, method):
     columns = list(x.columns)
     random.shuffle(columns)
     x = x.reindex(columns=columns)
-    print('Candidate predictors: ')
+    logger.info('Candidate predictors: ')
     for i in range(0, len(list(x.columns)), 2):
-        print(list(x.columns)[i:i+2])
+        logger.info(list(x.columns)[i:i+2])
     included = []  # Initialize a list for included predictors in the model
+    i=0
     while True:
+        i+=1
+        logger.info('Iteration {}'.format(i))
         changed = False
         # Forward step
         excluded = list(set(x.columns)-set(included))
         new_pval = pd.Series(index=excluded, dtype=np.float64)
 
         for new_column in excluded:
-            print(new_column)
+            logger.info('\n')
+            logger.info(new_column)
             if method == 'linear':
                 model = sm.OLS(y, x[included+[new_column]]).fit()       # Computes linear regression
             elif method == 'logistic':
-                print('columns:', included+[new_column])
                 model = sm.Logit(y, x[included+[new_column]]).fit()     # Computes logistic regression
-            print(model.pvalues[new_column])
+            logger.info(model.pvalues[new_column])
             new_pval[new_column] = model.pvalues[new_column]
         best_pval = new_pval.min()
-        print(best_pval)
+        logger.info(best_pval)
         if best_pval < threshold_in:
             best_predictor = excluded[new_pval.argmin()]  # Gets the predictor with the lowest p_value
             included.append(best_predictor)  # Adds best predictor to included predictor list
@@ -233,12 +236,15 @@ def compute_stepwise(y, x, threshold_in, threshold_out, method):
         # backward step
         if method == 'linear':
             model = sm.OLS(y, x[included]).fit()    # Computes linear regression with included predictor
+            pvalues = model.pvalues.iloc[1:]
         elif method == 'logistic':
             model = sm.Logit(y, x[included]).fit()  # Computes logistic regression with included predictor
+            pvalues = model.pvalues
         # Use all coefs except intercept
-        pvalues = model.pvalues.iloc[1:]
+        print('p-values', model.pvalues)
         # Gets the worst p-value of the model
         worst_pval = pvalues.max()  # null if pvalues is empty
+        logger.info('worst p-value: {}'.format(worst_pval))
         if worst_pval > threshold_out:
             changed = True
             worst_predictor = included[pvalues.argmax()]  # gets the predictor with worst p-value
@@ -369,7 +375,7 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     #plt.legend(bbox_to_anchor=(1.05, 1), loc="center left")
     plt.savefig(os.path.join(path_out, filename), bbox_inches="tight")
     plt.close()
-    print('Saved ROC curve to {}'.format(os.path.join(path_out, filename)))
+    logger.info('Saved ROC curve to {}'.format(os.path.join(path_out, filename)))
 
     logger.info(f'Mean accuracy: {np.mean(scores)} ± {np.std(scores)}')
 
@@ -394,13 +400,13 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     df_reg_norm = df_reg_norm[[col for col in df_reg_norm.columns if not ('6m' in col or '12m' in col)]]
 
     # Drop rows with missing values
-    print(f'Non-normalized MRI metrics - number of rows before dropping missing values: {df_reg.shape[0]}')
+    logger.info(f'Non-normalized MRI metrics - number of rows before dropping missing values: {df_reg.shape[0]}')
     df_reg.dropna(inplace=True)
-    print(f'Non-normalized MRI metrics - number of rows after dropping missing values: {df_reg.shape[0]}')
+    logger.info(f'Non-normalized MRI metrics - number of rows after dropping missing values: {df_reg.shape[0]}')
 
-    print(f'Normalized MRI metrics - number of rows before dropping missing values: {df_reg_norm.shape[0]}')
+    logger.info(f'Normalized MRI metrics - number of rows before dropping missing values: {df_reg_norm.shape[0]}')
     df_reg_norm.dropna(inplace=True)
-    print(f'Normalized MRI metrics - number of rows after dropping missing values: {df_reg_norm.shape[0]}')
+    logger.info(f'Normalized MRI metrics - number of rows after dropping missing values: {df_reg_norm.shape[0]}')
 
     # Model without normalization
     logger.info('\nFitting Logistic regression on all variables (no normalization)')
@@ -414,7 +420,12 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     included = compute_stepwise(y, x, p_in, p_out, 'logistic')
     logger.info(f'Included repressors are: {included}')
     # Fit logistic regression model on included variables
-    fit_reg(x[included], y, 'logistic')
+    fit_reg(x[included], y, 'logistic', logger)
+
+    # Fit a model on all regressors:
+    #logger.info('Model on all columns:')
+    #fit_reg(x, y, 'logistic')
+
 
     # Model with normalization
     logger.info('\n Fitting Logistic regression on all variables (normalization)')
@@ -424,15 +435,23 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'logistic')
     logger.info(f'Included repressors are: {included_norm}')
     # Fit logistic regression model on included variables
-    fit_reg(x_norm[included_norm], y, 'logistic')
+    fit_reg(x_norm[included_norm], y, 'logistic', logger)
+    # Compute ROC curve
+    fit_model_metrics(x, y, path_out=path_out, filename='Log_ROC_allreg')
+    # Fit a model on all regressors:
+    logger.info('Model on all columns:')
+    #fit_reg(x_norm, y, 'logistic')
+    # Compute ROC curve
+    fit_model_metrics(x_norm, y, path_out=path_out, filename='Log_ROC_allreg_norm')
+
 
     # 2. Compute metrics on models (precision, recall, AUC, ROC curve)
     logger.info('Testing both models and computing ROC curve and AUC')
     logger.info('No Normalization')
 
-    fit_model_metrics(x, y, included, path_out)
+    fit_model_metrics(x, y, included, path_out=path_out)
     logger.info('Normalization')
-    fit_model_metrics(x_norm, y, included_norm, path_out, 'Log_ROC_norm')
+    fit_model_metrics(x_norm, y, included_norm, path_out=path_out, filename='Log_ROC_norm')
 
     # 3. Statistical test myelopathy with Ratio --> if worse compression is associated with Myelopathy
     compute_test_myelopathy(df_reg_all)
@@ -464,20 +483,19 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     # mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
     # print(mean_zscore['diameter_AP_zscore'])
     mean_zscore = df_z_score.groupby('therapeutic_decision').agg([np.mean])
-    print(mean_zscore['composite_zscore'])
-    print(mean_zscore['composite_zscore_norm'])
+    logger.info(mean_zscore['composite_zscore'])
+    logger.info(mean_zscore['composite_zscore_norm'])
 
     # 6. Redo Logistic regression using composite z_score instead
     logger.info('Testing both models and computing ROC curve and AUC with composite z_score')
     logger.info('No Normalization')
     x = df_z_score[['total_mjoa', 'level', 'composite_zscore']]
     # Fit logistic regression model on included variables
-    print(x, y)
-    fit_reg(x, y_z_score, 'logistic')
+    fit_reg(x, y_z_score, 'logistic', logger)
     fit_model_metrics(x, y_z_score, path_out=path_out, filename='Log_ROC_zscore')
     logger.info('Normalization')
     x_norm = df_z_score[['total_mjoa', 'level', 'composite_zscore_norm']]
-    fit_reg(x_norm, y_z_score, 'logistic')
+    fit_reg(x_norm, y_z_score, 'logistic', logger)
     fit_model_metrics(x_norm, y_z_score, path_out=path_out, filename='Log_ROC_norm_zscore')
 
 
@@ -501,7 +519,7 @@ def predict_mjoa_m6(df_reg, df_reg_norm):
     x = x.astype(float)
 
     # Fit linear regression model on all variables - to get p-values for all variables
-    fit_reg(x, y, 'linear')
+    fit_reg(x, y, 'linear', logger)
 
     # P_values for forward and backward stepwise
     p_in = 0.05
@@ -510,7 +528,7 @@ def predict_mjoa_m6(df_reg, df_reg_norm):
     included = compute_stepwise(y, x, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included}')
     # Fit linear regression model on included variables
-    fit_reg(x[included], y, 'linear')
+    fit_reg(x[included], y, 'linear', logger)
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
@@ -524,7 +542,7 @@ def predict_mjoa_m6(df_reg, df_reg_norm):
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included_norm}')
     # Fit linear regression model on included variables
-    fit_reg(x_norm[included_norm], y, 'linear')
+    fit_reg(x_norm[included_norm], y, 'linear', logger)
 
 
 def predict_mjoa_m6_diff(df_reg, df_reg_norm):
@@ -556,7 +574,7 @@ def predict_mjoa_m6_diff(df_reg, df_reg_norm):
     x = x.astype(float)
 
     # Fit linear regression model on all variables - to get p-values for all variables
-    fit_reg(x, y, 'linear')
+    fit_reg(x, y, 'linear', logger)
 
     # P_values for forward and backward stepwise
     p_in = 0.05
@@ -565,7 +583,7 @@ def predict_mjoa_m6_diff(df_reg, df_reg_norm):
     included = compute_stepwise(y, x, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included}')
     # Fit linear regression model on included variables
-    fit_reg(x[included], y, 'linear')
+    fit_reg(x[included], y, 'linear', logger)
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
@@ -573,13 +591,13 @@ def predict_mjoa_m6_diff(df_reg, df_reg_norm):
     x_norm = x_norm.astype(float)
 
     # Fit linear regression model on all variables - to get p-values for all variables
-    fit_reg(x_norm, y, 'linear')
+    fit_reg(x_norm, y, 'linear', logger)
 
     logger.info('Stepwise:')
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included_norm}')
     # Fit linear regression model on included variables
-    fit_reg(x_norm[included_norm], y, 'linear')
+    fit_reg(x_norm[included_norm], y, 'linear', logger)
 
 
 def predict_mjoa_m12(df_reg, df_reg_norm):
@@ -607,7 +625,7 @@ def predict_mjoa_m12(df_reg, df_reg_norm):
     included = compute_stepwise(y, x, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included}')
     # Fit linear regression model on included variables
-    fit_reg(x[included], y, 'linear')
+    fit_reg(x[included], y, 'linear', logger)
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
@@ -617,7 +635,7 @@ def predict_mjoa_m12(df_reg, df_reg_norm):
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included_norm}')
     # Fit linear regression model on included variables
-    fit_reg(x_norm[included_norm], y, 'linear')
+    fit_reg(x_norm[included_norm], y, 'linear', logger)
 
 
 def predict_mjoa_m12_diff(df_reg, df_reg_norm):
@@ -654,7 +672,7 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
     included = compute_stepwise(y, x, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included}')
     # Fit linear regression model on included variables
-    fit_reg(x[included], y, 'linear')
+    fit_reg(x[included], y, 'linear', logger)
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
@@ -664,11 +682,11 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
     logger.info(f'Included repressors are: {included_norm}')
     # Fit linear regression model on included variables
-    fit_reg(x_norm[included_norm], y, 'linear')
+    fit_reg(x_norm[included_norm], y, 'linear', logger)
 
 
 def compute_pca(df):
-    print(df.columns)
+    logger.info(df.columns)
     df = df.dropna(axis=0)
     df = df.drop(columns=['therapeutic_decision'])
     from sklearn.preprocessing import StandardScaler
@@ -681,7 +699,7 @@ def compute_pca(df):
     pca = PCA(n_components=6)
     pca.fit_transform(scaled_df)
     logger.info(pca.components_)
-    print(pca.explained_variance_ratio_)
+    logger.info(pca.explained_variance_ratio_)
 
 
 def main():
@@ -746,6 +764,8 @@ def main():
         # Merge df_clinical_all to participant.tsv
         final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
         final_df = pd.merge(final_df, motion_df, on='participant_id', how='outer', sort=True)
+        # Add electro data
+        final_df = pd.merge(final_df, electrophysiology_df, on='participant_id', how='outer', sort=True)
     else:
         motion_df = read_motion_file(args.motion_file, df_participants)
         # Aggregate anatomical and motion scores from the maximum level of compression and merge them with computed
@@ -754,7 +774,8 @@ def main():
                                                                         add_motion=True)
         # Merge df_clinical_all to participant.tsv
         final_df = pd.merge(df_participants, df_clinical_all, on='participant_id', how='outer', sort=True)
-
+        final_df = pd.merge(final_df, electrophysiology_df, on='participant_id', how='outer', sort=True)
+    logger.info(final_df.columns)
     # Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
    # plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger)
 
@@ -793,8 +814,11 @@ def main():
 
 
     # Drop useless columns
-    df_reg = df_reg.drop(columns=['record_id',
-                                  'pathology',
+    df_reg = df_reg.drop(columns=['pathology',
+                                  'record_id',
+                                  'record_id_y',
+                                  'record_id_x',
+                                  'compression_level',
                                   'date_previous_surgery',
                                   'surgery_date',
                                   'date_of_scan',
@@ -810,18 +834,23 @@ def main():
                                   'area_ratio_PAM50',
                                   'solidity_ratio_PAM50',
                                   'eccentricity_ratio_PAM50',
-                                  'amp_ax_or_sag',
-                                  'disp_ax_or_sag'#,
+                                  #'dSEP_C6_both_patho_bl',  # missing data
+                                  #'dSEP_C8_both_patho_bl',  # missing data
+                                  #'CHEPS_C6_patho_bl',  # missing data
+                                  #'CHEPS_C8_patho_bl',
+                                  #'CHEPS_T4_grading_patho_bl', #,  # missing data
+                                  #'amp_max_sten_sag_or_ax1_or_ax2_bl',
+                                  #'disp_max_sten_sag_or_ax1_or_ax2_mm_bl'#,
+                                  'dSEP_both_patho_bl',
+                                  'CHEPS_patho_bl'  # A lot of missing value and not sign.
 
                                   #'weight',  # missing data - TODO - try this
                                   #'height'   # missing data - TODO - try this
                                   ])
-    # Do a PCA
 
     df_reg.set_index(['participant_id'], inplace=True)
     #compute_pca(df_reg)
     df_reg_all = df_reg.copy()
-    print(df_reg.columns.values)
     df_reg_norm = df_reg.copy()
     df_reg.drop(inplace=True, columns=METRICS_NORM)
     df_reg_norm.drop(inplace=True, columns=METRICS)

@@ -182,6 +182,9 @@ def read_electrophysiology_file(file_path, df_participants):
     electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_6mth', '_6m')
     electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_12mth', '_12m')
 
+    # Merge dSEP and CHEPS
+    electrophysiology_df['dSEP_both_patho_bl'] = electrophysiology_df[["dSEP_C6_both_patho_bl", "dSEP_C8_both_patho_bl"]].sum(axis=1, min_count=1)
+    electrophysiology_df['CHEPS_patho_bl'] = electrophysiology_df[["CHEPS_C6_patho_bl", "CHEPS_C8_patho_bl", "CHEPS_T4_grading_patho_bl"]].sum(axis=1, min_count=1)
     # Insert participant_id column from df_participants to electrophysiology_df based on record_id
     electrophysiology_df = pd.merge(electrophysiology_df, df_participants[['record_id', 'participant_id']],
                                     on='record_id', how='outer', sort=True)
