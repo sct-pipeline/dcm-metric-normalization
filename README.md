@@ -29,11 +29,13 @@ or using the JSON configuration file:
 sct_run_batch -c etc/config_process_data.json
 ```
 
-> **Note** The `etc/config_process_data.json` configuration file is just a template --> you need to edit it to match your data.
+> [!NOTE]
+> The `etc/config_process_data.json` configuration file is just a template --> you need to edit it to match your data.
 
-> **Note** There is an `exclude.yml` file associated with each dataset under the `etc` folder. This file lists subjects/images which should be excluded from analyses. You can exclude those subjects using the `-exclude-list` flag (when running `sct_run_batch` from CLI) or the `exclude_list` key (when running `sct_run_batch` using JSON configuration file).
+> [!NOTE]
+> There is an `exclude.yml` file associated with each dataset under the `etc` folder. This file lists subjects/images which should be excluded from analyses. You can exclude those subjects using the `-exclude-list` flag (when running `sct_run_batch` from CLI) or the `exclude_list` key (when running `sct_run_batch` using JSON configuration file).
 
 ---
 
 > [!TIP]
->For manual corrections of spinal cord segmentations, please refer to this repository: [manual-correction](https://github.com/spinalcordtoolbox/manual-correction) and its [wiki](https://github.com/spinalcordtoolbox/manual-correction/wiki) for examples.
+> For manual corrections of spinal cord segmentations, please refer to this repository: [manual-correction](https://github.com/spinalcordtoolbox/manual-correction) and its [wiki](https://github.com/spinalcordtoolbox/manual-correction/wiki) for examples.
