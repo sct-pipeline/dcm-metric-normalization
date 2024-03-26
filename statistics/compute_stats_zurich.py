@@ -122,9 +122,33 @@ def get_parser():
     return parser
 
 
+def get_correlation_table(df):
+    """
+    Return correlation matrix of a DataFrame using Pearson's correlation coefficient, p-values of correlation coefficients and correlation matrix with level of significance *.
+    Args:
+        df (panda.DataFrame)
+    Returns:
+        corr_table (panda.DataFrame): correlation matrix of df
+        corr_table_pvalue (panda.DataFrame): p-values of correlation matrix of df
+        corr_table_and_p_value (panda.DataFrame): correlation matrix of df with level of significance labeled as *, ** or ***
+    """
+    # TODO: remove half
+    corr_table = df.corr(method='spearman')
+    corr_table_pvalue = df.corr(method=lambda x, y: stats.spearmanr(x, y)[1]) - np.eye(len(df.columns))
+    # Overcome smallest possible 64bit floating point
+    for column in corr_table_pvalue.columns:
+        for index in corr_table_pvalue.index:
+            if column != index and corr_table_pvalue.loc[index, column] == 0:
+                corr_table_pvalue.loc[index, column] = 1e-30
+    p = corr_table_pvalue.applymap(lambda x: ''.join(['*' for t in [0.001, 0.05, 0.01] if x <= t and x > 0]))
+    corr_table_and_p_value = corr_table.round(2).astype(str) + p
+    return corr_table, corr_table_pvalue, corr_table_and_p_value
+
+
 def compute_mean_std(df, path_out):
 
     # ADD tests
+    logger.info(f'Size df_reg_all after dropna: {df.shape[0]}')
 
     logger.info('MEAN and STD across all metrics:')
     mean_std_all = df.agg([np.mean, np.std])
@@ -337,10 +361,11 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
     ax.plot(
         mean_fpr,
         mean_tpr,
-        color="b",
+        color="blue",
         label=r"Mean ROC (AUC = %0.2f ± %0.2f)" % (mean_auc, std_auc),
         lw=2,
-        alpha=0.8
+        alpha=1,
+        zorder=10
     )
 
     std_tpr = np.std(tpr_all, axis=0)
@@ -365,12 +390,14 @@ def fit_model_metrics(X, y, regressors=None, path_out=None, filename='Log_ROC'):
         color="grey",
         alpha=0.3,
         label=r"± std.")
-    plt.plot([0, 1], [0, 1],'r--')
+    plt.plot([0, 1], [0, 1], color='red', linestyle='dashed')
     plt.xlim([-0.05, 1.05])
     plt.ylim([-0.05, 1.05])
-    plt.xlabel('False Positive Rate')
-    plt.ylabel('True Positive Rate')
-    plt.title('Receiver operating characteristic')
+    plt.xlabel('False Positive Rate', fontsize=12)
+    plt.ylabel('True Positive Rate', fontsize=12)
+    plt.title('Receiver operating characteristic', fontsize=14)
+    plt.yticks(fontsize=11)
+    plt.xticks(fontsize=11)
     plt.legend(loc="lower right")
     #plt.legend(bbox_to_anchor=(1.05, 1), loc="center left")
     plt.savefig(os.path.join(path_out, filename), bbox_inches="tight")
@@ -408,6 +435,7 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     df_reg_norm.dropna(inplace=True)
     logger.info(f'Normalized MRI metrics - number of rows after dropping missing values: {df_reg_norm.shape[0]}')
 
+
     # Model without normalization
     logger.info('\nFitting Logistic regression on all variables (no normalization)')
     x = df_reg.drop(columns=['therapeutic_decision'])  # Initialize x to data of predictors
@@ -422,9 +450,9 @@ def predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out):
     # Fit logistic regression model on included variables
     fit_reg(x[included], y, 'logistic', logger)
 
-    # Fit a model on all regressors:
+    #Fit a model on all regressors:
     #logger.info('Model on all columns:')
-    #fit_reg(x, y, 'logistic')
+    #fit_reg(x, y, 'logistic', logger)
 
 
     # Model with normalization
@@ -503,19 +531,26 @@ def predict_mjoa_m6(df_reg, df_reg_norm):
     """
     The dependent variable is mjoa_6m.
     """
-
     # Drop mjoa and mjoa_12m
-    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_12m'])
-    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_12m'])
+    df_reg.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_12m'])
+    df_reg_norm.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_12m'])
+  
+    # Drop useless columns
+    columns_to_drop=['motor_dysfunction_LE_bl', 'sphincter_dysfunction_bl', 'motor_dysfunction_UE_bl','dSEP_C8_both_patho_6m','CHEPS_C8_patho_6m','dSEP_C8_both_patho_12m','dSEP_C6_both_patho_12m', 'CHEPS_C8_patho_12m', 'CHEPS_T4_diff_12m_bl', 'total_dorsal_12m', 'CHEPS_T4_diff_6m_bl', 'lt_cervical_tot_6m', 'pp_cervical_tot_6m', 'pp_cervical_tot_12m','CHEPS_C6_patho_6m','CHEPS_C6_diff_12m_bl','CHEPS_T4_patho_12m','lt_cervical_tot_12m', 'total_dorsal_6m','CHEPS_C6_patho_12m','CHEPS_C8_diff_6m_bl', 'CHEPS_C8_diff_12m_bl', 'dSEP_C6_both_patho_6m', 'CHEPS_C6_diff_6m_bl', 'CHEPS_T4_patho_6m']
+    df_reg.drop(inplace=True, columns=columns_to_drop)
+    df_reg_norm.drop(inplace=True, columns=columns_to_drop)
 
-    # Drop rows (subjects) with NaN values for mjoa_6m
-    df_reg.dropna(axis=0, subset=['mjoa_6m'], inplace=True)
-    df_reg_norm.dropna(axis=0, subset=['mjoa_6m'], inplace=True)
+    # Keep only subject with therapeutic_decision == 0, i.e. no surgery.
+    # Otherwise, the only predictor is therapeutic_decision
+    df_reg = df_reg[df_reg['therapeutic_decision'] == 0]
+    df_reg_norm = df_reg_norm[df_reg_norm['therapeutic_decision'] == 0]
 
+    df_reg.dropna(inplace=True)
+    df_reg_norm.dropna(inplace=True)
     # Model without normalization
     logger.info('\nFitting Linear regression on all variables (no normalization)')
-    x = df_reg.drop(columns=['mjoa_6m'])  # Initialize x to data of predictors
-    y = df_reg['mjoa_6m'].astype(int)
+    x = df_reg.drop(columns=['total_mjoa_6m'])  # Initialize x to data of predictors
+    y = df_reg['total_mjoa_6m'].astype(int)
     x = x.astype(float)
 
     # Fit linear regression model on all variables - to get p-values for all variables
@@ -532,11 +567,11 @@ def predict_mjoa_m6(df_reg, df_reg_norm):
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
-    x_norm = df_reg_norm.drop(columns=['mjoa_6m'])  # Initialize x to data of predictors
+    x_norm = df_reg_norm.drop(columns=['total_mjoa_6m'])  # Initialize x to data of predictors
     x_norm = x_norm.astype(float)
 
     # Fit linear regression model on all variables - to get p-values for all variables
-    fit_reg(x_norm, y, 'linear')
+    fit_reg(x_norm, y, 'linear', logger)
 
     logger.info('Stepwise:')
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
@@ -550,17 +585,35 @@ def predict_mjoa_m6_diff(df_reg, df_reg_norm):
     The dependent variable is the difference between mjoa and mjoa_6m.
     """
 
-    # Get difference between mjoa_6m and mjoa
-    df_reg['mjoa_6m_diff'] = df_reg['mjoa'] - df_reg['mjoa_6m']
-    df_reg_norm['mjoa_6m_diff'] = df_reg_norm['mjoa'] - df_reg_norm['mjoa_6m']
+    
+    df_reg['total_mjoa_6m_diff'] = df_reg['total_mjoa'] - df_reg['total_mjoa_6m']
+    df_reg_norm['total_mjoa_6m_diff'] = df_reg_norm['total_mjoa'] - df_reg_norm['total_mjoa_6m']
 
     # Drop mjoa, mjoa_6m and mjoa_12m --> keep only mjoa_6m_diff
-    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
-    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
+    df_reg.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_6m', 'total_mjoa_12m'])
+    df_reg_norm.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_6m', 'total_mjoa_12m'])
 
-    # Drop rows (subjects) with NaN values for mjoa_6m
-    df_reg.dropna(axis=0, subset=['mjoa_6m_diff'], inplace=True)
-    df_reg_norm.dropna(axis=0, subset=['mjoa_6m_diff'], inplace=True)
+    # Drop useless columns
+    df_reg.reindex()
+    columns_to_drop=['motor_dysfunction_LE_bl', 'sphincter_dysfunction_bl', 'motor_dysfunction_UE_bl','dSEP_C8_both_patho_6m','CHEPS_C8_patho_6m','dSEP_C8_both_patho_12m','dSEP_C6_both_patho_12m', 'CHEPS_C8_patho_12m', 'CHEPS_T4_diff_12m_bl', 'total_dorsal_12m', 'CHEPS_T4_diff_6m_bl', 'lt_cervical_tot_6m', 'pp_cervical_tot_6m', 'pp_cervical_tot_12m','CHEPS_C6_patho_6m','CHEPS_C6_diff_12m_bl','CHEPS_T4_patho_12m','lt_cervical_tot_12m', 'total_dorsal_6m','CHEPS_C6_patho_12m','CHEPS_C8_diff_6m_bl', 'CHEPS_C8_diff_12m_bl', 'dSEP_C6_both_patho_6m', 'CHEPS_C6_diff_6m_bl', 'CHEPS_T4_patho_6m']
+    df_reg.drop(inplace=True, axis=1, columns=columns_to_drop)
+    df_reg_norm.drop(inplace=True, axis=1, columns=columns_to_drop)
+    # Get difference between mjoa_6m and mjoa
+
+    # Keep only subject with therapeutic_decision == 0, i.e. no surgery.
+    # Otherwise, the only predictor is therapeutic_decision
+    df_reg = df_reg[df_reg['therapeutic_decision'] == 0]
+    df_reg_norm = df_reg_norm[df_reg_norm['therapeutic_decision'] == 0]
+
+    df_reg.dropna(inplace=True)
+    df_reg_norm.dropna(inplace=True)
+
+    # Drop useless columns
+    columns_to_drop=['motor_dysfunction_LE_bl', 'sphincter_dysfunction_bl', 'motor_dysfunction_UE_bl','dSEP_C8_both_patho_6m','CHEPS_C8_patho_6m','dSEP_C8_both_patho_12m','dSEP_C6_both_patho_12m', 'CHEPS_C8_patho_12m', 'CHEPS_T4_diff_12m_bl', 'total_dorsal_12m', 'CHEPS_T4_diff_6m_bl', 'lt_cervical_tot_6m', 'pp_cervical_tot_6m', 'pp_cervical_tot_12m','CHEPS_C6_patho_6m','CHEPS_C6_diff_12m_bl','CHEPS_T4_patho_12m','lt_cervical_tot_12m', 'total_dorsal_6m','CHEPS_C6_patho_12m','CHEPS_C8_diff_6m_bl', 'CHEPS_C8_diff_12m_bl', 'dSEP_C6_both_patho_6m', 'CHEPS_C6_diff_6m_bl', 'CHEPS_T4_patho_6m']
+    df_reg.drop(inplace=True, columns=columns_to_drop)
+    df_reg_norm.drop(inplace=True, columns=columns_to_drop)
+    df_reg.dropna(inplace=True)
+    df_reg_norm.dropna(inplace=True)
 
     # Keep only subject with therapeutic_decision == 0, i.e. no surgery.
     # Otherwise, the only predictor is therapeutic_decision
@@ -569,8 +622,8 @@ def predict_mjoa_m6_diff(df_reg, df_reg_norm):
 
     # Model without normalization
     logger.info('\nFitting Linear regression on all variables (no normalization)')
-    x = df_reg.drop(columns=['mjoa_6m_diff'])  # Initialize x to data of predictors
-    y = df_reg['mjoa_6m_diff'].astype(int)
+    x = df_reg.drop(columns=['total_mjoa_6m_diff'])  # Initialize x to data of predictors
+    y = df_reg['total_mjoa_6m_diff'].astype(int)
     x = x.astype(float)
 
     # Fit linear regression model on all variables - to get p-values for all variables
@@ -587,7 +640,7 @@ def predict_mjoa_m6_diff(df_reg, df_reg_norm):
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
-    x_norm = df_reg_norm.drop(columns=['mjoa_6m_diff'])  # Initialize x to data of predictors
+    x_norm = df_reg_norm.drop(columns=['total_mjoa_6m_diff'])  # Initialize x to data of predictors
     x_norm = x_norm.astype(float)
 
     # Fit linear regression model on all variables - to get p-values for all variables
@@ -606,17 +659,28 @@ def predict_mjoa_m12(df_reg, df_reg_norm):
     """
 
     # Drop mjoa and mjoa_6m
-    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_6m'])
-    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_6m'])
+    df_reg.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_6m'])
+    df_reg_norm.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_6m'])
 
     # Drop rows (subjects) with NaN values for mjoa_6m
-    df_reg.dropna(axis=0, subset=['mjoa_12m'], inplace=True)
-    df_reg_norm.dropna(axis=0, subset=['mjoa_12m'], inplace=True)
+    df_reg.dropna(axis=0, subset=['total_mjoa_12m'], inplace=True)
+    df_reg_norm.dropna(axis=0, subset=['total_mjoa_12m'], inplace=True)
+
+    # Drop useless columns
+    columns_to_drop=['motor_dysfunction_LE_bl', 'sphincter_dysfunction_bl', 'motor_dysfunction_UE_bl','dSEP_C8_both_patho_6m','CHEPS_C8_patho_6m','dSEP_C8_both_patho_12m','dSEP_C6_both_patho_12m', 'CHEPS_C8_patho_12m', 'CHEPS_T4_diff_12m_bl', 'total_dorsal_12m', 'CHEPS_T4_diff_6m_bl', 'lt_cervical_tot_6m', 'pp_cervical_tot_6m', 'pp_cervical_tot_12m','CHEPS_C6_patho_6m','CHEPS_C6_diff_12m_bl','CHEPS_T4_patho_12m','lt_cervical_tot_12m', 'total_dorsal_6m','CHEPS_C6_patho_12m','CHEPS_C8_diff_6m_bl', 'CHEPS_C8_diff_12m_bl', 'dSEP_C6_both_patho_6m', 'CHEPS_C6_diff_6m_bl', 'CHEPS_T4_patho_6m']
+    df_reg.drop(inplace=True, columns=columns_to_drop)
+    df_reg_norm.drop(inplace=True, columns=columns_to_drop)
+    # Keep only subject with therapeutic_decision == 0, i.e. no surgery.
+    # Otherwise, the only predictor is therapeutic_decision
+    df_reg = df_reg[df_reg['therapeutic_decision'] == 0]
+    df_reg_norm = df_reg_norm[df_reg_norm['therapeutic_decision'] == 0]
+    df_reg.dropna(inplace=True)
+    df_reg_norm.dropna(inplace=True)
 
     # Model without normalization
     logger.info('\nFitting Linear regression on all variables (no normalization)')
-    x = df_reg.drop(columns=['mjoa_12m'])  # Initialize x to data of predictors
-    y = df_reg['mjoa_12m'].astype(int)
+    x = df_reg.drop(columns=['total_mjoa_12m'])  # Initialize x to data of predictors
+    y = df_reg['total_mjoa_12m'].astype(int)
     x = x.astype(float)
     # P_values for forward and backward stepwise
     p_in = 0.05
@@ -629,7 +693,7 @@ def predict_mjoa_m12(df_reg, df_reg_norm):
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
-    x_norm = df_reg_norm.drop(columns=['mjoa_12m'])  # Initialize x to data of predictors
+    x_norm = df_reg_norm.drop(columns=['total_mjoa_12m'])  # Initialize x to data of predictors
     x_norm = x_norm.astype(float)
     logger.info('Stepwise:')
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
@@ -644,26 +708,30 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
     """
 
     # Get difference between mjoa_6m and mjoa
-    df_reg['mjoa_12m_diff'] = df_reg['mjoa'] - df_reg['mjoa_6m']
-    df_reg_norm['mjoa_12m_diff'] = df_reg_norm['mjoa'] - df_reg_norm['mjoa_6m']
+    df_reg['total_mjoa_12m_diff'] = df_reg['total_mjoa'] - df_reg['total_mjoa_6m']
+    df_reg_norm['total_mjoa_12m_diff'] = df_reg_norm['total_mjoa'] - df_reg_norm['total_mjoa_6m']
 
     # Drop mjoa, mjoa_6m and mjoa_12m --> keep only mjoa_12m_diff
-    df_reg.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
-    df_reg_norm.drop(inplace=True, columns=['mjoa', 'mjoa_6m', 'mjoa_12m'])
+    df_reg.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_6m', 'total_mjoa_12m'])
+    df_reg_norm.drop(inplace=True, columns=['total_mjoa', 'total_mjoa_6m', 'total_mjoa_12m'])
 
-    # Drop rows (subjects) with NaN values for mjoa_6m
-    df_reg.dropna(axis=0, subset=['mjoa_12m_diff'], inplace=True)
-    df_reg_norm.dropna(axis=0, subset=['mjoa_12m_diff'], inplace=True)
+    # Drop useless columns
+    columns_to_drop=['motor_dysfunction_LE_bl', 'sphincter_dysfunction_bl', 'motor_dysfunction_UE_bl','dSEP_C8_both_patho_6m','CHEPS_C8_patho_6m','dSEP_C8_both_patho_12m','dSEP_C6_both_patho_12m', 'CHEPS_C8_patho_12m', 'CHEPS_T4_diff_12m_bl', 'total_dorsal_12m', 'CHEPS_T4_diff_6m_bl', 'lt_cervical_tot_6m', 'pp_cervical_tot_6m', 'pp_cervical_tot_12m','CHEPS_C6_patho_6m','CHEPS_C6_diff_12m_bl','CHEPS_T4_patho_12m','lt_cervical_tot_12m', 'total_dorsal_6m','CHEPS_C6_patho_12m','CHEPS_C8_diff_6m_bl', 'CHEPS_C8_diff_12m_bl', 'dSEP_C6_both_patho_6m', 'CHEPS_C6_diff_6m_bl', 'CHEPS_T4_patho_6m']
+    df_reg.drop(inplace=True, columns=columns_to_drop)
+    df_reg_norm.drop(inplace=True, columns=columns_to_drop)
 
     # Keep only subject with therapeutic_decision == 0, i.e. no surgery.
     # Otherwise, the only predictor is therapeutic_decision
     df_reg = df_reg[df_reg['therapeutic_decision'] == 0]
     df_reg_norm = df_reg_norm[df_reg_norm['therapeutic_decision'] == 0]
 
+    df_reg.dropna(inplace=True)
+    df_reg_norm.dropna(inplace=True)
+
     # Model without normalization
     logger.info('\nFitting Linear regression on all variables (no normalization)')
-    x = df_reg.drop(columns=['mjoa_12m_diff'])  # Initialize x to data of predictors
-    y = df_reg['mjoa_12m_diff'].astype(int)
+    x = df_reg.drop(columns=['total_mjoa_12m_diff'])  # Initialize x to data of predictors
+    y = df_reg['total_mjoa_12m_diff'].astype(int)
     x = x.astype(float)
     # P_values for forward and backward stepwise
     p_in = 0.05
@@ -676,7 +744,7 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
 
     # Model with normalization
     logger.info('\n Fitting Linear regression on all variables (normalization)')
-    x_norm = df_reg_norm.drop(columns=['mjoa_12m_diff'])  # Initialize x to data of predictors
+    x_norm = df_reg_norm.drop(columns=['total_mjoa_12m_diff'])  # Initialize x to data of predictors
     x_norm = x_norm.astype(float)
     logger.info('Stepwise:')
     included_norm = compute_stepwise(y, x_norm, p_in, p_out, 'linear')
@@ -777,7 +845,7 @@ def main():
         final_df = pd.merge(final_df, electrophysiology_df, on='participant_id', how='outer', sort=True)
     logger.info(final_df.columns)
     # Plot and save correlation matrix and pairplot for anatomical (aSCOR and aMSCC) and morphometric metrics
-   # plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger)
+    #plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, logger)
 
     # Plot and save correlation matrix for motion data (displacement and amplitude) and morphometric metrics
   #  plot_correlations_motion_and_morphometric_metrics(final_df, path_out, logger)
@@ -792,6 +860,8 @@ def main():
     final_df = final_df.replace({"previous_surgery": {'no': 0, 'yes': 1}})
 
     # Drop subjects with NaN values
+    final_df.dropna(axis=0, subset=['area_ratio_PAM50_normalized'], inplace=True)
+    (final_df.isna()).to_csv(os.path.join(path_out, 'missing_data') + '.csv')
     final_df.dropna(axis=0, subset=['area_ratio_PAM50_normalized', 'total_mjoa', 'therapeutic_decision', 'age', 'height'], inplace=True)  # added height since significant predictor
     final_df.reset_index()
     number_subjects = len(final_df['participant_id'].to_list())
@@ -809,9 +879,9 @@ def main():
     df_reg = final_df.copy()
 
     # Change myelopathy for yes no column
-    df_reg['myelopathy'].fillna(0, inplace=True)
-    df_reg.loc[df_reg['myelopathy'] != 0, 'myelopathy'] = 1
-
+    df_reg['myelopathy'].fillna(0.0, inplace=True)
+    df_reg.loc[df_reg['myelopathy'] != 0, 'myelopathy'] = 1.0
+    df_reg['myelopathy'] = df_reg.myelopathy.astype(float)
 
     # Drop useless columns
     df_reg = df_reg.drop(columns=['pathology',
@@ -834,57 +904,96 @@ def main():
                                   'area_ratio_PAM50',
                                   'solidity_ratio_PAM50',
                                   'eccentricity_ratio_PAM50',
-                                  #'dSEP_C6_both_patho_bl',  # missing data
-                                  #'dSEP_C8_both_patho_bl',  # missing data
-                                  #'CHEPS_C6_patho_bl',  # missing data
-                                  #'CHEPS_C8_patho_bl',
-                                  #'CHEPS_T4_grading_patho_bl', #,  # missing data
-                                  #'amp_max_sten_sag_or_ax1_or_ax2_bl',
-                                  #'disp_max_sten_sag_or_ax1_or_ax2_mm_bl'#,
+                                  'dSEP_C6_both_patho_bl',  # missing data
+                                  'dSEP_C8_both_patho_bl',  # missing data
+                                  'CHEPS_C6_patho_bl',  # missing data
+                                  'CHEPS_C8_patho_bl',
+                                  'CHEPS_T4_grading_patho_bl',  # missing data
+                                  'amp_max_sten_sag_or_ax1_or_ax2_bl',
+                                  'disp_max_sten_sag_or_ax1_or_ax2_mm_bl',
                                   'dSEP_both_patho_bl',
                                   'CHEPS_patho_bl'  # A lot of missing value and not sign.
-
-                                  #'weight',  # missing data - TODO - try this
-                                  #'height'   # missing data - TODO - try this
                                   ])
 
     df_reg.set_index(['participant_id'], inplace=True)
     #compute_pca(df_reg)
     df_reg_all = df_reg.copy()
     df_reg_norm = df_reg.copy()
+    
+
+
+    #plot_correlations_anatomical_and_morphometric_metrics(df_reg, path_out, logger)
     df_reg.drop(inplace=True, columns=METRICS_NORM)
     df_reg_norm.drop(inplace=True, columns=METRICS)
 
     # Create sns.regplot between sex and weight
   #  gen_chart_weight_height(df_reg, path_out, logger)
 
+    #print('\n predicting mjoa')
+    #predict_mjoa_m6(df_reg, df_reg_norm)
+    #predict_mjoa_m12(df_reg, df_reg_norm)
+    #predict_mjoa_m6_diff(df_reg, df_reg_norm)
+    #predict_mjoa_m12_diff(df_reg, df_reg_norm)
+
+    #compare_mjoa_between_therapeutic_decision(df_reg, path_out)
+
+
+
     # get mean ± std of predictors
+    logger.info(f'Size df_reg_all: {df_reg_all.shape[0]}')
+    df_reg_all = df_reg_all[[col for col in df_reg_all.columns if not ('6m' in col or '12m' in col)]]
+    df_reg_all.dropna(inplace=True)
+    logger.info(f'Size df_reg_all after dropna: {df_reg_all.shape[0]}')
     logger.info('Computing mean ± std')
     compute_mean_std(df_reg_all, path_out)
-
+    
+    
     # Get correlation matrix
     corr_matrix = df_reg_all.corr(method='spearman')
     corr_filename = os.path.join(path_out, 'corr_table')
     # Save a.csv file of the correlation matrix in the results folder
     corr_matrix.to_csv(corr_filename + '.csv')
+    # Get p-value of corr matrix:
+    corr, pvalues_corr, corr_and_pvalue = get_correlation_table(df_reg_all)
+    pvalues_corr.to_csv(os.path.join(path_out, 'corr_table_pvalue.csv'))
+    corr_and_pvalue.to_csv(os.path.join(path_out, 'corr_table_and_pvalue.csv'))
 
+    # Get Point-biserial correlation for categorical with continuous variables:
+        # Variables:  sex, previous_surgery, myelopathy, therapeutic_decision
+    logger.info('\nComputing correlation matrix...')
+    # sex
+    corr_sex = df_reg_all.drop(columns=['sex']).corrwith(df_reg_all['sex'].astype('float'), method=stats.pointbiserialr)
+    corr_sex_filename = os.path.join(path_out, 'corr_table_sex')
+    corr_sex.to_csv(corr_sex_filename + '.csv')
+    # previous_surgery
+    corr_previous_surgery = df_reg_all.drop(columns=['previous_surgery']).corrwith(df_reg_all['previous_surgery'].astype('float'), method=stats.pointbiserialr)
+    corr_previous_surgery_filename = os.path.join(path_out, 'corr_table_previous_surgery')
+    corr_previous_surgery.to_csv(corr_previous_surgery_filename + '.csv')
+    # myelopathy
+    corr_myelopathy = df_reg_all.drop(columns=['myelopathy']).corrwith(df_reg_all['myelopathy'].astype('float'), method=stats.pointbiserialr)
+    corr_myelopathy_filename = os.path.join(path_out, 'corr_table_myelopathy')
+    corr_myelopathy.to_csv(corr_myelopathy_filename + '.csv')
+    # therapeutic_decision
+    corr_therapeutic_decision = df_reg_all.drop(columns=['therapeutic_decision']).corrwith(df_reg_all['therapeutic_decision'].astype('float'), method=stats.pointbiserialr)
+    corr_therapeutic_decision_filename = os.path.join(path_out, 'corr_table_therapeutic_decision')
+    corr_therapeutic_decision.to_csv(corr_therapeutic_decision_filename + '.csv')
+
+    # Compute pearson correlation to get phi coefficient between categorical variables:
+    corr_matrix_binary = df_reg_all[['sex', 'previous_surgery', 'myelopathy', 'therapeutic_decision']].corr(method='pearson')
+    corr_matrix_binary_filename = os.path.join(path_out, 'corr_table_binary')
+    corr_matrix_binary.to_csv(corr_matrix_binary_filename + '.csv')
+    corr_table_pvalue = df_reg_all[['sex', 'previous_surgery', 'myelopathy', 'therapeutic_decision']].corr(method=lambda x, y: stats.pearsonr(x, y)[1]) - np.eye(len(df_reg_all[['sex', 'previous_surgery', 'myelopathy', 'therapeutic_decision']].columns))
+    corr_table_pvalue.to_csv(corr_matrix_binary_filename + 'pvalue.csv')
+    
     # Stepwise regressions
     # NOTE: uncomment always only one of the following lines (because we are doing inplace operations)
     predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out)
-    #predict_mjoa_m6(df_reg, df_reg_norm)
-    #predict_mjoa_m12(df_reg, df_reg_norm)
-   # predict_mjoa_m6_diff(df_reg, df_reg_norm)
-    #predict_mjoa_m12_diff(df_reg, df_reg_norm)
+
 
     #compare_mjoa_between_therapeutic_decision(df_reg, path_out)
 
-    # TODO - predict development of myelopathy - we do not have such data in 6m and 12m --> ask clinicians
-
+   
 
 if __name__ == '__main__':
     main()
 
-# TODO
-#Plot area_ratio and area_ratio_norm  --> DONE
-#Create composite score from all metrics with variance
-#Compute effect size normalized vs non-normalized

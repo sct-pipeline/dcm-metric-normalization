@@ -3,6 +3,7 @@ import os
 import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
+from scipy import stats
 
 from .utils import format_pvalue, compute_spearmans
 
@@ -174,8 +175,27 @@ def generate_pairplot(df, output_pathname, logger=None):
     path_out: path to save the pairplot
     """
     logger.info('Generating pairplot...(it may take a while)...')
-    sns.set(font_scale=1.5)
-    sns.pairplot(df, kind="reg", diag_kws={'color': 'orange'})
+    def r2(x, y, ax=None, xy=(.95, .05), edgecolor='black', **kws):
+        ax = ax or plt.gca()
+        r, p = stats.spearmanr(x, y)
+        #slope, intercept, r_value, p_value, std_err = stats.linregress(x=x, y=y)
+        ax.annotate(f'$\\rho = {r:.3f}$, \np-value{format_pvalue(p)}',
+                    xy=xy, xycoords=ax.transAxes, fontsize=12,
+                    color='black', backgroundcolor='#FFFFFF99', ha='right', va='bottom',
+                    bbox=dict(facecolor='#FFFFFF99', alpha=0.8, edgecolor=edgecolor, boxstyle="round"))
+
+    #sns.set(font_scale=1.5)
+    g = sns.pairplot(df, kind="reg", corner=True, plot_kws={'line_kws': {'color': 'red'}})#, diag_kind="kde". diag_kws={"linewidth": 0, "shade": False})
+    g.map_lower(r2)
+    # Remove diagonal
+    #for i, y_var in enumerate(g.y_vars):
+    #    for j, x_var in enumerate(g.x_vars):
+    #        if x_var == y_var:
+    #            g.axes[i, j].set_visible(False)
+
+    #sns.set(font_scale=1.5)
+    #sns.pairplot(df, kind="reg", diag_kws={'color': 'orange'}, corner=True)
+    plt.tight_layout()
     plt.savefig(output_pathname, dpi=300, bbox_inches='tight')
     plt.close()
     logger.info('Pairplot saved to: {}'.format(output_pathname))
@@ -262,12 +282,13 @@ def plot_correlations_anatomical_and_morphometric_metrics(final_df, path_out, lo
         cols = final_df.columns.tolist()
         cols = cols[-2:] + cols[:-2]
         final_df = final_df[cols]
-
+        print(final_df.columns)
+        final_df2 = final_df.rename(columns={'area_ratio': 'CSA ratio', 'area_ratio_PAM50_normalized': 'CSA ratio normalized'}) 
         # Drop rows with nan values
-        final_df = final_df.dropna(axis=0)
+        final_df2 = final_df2.dropna(axis=0)
 
         output_pathname = os.path.join(path_out, 'corr_matrix_anatomical_and_morphometrics_' + key + '.png')
-        generate_correlation_matrix(final_df, output_pathname, logger)
+        generate_correlation_matrix(final_df2, output_pathname, logger)
 
         output_pathname = os.path.join(path_out, 'pairplot_anatomical_and_morphometrics_' + key + '.png')
-        generate_pairplot(final_df, output_pathname, logger)
+        generate_pairplot(final_df2, output_pathname, logger)

@@ -130,6 +130,9 @@ def read_clinical_file(file_path):
     sensory_dysfunction_LE_bl = 'sensory_dysfunction_LE_bl'     # baseline
     sphincter_dysfunction_bl = 'sphincter_dysfunction_bl'       # baseline
 
+    # # ASIA/GRASSP - total
+    upper_etrem_motor_total = 'upper_extrem_motor_total'
+    lower_etrem_motor_total = 'lower_extrem_motor_total'
     # ASIA/GRASSP - lt_cervical_tot
     lt_cervical_tot = 'lt_cervical_tot'         # baseline
     lt_cervical_tot_6m = 'lt_cervical_tot.1'    # 6 months
@@ -146,7 +149,7 @@ def read_clinical_file(file_path):
     # Read columns of interest from clinical file
     clinical_df = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m,
                                motor_dysfunction_UE_bl, motor_dysfunction_LE_bl, sensory_dysfunction_LE_bl, sphincter_dysfunction_bl,
-                               lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
+                               upper_etrem_motor_total, lower_etrem_motor_total, lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
                                pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
                                total_dorsal, total_dorsal_6m, total_dorsal_12m]]
 
