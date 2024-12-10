@@ -107,7 +107,7 @@ cd $PATH_DATA_PROCESSED
 
 # Copy source T2w images
 # Note: we use '/./' in order to include the sub-folder 'ses-0X'
-rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_T2w.* .
+rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_*T2w.* .
 
 # Go to subject folder for source images
 cd ${SUBJECT}/anat
@@ -136,7 +136,8 @@ label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/${file_t2}_PAM50.csv
 
 # Segment canal
-sct_deepseg -i ${file_t2} -task canal_t2w  -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg_canal.nii.gz
+sct_deepseg -i ${file_t2}.nii.gz -task canal_t2w  -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg_canal.nii.gz
+mkdir -p ${PATH_RESULTS}/canal
 sct_process_segmentation -i ${file_t2}_seg_canal.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/canal/${file_t2}_canal_PAM50.csv
 
 # ------------------------------------------------------------------------------
