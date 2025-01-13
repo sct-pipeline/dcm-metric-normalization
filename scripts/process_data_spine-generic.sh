@@ -125,6 +125,7 @@ file_t2="${SUBJECT}_space-other_T2w"
 # Copy SC segmentation from /derivatives
 #segment_if_does_not_exist ${file_t2} 't2'
 #file_t2_seg=$FILESEG
+# TODO: modify function to check if they are at the right place
 sct_deepseg -i ${file_t2}.nii.gz -task seg_sc_contrast_agnostic -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg.nii.gz
 file_t2_seg=${file_t2}_seg
 # Create labeling from manual disc labels located at /derivatives
@@ -133,9 +134,10 @@ label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50' flag)
 # Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
 # files will have the same number of rows, regardless of the subject's vertebral levels.
-sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/${file_t2}_PAM50.csv
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord/${file_t2}_PAM50.csv
 
 # Segment canal
+# TODO: create a function
 sct_deepseg -i ${file_t2}.nii.gz -task canal_t2w  -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg_canal.nii.gz
 mkdir -p ${PATH_RESULTS}/canal
 sct_process_segmentation -i ${file_t2}_seg_canal.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/canal/${file_t2}_canal_PAM50.csv
