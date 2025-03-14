@@ -36,16 +36,21 @@ echo "PATH_RESULTS: ${PATH_RESULTS}"
 echo "PATH_LOG: ${PATH_LOG}"
 echo "PATH_QC: ${PATH_QC}"
 
+# Save script path
+path_source=$(dirname $PATH_DATA)
+PATH_DERIVATIVES="${path_source}/labels"
+
+
 # CONVENIENCE FUNCTIONS
 # ======================================================================================================================
 # Check if manual spinal cord segmentation file already exists. If it does, copy it locally.
 # If it doesn't, perform automatic spinal cord segmentation
 segment_if_does_not_exist() {
   local file="$1"
-  local contrast="$2"
+  folder_contrast='anat'
   # Update global variable with segmentation file name
-  FILESEG="${file/_RPI_r/}_seg"      # remove '_RPI_r' to match derivatives/labels files
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
+  FILESEG="${file}_seg"
+  FILESEGMANUAL="${path_source}/labels/${SUBJECT}/${folder_contrast}/${file}_label-SC_seg.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -55,7 +60,7 @@ segment_if_does_not_exist() {
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment spinal cord
-    sct_deepseg_sc -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg -i ${file}.nii.gz -task seg_sc_contrast_agnostic -largest 1 -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${FILESEG}.nii.gz
   fi
 }
 
@@ -66,13 +71,17 @@ label_if_does_not_exist(){
   local file_seg="$2"
   local contrast="$3"
   # Update global variable with segmentation file name
-  FILELABEL="${file/_RPI_r/}_labels-disc"
-  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
+  suffix="_space-other"
+  FILELABEL="${file//$suffix/}_label-discs_dlabel"
+  FILELABELMANUAL="${PATH_DERIVATIVES}/${SUBJECT}/anat/${FILELABEL}.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
     echo "Found! Using manual labels."
     rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
     # Generate labeled segmentation from manual disc labels
+    sct_image -i ${file}.nii.gz -set-sform-to-qform
+    sct_image -i ${file_seg}.nii.gz -set-sform-to-qform
+    sct_image -i ${FILELABEL}.nii.gz -set-sform-to-qform
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
   else
     echo "Not found. Proceeding with automatic labeling."
@@ -98,8 +107,7 @@ cd $PATH_DATA_PROCESSED
 
 # Copy source T2w images
 # Note: we use '/./' in order to include the sub-folder 'ses-0X'
-rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_T2w.* .
-
+rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_*T2w.* .
 # Go to subject folder for source images
 cd ${SUBJECT}/anat
 
@@ -108,23 +116,22 @@ cd ${SUBJECT}/anat
 # ------------------------------------------------------------------------------
 # Define variables
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-file_t2="${SUBJECT//[\/]/_}"_T2w
-
-# Reorient and resample (to match spine-generic derivatives/labels files)
-sct_image -i ${file_t2}.nii.gz -setorient RPI -o ${file_t2}_RPI.nii.gz
-sct_resample -i ${file_t2}_RPI.nii.gz -mm 0.8x0.8x0.8 -o ${file_t2}_RPI_r.nii.gz
-file_t2="${file_t2}_RPI_r"
+#file_t2="${SUBJECT//[\/]/_}"_T2w
+file_t2="${SUBJECT}_T2w"
 
 # Copy SC segmentation from /derivatives
-segment_if_does_not_exist ${file_t2} 't2'
+segment_if_does_not_exist ${file_t2}
 file_t2_seg=$FILESEG
+
 # Create labeling from manual disc labels located at /derivatives
 label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 
 # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50' flag)
 # Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
 # files will have the same number of rows, regardless of the subject's vertebral levels.
-sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/${file_t2/_RPI_r/}_PAM50.csv
+mkdir -p ${PATH_RESULTS}/spinalcord
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_T2w/${file_t2}_PAM50.csv
+
 
 # ------------------------------------------------------------------------------
 # End
