@@ -38,7 +38,7 @@ echo "PATH_QC: ${PATH_QC}"
 
 # Save script path
 PATH_DERIVATIVES="${PATH_DATA}/derivatives/labels"
-echo $PATH_DERIVATIVES
+echo "PATH_DERIVATIVES: ${PATH_DERIVATIVES}"
 
 # CONVENIENCE FUNCTIONS
 # ======================================================================================================================
