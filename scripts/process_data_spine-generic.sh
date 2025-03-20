@@ -37,9 +37,8 @@ echo "PATH_LOG: ${PATH_LOG}"
 echo "PATH_QC: ${PATH_QC}"
 
 # Save script path
-path_source=$(dirname $PATH_DATA)
-PATH_DERIVATIVES="${path_source}/labels"
-
+PATH_DERIVATIVES="${PATH_DATA}/derivatives/labels"
+echo $PATH_DERIVATIVES
 
 # CONVENIENCE FUNCTIONS
 # ======================================================================================================================
@@ -50,7 +49,7 @@ segment_if_does_not_exist() {
   folder_contrast='anat'
   # Update global variable with segmentation file name
   FILESEG="${file}_seg"
-  FILESEGMANUAL="${path_source}/labels/${SUBJECT}/${folder_contrast}/${file}_label-SC_seg.nii.gz"
+  FILESEGMANUAL="${PATH_DERIVATIVES}/${SUBJECT}/${folder_contrast}/${file}_label-SC_seg.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -71,8 +70,7 @@ label_if_does_not_exist(){
   local file_seg="$2"
   local contrast="$3"
   # Update global variable with segmentation file name
-  suffix="_space-other"
-  FILELABEL="${file//$suffix/}_label-discs_dlabel"
+  FILELABEL="${file}_label-discs_dlabel"
   FILELABELMANUAL="${PATH_DERIVATIVES}/${SUBJECT}/anat/${FILELABEL}.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
@@ -130,7 +128,7 @@ label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 # Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
 # files will have the same number of rows, regardless of the subject's vertebral levels.
 mkdir -p ${PATH_RESULTS}/spinalcord
-sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_T2w/${file_t2}_PAM50.csv
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord/${file_t2}_PAM50.csv
 
 
 # ------------------------------------------------------------------------------
