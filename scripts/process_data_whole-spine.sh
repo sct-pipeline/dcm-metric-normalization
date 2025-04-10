@@ -160,37 +160,37 @@ sct_process_segmentation -i ${file_t2_seg_manual}.nii.gz -vertfile ${file_t2_seg
 #sct_process_segmentation -i ${file_t2_seg_deepseg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_DeepSeg_T2w/${file_t2}_PAM50.csv
 # Segment canal
 # TODO: create a function
-#sct_deepseg -i ${file_t2}.nii.gz -task canal_t2w  -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg_canal.nii.gz
-#mkdir -p ${PATH_RESULTS}/canal/
-#sct_process_segmentation -i ${file_t2}_seg_canal.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/canal/${file_t2}_canal_PAM50.csv
+sct_deepseg -i ${file_t2}.nii.gz -task canal_t2w  -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg_canal.nii.gz
+mkdir -p ${PATH_RESULTS}/canal/
+sct_process_segmentation -i ${file_t2}_seg_canal.nii.gz -vertfile ${file_t2_seg_manual}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/canal/${file_t2}_canal_PAM50.csv
 
 
 # ------------------------------------------------------------------------------
 # T1w
 # ------------------------------------------------------------------------------
 # Define variables
-file_t1="${SUBJECT}_T1w"
+#file_t1="${SUBJECT}_T1w"
 # Copy SC segmentation from /derivatives
 #segment_if_does_not_exist ${file_t1}
 #file_t1_seg=$FILESEG
 # Find manual segmentation
-find_segmentation ${file_t1}
-file_t1_seg_manual=$FILESEG
+#find_segmentation ${file_t1}
+#file_t1_seg_manual=$FILESEG
 
 # Run sct_deepseg_sc on T1w image
 #sct_deepseg_sc -i ${file_t1}.nii.gz -c t1 -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t1}_seg_DeepSeg.nii.gz
 #file_t1_seg_deepseg="${file_t1}_seg_DeepSeg"
 
 # Create labeling from manual disc labels located at /derivatives
-label_if_does_not_exist ${file_t1} ${file_t1_seg_manual} 't1'
+#label_if_does_not_exist ${file_t1} ${file_t1_seg_manual} 't1'
 
 # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50' flag)
 # Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
 # files will have the same number of rows, regardless of the subject's vertebral levels.
 #mkdir -p ${PATH_RESULTS}/spinalcord_T1w/
 #sct_process_segmentation -i ${file_t1_seg}.nii.gz -vertfile ${file_t1_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_T1w/${file_t1}_PAM50.csv
-mkdir -p ${PATH_RESULTS}/spinalcord_manual_T1w/
-sct_process_segmentation -i ${file_t1_seg_manual}.nii.gz -vertfile ${file_t1_seg_manual}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_manual_T1w/${file_t1}_PAM50.csv
+#mkdir -p ${PATH_RESULTS}/spinalcord_manual_T1w/
+#sct_process_segmentation -i ${file_t1_seg_manual}.nii.gz -vertfile ${file_t1_seg_manual}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_manual_T1w/${file_t1}_PAM50.csv
 #mkdir -p ${PATH_RESULTS}/spinalcord_DeepSeg_T1w/
 #sct_process_segmentation -i ${file_t1_seg_deepseg}.nii.gz -vertfile ${file_t1_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_DeepSeg_T1w/${file_t1}_PAM50.csv
 
