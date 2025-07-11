@@ -38,7 +38,7 @@ echo "PATH_QC: ${PATH_QC}"
 
 # Save script path
 path_source=$(dirname $PATH_DATA)
-PATH_DERIVATIVES="${path_source}/labels"
+PATH_DERIVATIVES="${PATH_DATA}/derivatives"
 
 
 # CONVENIENCE FUNCTIONS
@@ -47,11 +47,10 @@ PATH_DERIVATIVES="${path_source}/labels"
 # If it doesn't, perform automatic spinal cord segmentation
 segment_if_does_not_exist() {
   local file="$1"
-  local contrast="$2"
   folder_contrast='anat'
   # Update global variable with segmentation file name
-  FILESEG="${file}_seg-manual"
-  FILESEGMANUAL="${path_source}/labels_softseg_bin/${SUBJECT}/${folder_contrast}/${file}_desc-softseg_label-SC_seg.nii.gz"
+  FILESEG="${file}_label-SC_seg"
+  FILESEGMANUAL="${PATH_DERIVATIVES}/labels/${SUBJECT}/${folder_contrast}/${FILESEG}.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -61,9 +60,31 @@ segment_if_does_not_exist() {
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment spinal cord
-    sct_deepseg_sc -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}
   fi
 }
+
+# Check if manual spinal canal segmentation file already exists. If it does, copy it locally.
+# If it doesn't, perform automatic spinal cord segmentation
+segment_canal_if_does_not_exist() {
+  local file="$1"
+  folder_contrast='anat'
+  # Update global variable with segmentation file name
+  FILESEG="${file}_label-canal_seg"
+  FILESEGMANUAL="${PATH_DERIVATIVES}/labels/${SUBJECT}/${folder_contrast}/${FILESEG}.nii.gz"
+  echo
+  echo "Looking for manual segmentation: $FILESEGMANUAL"
+  if [[ -e $FILESEGMANUAL ]]; then
+    echo "Found! Using manual segmentation."
+    rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
+    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  else
+    echo "Not found. Proceeding with automatic segmentation."
+    # Segment spinal cord
+    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  fi
+}
+
 
 # Check if manual label already exists. If it does, generate labeled segmentation from manual disc labels.
 # If it doesn't, perform automatic spinal cord labeling
@@ -72,9 +93,8 @@ label_if_does_not_exist(){
   local file_seg="$2"
   local contrast="$3"
   # Update global variable with segmentation file name
-  suffix="_space-other"
-  FILELABEL="${file//$suffix/}_label-discs_dlabel"
-  FILELABELMANUAL="${PATH_DERIVATIVES}/${SUBJECT}/anat/${FILELABEL}.nii.gz"
+  FILELABEL="${file}_label-discs_dlabel"
+  FILELABELMANUAL="${PATH_DERIVATIVES}/labels/${SUBJECT}/anat/${FILELABEL}.nii.gz"
   echo "Looking for manual label: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
     echo "Found! Using manual labels."
@@ -109,7 +129,6 @@ cd $PATH_DATA_PROCESSED
 # Copy source T2w images
 # Note: we use '/./' in order to include the sub-folder 'ses-0X'
 rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_*T2w.* .
-rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_*T1w.* .
 # Go to subject folder for source images
 cd ${SUBJECT}/anat
 
@@ -117,61 +136,30 @@ cd ${SUBJECT}/anat
 # T2w
 # ------------------------------------------------------------------------------
 # Define variables
-# We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-#file_t2="${SUBJECT//[\/]/_}"_T2w
-file_t2="${SUBJECT}_space-other_T2w"
+file_t2="${SUBJECT}_T2w"
 
 # Reorient and resample (to match spine-generic derivatives/labels files)
 
 # Copy SC segmentation from /derivatives
 segment_if_does_not_exist ${file_t2} 't2'
-file_t2_seg_manual=$FILESEG
+file_t2_seg=$FILESEG
 
 # Create labeling from manual disc labels located at /derivatives
-label_if_does_not_exist ${file_t2} ${file_t2_seg_manual} 't2'
-
-# TODO: modify function to check if they are at the right place
-# Resample to 1mm isotropic
-sct_resample -i ${file_t2}.nii.gz -mm 1x1x1 -o ${file_t2}_resampled.nii.gz
-file_t2=${file_t2}_resampled
-sct_deepseg -i ${file_t2}.nii.gz -task seg_sc_contrast_agnostic -largest 1 -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg.nii.gz
-file_t2_seg=${file_t2}_seg
+label_if_does_not_exist ${file_t2} ${file_t2_seg} 't2'
 
 # Compute metrics from SC segmentation and normalize them to PAM50 ('-normalize-PAM50' flag)
 # Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
 # files will have the same number of rows, regardless of the subject's vertebral levels.
-mkdir -p ${PATH_RESULTS}/spinalcord_T2w
-sct_resample -i ${file_t2_seg_manual}_labeled.nii.gz -mm 1x1x1 -x nn -o ${file_t2_seg_manual}_labeled_r.nii.gz
-sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg_manual}_labeled_r.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_T2w/${file_t2}_PAM50.csv
+mkdir -p ${PATH_RESULTS}/spinalcord
+sct_process_segmentation -i ${file_t2_seg}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord/${file_t2}_PAM50.csv
 
-mkdir -p ${PATH_RESULTS}/spinalcord_manual_T2w
-sct_process_segmentation -i ${file_t2_seg_manual}.nii.gz -vertfile ${file_t2_seg_manual}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_manual_T2w/${file_t2}_PAM50.csv
-
-
+# ------------------------------------------------------------------------------
 # Segment canal
 # TODO: create a function
-#sct_deepseg -i ${file_t2}.nii.gz -task canal_t2w  -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t2}_seg_canal.nii.gz
-#mkdir -p ${PATH_RESULTS}/canal
-#sct_process_segmentation -i ${file_t2}_seg_canal.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/canal/${file_t2}_canal_PAM50.csv
-
-
-# For T1w:
-file_t1="${SUBJECT}_space-other_T1w"
-sct_deepseg -i ${file_t1}.nii.gz -task seg_sc_contrast_agnostic -largest 1 -qc ${PATH_QC} -qc-subject ${SUBJECT} -o ${file_t1}_seg.nii.gz
-file_t1_seg=${file_t1}_seg
-
-# TODO: create a function to get the GT
-segment_if_does_not_exist ${file_t1} 't1'
-file_t1_seg_manual=$FILESEG
-
-# Create labeling from manual disc labels located at /derivatives
-label_if_does_not_exist ${file_t1} ${file_t1_seg} 't1'
-
-mkdir -p ${PATH_RESULTS}/spinalcord_T1w
-sct_process_segmentation -i ${file_t1_seg}.nii.gz -vertfile ${file_t1_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_T1w/${file_t1}_PAM50.csv
-
-mkdir -p ${PATH_RESULTS}/spinalcord_manual_T1w
-sct_process_segmentation -i ${file_t1_seg_manual}.nii.gz -vertfile ${file_t1_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/spinalcord_manual_T1w/${file_t1}_PAM50.csv
+segment_canal_if_does_not_exist ${file_t2} 't2'
+file_t2_seg_canal=$FILESEG
+mkdir -p ${PATH_RESULTS}/canal
+sct_process_segmentation -i ${file_t2_seg_canal}.nii.gz -vertfile ${file_t2_seg}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/canal/${file_t2}_PAM50.csv
 
 
 # ------------------------------------------------------------------------------

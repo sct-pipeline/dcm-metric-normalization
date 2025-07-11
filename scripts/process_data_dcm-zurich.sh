@@ -52,7 +52,29 @@ segment_if_does_not_exist() {
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment spinal cord
-    sct_deepseg_sc -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  fi
+}
+
+
+# Check if manual spinal cord segmentation file already exists. If it does, copy it locally.
+# If it doesn't, perform automatic spinal cord segmentation
+segment_canal_if_does_not_exist() {
+  local file="$1"
+  # Update global variable with segmentation file name
+  FILESEG="${file}_label-canal_seg"
+  # TODO - change to FILESEG="${file}_label-SC_seg", once https://github.com/neuropoly/data-management/issues/225 is done
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}.nii.gz"
+  echo
+  echo "Looking for manual segmentation: $FILESEGMANUAL"
+  if [[ -e $FILESEGMANUAL ]]; then
+    echo "Found! Using manual segmentation."
+    rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
+    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  else
+    echo "Not found. Proceeding with automatic segmentation."
+    # Segment spinal cord
+    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}
   fi
 }
 
@@ -144,6 +166,10 @@ else
     segment_if_does_not_exist ${file_t2_ax} 't2'
     file_t2_ax_seg=$FILESEG
 
+    # Segment spinal canal:
+    segment_canal_if_does_not_exist ${file_t2_ax}
+    file_t2_ax_canal=$FILESEG
+
     # Label SC
     # Check if manual disc labels file already exists. If so, generate labeled segmentation from manual disc labels.
     echo "Looking for manual disc labels: ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz"
@@ -196,15 +222,21 @@ else
         # Note: morphometric measures for individual subjects are appended to a single CSV file
         # diameter_AP
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -o ${PATH_RESULTS}/compression_metrics.csv
+        sct_compute_compression -i ${file_t2_ax_canal}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -o ${PATH_RESULTS}/compression_metrics_canal.csv
         # cross-sectional area
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric area -o ${PATH_RESULTS}/compression_metrics.csv
+        sct_compute_compression -i ${file_t2_ax_canal}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric area -o ${PATH_RESULTS}/compression_metrics_canal.csv
         # diameter_RL
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric diameter_RL -o ${PATH_RESULTS}/compression_metrics.csv
+        sct_compute_compression -i ${file_t2_ax_canal}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric diameter_RL -o ${PATH_RESULTS}/compression_metrics_canal.csv
         # eccentricity
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric eccentricity -o ${PATH_RESULTS}/compression_metrics.csv
+        sct_compute_compression -i ${file_t2_ax_canal}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric eccentricity -o ${PATH_RESULTS}/compression_metrics_canal.csv
         # solidity
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
+        sct_compute_compression -i ${file_t2_ax_canal}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics_canal.csv
 
+        #TODO add aSCOR
     fi
 fi
 # ------------------------------------------------------------------------------
