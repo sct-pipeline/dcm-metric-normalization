@@ -6,7 +6,7 @@
 #   SCT PR #4958: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4958
 #
 # Usage:
-#     sct_run_batch -config config.json
+#     xargs -n2 sh -c 'sct_run_batch -path-data $1 -path-output $2 -config config_compute_diameters.json' sh < datasets.txt
 #
 # Example of config.json:
 # {
@@ -15,8 +15,10 @@
 # }
 #
 # Example of dataset.txt:
-#   path/to/dataset1 path/to/output1
-#   path/to/dataset2 path/to/output1
+#    ~/data/data.neuro.polymtl.ca/data-multi-subject/ ~/results/hog_angle/compute_diameters_2025-07-29
+#    ~/data/data.neuro.polymtl.ca/whole-spine ~/results/hog_angle/compute_diameters_2025-07-29
+#
+# NOTE: we use the same results folder for all datasets to store results from all datasets in a single folder.
 #
 # Manual segmentations and disc labels should be located under:
 #   PATH_DATA/derivatives/labels/SUBJECT/<CONTRAST>/
