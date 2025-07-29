@@ -54,6 +54,11 @@ start=`date +%s`
 # Display useful info for the log, such as SCT version, RAM and CPU cores available
 sct_check_dependencies -short
 
+cd $PATH_DATA/$SUBJECT/anat
+git annex get *T2w*
+cd $PATH_DATA/derivatives/labels/$SUBJECT/anat
+git annex get *T2w*
+
 # Go to folder where data will be copied and processed
 cd $PATH_DATA_PROCESSED
 
