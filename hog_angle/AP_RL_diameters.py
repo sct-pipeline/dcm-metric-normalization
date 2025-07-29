@@ -12,7 +12,7 @@
 #       conda activate venv_sct
 #
 # Example usage on a single subject:
-#       python AP_RL_diameters_plotting.py -i /path/to/morphometrics_plotting.csv -o /path/to/output/morphometrics.png
+#       python AP_RL_diameters.py -i /path/to/morphometrics_plotting.csv -o /path/to/output/morphometrics.png
 #
 # Authors: Jan Valosek
 #
