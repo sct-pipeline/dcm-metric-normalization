@@ -151,10 +151,20 @@ mkdir -p ${PATH_RESULTS}/figures
 ${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/hog_angle/AP_RL_diameters_PAM50.py \
   -i ${PATH_RESULTS}/${file}_metrics_PAM50_angle_corr0.csv \
   -o ${PATH_RESULTS}/figures/${file}_AP_RL_diameters_PAM50_angle_corr0.png \
+  -smooth 0
 
 ${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/hog_angle/AP_RL_diameters_PAM50.py \
   -i ${PATH_RESULTS}/${file}_metrics_PAM50_angle_corr1.csv \
-  -o ${PATH_RESULTS}/figures/${file}_AP_RL_diameters_PAM50_angle_corr1.png
+  -o ${PATH_RESULTS}/figures/${file}_AP_RL_diameters_PAM50_angle_corr1.png \
+  -smooth 0
+
+${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/hog_angle/AP_RL_diameters.py \
+  -i ${PATH_RESULTS}/${file}_metrics_angle_corr0.csv \
+  -o ${PATH_RESULTS}/figures/${file}_AP_RL_diameters_angle_corr0.png \
+
+${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/hog_angle/AP_RL_diameters.py \
+  -i ${PATH_RESULTS}/${file}_metrics_angle_corr1.csv \
+  -o ${PATH_RESULTS}/figures/${file}_AP_RL_diameters_angle_corr1.png \
 
 # ------------------------------------------------------------------------------
 # End
