@@ -170,8 +170,8 @@ def create_lineplot(df, figure_path):
     plt.tight_layout()
     plt.savefig(figure_path, dpi=300, bbox_inches='tight')
     print(f'Figure saved: {figure_path}')
-    plt.show()
-    # plt.close()
+    #plt.show()
+    plt.close()
 
 
 def main():
