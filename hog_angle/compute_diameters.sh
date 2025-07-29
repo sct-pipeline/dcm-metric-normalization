@@ -59,8 +59,7 @@ cd $PATH_DATA_PROCESSED
 
 # Copy source images
 # Note: we use '/./' in order to include the sub-folder 'ses-0X'
-rsync -Ravzh --no-g $PATH_DATA/./$SUBJECT .
-#	•	-R → Preserves relative path structure.
+rsync -avzh $PATH_DATA/./$SUBJECT .
 #	•	-a → Archive mode (preserves most attributes except group ownership).
 #	•	-v → Verbose output.
 #	•	-z → Compresses data during transfer.
