@@ -28,6 +28,12 @@ METRICS = [
     'MEAN(diameter_RL)',
 ]
 
+# Set ylim to do not overlap horizontal grid with vertebrae labels
+METRICS_TO_YLIM = {
+    'MEAN(diameter_AP)': (5.5, 9.5),
+    'MEAN(diameter_RL)': (8.5, 14.5),
+}
+
 LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
 
@@ -152,6 +158,7 @@ def create_lineplot(df, figure_path, smooth):
         axs[index].spines['bottom'].set_visible(True)
 
         # Get ymin and ymax for the y-axis
+        axs[index].set_ylim(METRICS_TO_YLIM[metric][0], METRICS_TO_YLIM[metric][1])
         ymin, ymax = axs[index].get_ylim()
 
         vert, ind_vert, ind_vert_mid = get_vert_indices(df)
