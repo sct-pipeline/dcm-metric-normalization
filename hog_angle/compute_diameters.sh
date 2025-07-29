@@ -10,7 +10,7 @@
 #
 # Example of config.json:
 # {
-#  "script"      : "~/code/dcm-metric-normalization/figures/compute_diameters.sh",
+#  "script"      : "~/code/dcm-metric-normalization/hog_angle/compute_diameters.sh",
 #  "jobs"        : 8
 # }
 #
@@ -91,7 +91,7 @@ echo "file: ${file}"
 #   - copy disc labels from derivatives/labels folder (we assume it exists)
 #   - generate labeled segmentation using init disc labels
 #   - generate metrics using sct_process_segmentation
-#   - generate figures using custom script
+#   - generate hog_angle using custom script
 
 # Find T2w image
 if [[ -e "${file}_T2w.nii.gz" ]]; then
@@ -137,11 +137,11 @@ sct_process_segmentation -i ${file_t2}.nii.gz -s ${FILESEG}.nii.gz -vertfile ${F
 mkdir -p ${PATH_RESULTS}/figures
 
 # Generate figure using custom script (assuming this repo is cloned in `~/code/dcm-metric-normalization`)
-${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/figures/AP_RL_diameters_PAM50.py \
+${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/hog_angle/AP_RL_diameters_PAM50.py \
   -i ${PATH_RESULTS}/${file}_metrics_PAM50_angle_corr0.csv \
   -o ${PATH_RESULTS}/figures/${file}_AP_RL_diameters_PAM50_angle_corr0.png \
 
-${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/figures/AP_RL_diameters_PAM50.py \
+${SCT_DIR}/python/envs/venv_sct/bin/python ~/code/dcm-metric-normalization/hog_angle/AP_RL_diameters_PAM50.py \
   -i ${PATH_RESULTS}/${file}_metrics_PAM50_angle_corr1.csv \
   -o ${PATH_RESULTS}/figures/${file}_AP_RL_diameters_PAM50_angle_corr1.png
 
