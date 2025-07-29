@@ -1,5 +1,6 @@
 #
 # Plot a single subject morphometric metrics in the PAM50 space per slice and vertebral levels
+# Original vs HOG-based AP and RL diameters
 #
 # You can use SCT's conda environment to run this script:
 #       # Go to the SCT directory
@@ -122,9 +123,11 @@ def create_lineplot(df, figure_path):
         # Smooth the data to improve visualization
         df[metric] = smooth(df[metric].values, 5)
         df[f'{metric.replace(")", "_hog)")}'] = smooth(df[f'{metric.replace(")", "_hog)")}'].values, 5)
+        # Original
         sns.lineplot(ax=axs[index], x="Slice (I->S)", y=metric,
                      data=df, linewidth=2,
                      label=metric)
+        # HOG-based
         sns.lineplot(ax=axs[index], x="Slice (I->S)", y=f'{metric.replace(")", "_hog)")}',
                      data=df, linewidth=2,
                      label=f'{metric.replace(")", "_hog)")}')
