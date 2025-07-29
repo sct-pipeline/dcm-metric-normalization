@@ -39,12 +39,15 @@ def get_parser():
                         help="Path to the CSV file with diameter measurements.")
     parser.add_argument('-o', required=True, type=str,
                         help="Path to save the output figure.")
+    parser.add_argument('-smooth', required=False, type=int, default=0, metavar='INT',
+                        help="Smooth measurements before plotting. Number of points in the moving average window."
+                             "Examples: 0: no smoothing, 5: window of 5")
 
     return parser
 
 
 # Apply smoothing to the metric data
-def smooth(y: np.ndarray, box_pts: int) -> np.ndarray:
+def smooth_data(y: np.ndarray, box_pts: int) -> np.ndarray:
     """
     Smooths a 1D array using a simple moving average (box filter).
     Inspired by: https://github.com/sct-pipeline/rootlets-informed-reg2template/blob/main/csa_analysis.py#L199
@@ -104,12 +107,13 @@ def get_vert_indices(df):
     return vert, ind_vert, ind_vert_mid
 
 
-def create_lineplot(df, figure_path):
+def create_lineplot(df, figure_path, smooth):
     """
     Create lineplot for individual metrics per vertebral levels.
     Args:
         df (pd.DataFrame): dataframe with single subject values
         figure_path (str): path to save the figure
+        smooth (int): Smooth measurements before plotting. 0: no smoothing; 1: smoothing
     """
     mpl.rcParams['font.family'] = 'Arial'
 
@@ -120,9 +124,10 @@ def create_lineplot(df, figure_path):
     # Loop across metrics
     for index, metric in enumerate(METRICS):
 
-        # Smooth the data to improve visualization
-        df[metric] = smooth(df[metric].values, 5)
-        df[f'{metric.replace(")", "_hog)")}'] = smooth(df[f'{metric.replace(")", "_hog)")}'].values, 5)
+        if smooth > 0:
+            # Smooth the data to improve visualization
+            df[metric] = smooth_data(df[metric].values, smooth)
+            df[f'{metric.replace(")", "_hog)")}'] = smooth_data(df[f'{metric.replace(")", "_hog)")}'].values, smooth)
         # Original
         sns.lineplot(ax=axs[index], x="Slice (I->S)", y=metric,
                      data=df, linewidth=2,
@@ -188,7 +193,7 @@ def main():
         print('WARNING: No slices found in the range C1-Th1 in the single subject data. Exiting...')
         sys.exit(1)
 
-    create_lineplot(df, out_path)
+    create_lineplot(df, out_path, args.smooth)
 
 
 if __name__ == '__main__':
