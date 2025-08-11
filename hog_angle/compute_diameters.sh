@@ -137,7 +137,7 @@ fi
 sct_label_vertebrae -i ${file_t2}.nii.gz -s ${FILESEG}.nii.gz -discfile ${FILEDISCS}.nii.gz -c t2 -qc ${PATH_QC} -qc-subject ${file}
 
 # Normalize to PAM50, with and without the angle correction
-sct_process_segmentation -i ${file_t2}.nii.gz -s ${FILESEG}.nii.gz -vertfile ${FILESEG}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file}_metrics_PAM50_angle_corr0.csv -qc ${PATH_QC} -angle-corr 0
+sct_process_segmentation -i ${file_t2}.nii.gz -s ${FILESEG}.nii.gz -vertfile ${FILESEG}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file}_metrics_PAM50_angle_corr0.csv -qc ${PATH_QC} -angle-corr 0 -v 2
 sct_process_segmentation -i ${file_t2}.nii.gz -s ${FILESEG}.nii.gz -vertfile ${FILESEG}_labeled.nii.gz -perslice 1 -normalize-PAM50 1 -o ${PATH_RESULTS}/${file}_metrics_PAM50_angle_corr1.csv -qc ${PATH_QC} -angle-corr 1
 
 # No normalization to PAM50, with and without the angle correction
