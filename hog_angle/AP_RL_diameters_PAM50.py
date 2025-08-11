@@ -140,7 +140,7 @@ def create_lineplot(df, figure_path, smooth):
                      label=metric)
         # HOG-based
         sns.lineplot(ax=axs[index], x="Slice (I->S)", y=f'{metric.replace(")", "_hog)")}',
-                     data=df, linewidth=2,
+                     data=df, linewidth=2, alpha=0.5,
                      label=f'{metric.replace(")", "_hog)")}')
 
         # Tweak y-axis limits
