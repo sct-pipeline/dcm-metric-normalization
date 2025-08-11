@@ -30,8 +30,8 @@ METRICS = [
 
 # Set ylim to do not overlap horizontal grid with vertebrae labels
 METRICS_TO_YLIM = {
-    'MEAN(diameter_AP)': (5.5, 9.5),
-    'MEAN(diameter_RL)': (8.5, 14.5),
+    'MEAN(diameter_AP)': (5, 10),
+    'MEAN(diameter_RL)': (8, 16),
 }
 
 LABELS_FONT_SIZE = 14
