@@ -108,8 +108,8 @@ def main() -> None:
     # Save figure
     plt.savefig(out_path, bbox_inches='tight', dpi=300)
     print(f"Figure saved: {out_path}")
-    plt.show()
-    # plt.close()
+    #plt.show()
+    plt.close()
 
 
 if __name__ == "__main__":
