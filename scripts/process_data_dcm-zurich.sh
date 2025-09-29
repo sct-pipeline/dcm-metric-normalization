@@ -41,7 +41,6 @@ segment_if_does_not_exist() {
   local contrast="$2"
   # Update global variable with segmentation file name
   FILESEG="${file}_label-SC_mask"
-  # TODO - change to FILESEG="${file}_label-SC_seg", once https://github.com/neuropoly/data-management/issues/225 is done
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
@@ -52,7 +51,7 @@ segment_if_does_not_exist() {
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment spinal cord
-    sct_deepseg_sc -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
   fi
 }
 
@@ -64,7 +63,6 @@ label_if_does_not_exist(){
   local contrast="$3"
   # Update global variable with segmentation file name
   FILELABEL="${file}_labels"
-  # TODO - change to FILELABEL="${file}_label-disc", once https://github.com/neuropoly/data-management/issues/225 is done
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual disc labels: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
@@ -79,6 +77,50 @@ label_if_does_not_exist(){
   fi
   # Generate QC to access disc labels created by sct_label_vertebrae
   sct_qc -i ${file}.nii.gz -s ${file_seg}_labeled_discs.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+}
+
+# Check if manual canal segmentation file already exists. If it does, copy it locally.
+# If it doesn't, perform automatic canal segmentation
+segment_canal_if_does_not_exist() {
+  local file="$1"
+  local contrast="$2"
+  # Update global variable with segmentation file name 
+  # If the segmentation of the canal already exist, would it have this name?
+  FILESEG="${file}_label-canal_mask"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
+  echo
+  echo "Looking for manual segmentation: $FILESEGMANUAL"
+  if [[ -e $FILESEGMANUAL ]]; then
+    echo "Found! Using manual segmentation."
+    rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
+    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  else
+    echo "Not found. Proceeding with automatic segmentation."
+    # Segment canal
+    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  fi
+}
+
+# Check if manual lesion segmentation file already exists. If it does, copy it locally.
+# If it doesn't, perform automatic lesion segmentation
+segment_lesion_if_does_not_exist() {
+  local file="$1"
+  local contrast="$2"
+  # Update global variable with segmentation file name 
+  # If the segmentation of the lesion already exist, would it have this name?
+  FILESEG="${file}_label-lesion_mask"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
+  echo
+  echo "Looking for manual segmentation: $FILESEGMANUAL"
+  if [[ -e $FILESEGMANUAL ]]; then
+    echo "Found! Using manual segmentation."
+    rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
+    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_lesion -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  else
+    echo "Not found. Proceeding with automatic segmentation."
+    # Segment lesions
+    sct_deepseg lesion_sci_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  fi
 }
 
 # Retrieve input params and other params
@@ -169,9 +211,11 @@ else
     fi
 
     # Label T2w axial spinal cord segmentation. Either using manual disc labels or using disc labels from sagittal image.
-    # Note: here we use sct_label_utils instead of sct_label_vertebrae to avoid SC straightening
+    # Before:"# Note: here we use sct_label_utils instead of sct_label_vertebrae to avoid SC straightening"
+    #sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_ax_labels}.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
+    # Note: Updated to use sct_label_vertebrae -discfile instead of deprecated sct_label_utils -disc
     # Context: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4072
-    sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_ax_labels}.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
+    sct_label_vertebrae -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -c t2
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
@@ -205,6 +249,50 @@ else
         # solidity
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
 
+        # ------------------------------------------------------------------------------
+        # Adding new metrics 
+        # ------------------------------------------------------------------------------
+
+        # ------------------------------------------------------------------------------
+        # Compute general morphometric metrics across all vertebral levels
+        # ------------------------------------------------------------------------------
+        echo "Computing general morphometric metrics across vertebral levels..."
+        
+        # Check if vertebral-level metrics CSV already exists to avoid reprocessing
+        # WOUld this name be the standard name for vertebral-level metrics CSV?
+        vertebral_metrics_csv="${PATH_RESULTS}/vertebral_level_metrics.csv"
+
+        # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels if they are not already available
+        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz  -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
+        # Normalized 
+        # Can we append? Results in one file or separate files?
+        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz  -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
+
+        # Always try to segment canal (check for manual first, then automatic)
+        segment_canal_if_does_not_exist ${file_t2_ax} 't2'
+        file_t2_ax_canal_seg=$FILESEG
+
+        # Compute CSA, AP, RL for canal segmentation 
+        if [[ -e ${file_t2_ax}_label-canal_mask.nii.gz ]]; then
+          echo "Computing CSA, AP, RL across vertebral levels for canal segmentation..."
+          # Compute CSA, AP, RL across vertebral levels for canal segmentation
+          vertebral_metrics_canal_csv="${PATH_RESULTS}/vertebral_level_metrics_canal.csv"
+          sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${vertebral_metrics_canal_csv} -append 1
+        fi
+
+        # Always try to segment lesion
+        segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
+        file_t2_ax_lesion_seg=$FILESEG
+        #Compute statistics on segmented lesions if lesion segmentation was performed
+        if [[ -e ${file_t2_ax}_label-lesion_mask.nii.gz ]]; then
+          echo "Computing lesion metrics..."
+          # Compute lesion volume and number of lesions
+          sct_analyze_lesion -m ${file_t2_ax_lesion_seg}.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
+        fi 
+
+        # Adding aSCOR computation
+        #sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics.csv -append 1
+      
     fi
 fi
 # ------------------------------------------------------------------------------
