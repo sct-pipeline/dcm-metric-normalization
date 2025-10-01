@@ -41,18 +41,18 @@ segment_if_does_not_exist() {
   local contrast="$2"
   # Update global variable with segmentation file name
   FILESEG="${file}_label-SC_mask"
-  # Getting the path for manual segmentation with baseline ses-M0
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/ses-M0/anat/${FILESEG}-manual.nii.gz"
+  # Getting the path for manual segmentation for each session
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
     echo "Found! Using manual segmentation."
     rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
-    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment spinal cord
-    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
 }
 
@@ -64,20 +64,20 @@ label_if_does_not_exist(){
   local contrast="$3"
   # Update global variable with segmentation file name
   FILELABEL="${file}_labels"
-  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILELABEL}-manual.nii.gz"
+  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual disc labels: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
     echo "Found! Using manual disc labels."
     rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
     # Generate labeled segmentation from manual disc labels
-    sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
     echo "Not found. Proceeding with automatic labeling."
     # Generate labeled segmentation automatically (no manual disc labels provided)
-    sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
   # Generate QC to access disc labels created by sct_label_vertebrae
-  sct_qc -i ${file}.nii.gz -s ${file_seg}_labeled_discs.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+  sct_qc -i ${file}.nii.gz -s ${file_seg}_labeled_discs.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 }
 
 # Check if manual canal segmentation file already exists. If it does, copy it locally.
@@ -86,19 +86,18 @@ segment_canal_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name 
-  # If the segmentation of the canal already exist, would it have this name?
   FILESEG="${file}_label-canal_mask"
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
   echo
-  echo "Looking for manual segmentation: $FILESEGMANUAL"
+  echo "Looking for manual canal segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
-    echo "Found! Using manual segmentation."
+    echo "Found! Using manual canal segmentation."
     rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
-    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment canal
-    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
 }
 
@@ -110,22 +109,55 @@ segment_lesion_if_does_not_exist() {
   # Update global variable with segmentation file name 
   # If the segmentation of the lesion already exist, would it have this name?
   FILESEG="${file}_label-lesion_mask"
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
   echo
-  echo "Looking for manual segmentation: $FILESEGMANUAL"
+  echo "Looking for manual lesion segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
-    echo "Found! Using manual segmentation."
+    echo "Found! Using manual lesion segmentation."
     rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
-    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_lesion -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_lesion -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment lesions
-    sct_deepseg lesion_sci_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_deepseg lesion_sci_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
 }
 
 # Retrieve input params and other params
-SUBJECT=$1
+SUBJECT_INPUT=$1
+# Adapting the script to handle new folder organization where each subject has multiple sessions
+SESSION_INPUT=${2:-ses-M0}  # Default to ses-M0 if not provided
+
+# Handle sct_run_batch format where SUBJECT might be "sub-001/ses-M0"
+if [[ "$SUBJECT_INPUT" == *"/"* ]]; then
+    # Extract subject and session from combined format (sct_run_batch style)
+    SUBJECT=$(echo "$SUBJECT_INPUT" | cut -d'/' -f1)
+    SESSION=$(echo "$SUBJECT_INPUT" | cut -d'/' -f2)
+    echo "Detected sct_run_batch format: $SUBJECT_INPUT -> SUBJECT=$SUBJECT, SESSION=$SESSION"
+else
+    # Use separate parameters (direct script call)
+    SUBJECT=$SUBJECT_INPUT
+    SESSION=$SESSION_INPUT
+fi
+
+# Validate parameters
+if [[ -z "$SUBJECT" ]]; then
+    echo "ERROR: SUBJECT parameter is required"
+    echo "       $0 <SUBJECT/SESSION>     (sct_run_batch format)"
+    echo "Example: $0 sub-001          (uses default ses-M0)"
+    echo "         $0 sub-001/ses-M0   (sct_run_batch format)"
+    exit 1
+fi
+
+# Verify the session directory exists (only if PATH_DATA is set)
+if [[ -n "${PATH_DATA}" && ! -d "${PATH_DATA}/${SUBJECT}/${SESSION}" ]]; then
+    echo "ERROR: Session directory ${PATH_DATA}/${SUBJECT}/${SESSION} does not exist"
+    echo "Available sessions for ${SUBJECT}:"
+    find ${PATH_DATA}/${SUBJECT} -maxdepth 1 -type d -name "ses-*" 2>/dev/null | sort || echo "  No sessions found or subject doesn't exist"
+    exit 1
+fi
+
+echo "Processing ${SUBJECT} - ${SESSION}"
 
 # get starting time:
 start=`date +%s`
@@ -147,17 +179,17 @@ fi
 
 # Copy source T2w images
 # Note: we use '/./' in order to include the sub-folder 'ses-0X'
-rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/anat/${SUBJECT}_*T2w.* .
+rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/${SESSION}/anat/${SUBJECT}_${SESSION}*T2w.* .
 
 # Go to subject folder for source images
-cd ${SUBJECT}/anat
+cd ${SUBJECT}/${SESSION}/anat
 
 # ------------------------------------------------------------------------------
 # T2w Sagittal
 # ------------------------------------------------------------------------------
 # Define variables
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-file_t2_sag="${SUBJECT//[\/]/_}"_acq-sagittal_T2w
+file_t2_sag="${SUBJECT//[\/]/_}"_"${SESSION}"_acq-sagittal_T2w
 # Check if file_t2_sag exists
 if [[ ! -e ${file_t2_sag}.nii.gz ]]; then
     echo "File ${file_t2_sag}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
@@ -174,7 +206,7 @@ fi
 # ------------------------------------------------------------------------------
 # Define variables
 # We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-file_t2_ax="${SUBJECT//[\/]/_}"_acq-axial_T2w
+file_t2_ax="${SUBJECT//[\/]/_}"_"${SESSION}"_acq-axial_T2w
 # Check if file_t2_ax exists.
 # Note: some subjects do not have T2w axial images. In this case, analysis will be stop after processing of
 # T2w sagittal image.
@@ -190,9 +222,9 @@ else
     # Label SC
     # Check if manual disc labels file already exists. If so, generate labeled segmentation from manual disc labels.
     echo "Looking for manual disc labels: ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz"
-    if [[ -e ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz ]]; then
+    if [[ -e ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ]]; then
         echo "Found! Using manual disc labels."
-        rsync -avzh ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz ${file_t2_ax}_labels.nii.gz
+        rsync -avzh ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ${file_t2_ax}_labels.nii.gz
 
         file_t2_ax_labels=${file_t2_ax}_labels
     # If manual disc labels file does not exist, use disc labels from sagittal image
@@ -222,7 +254,7 @@ else
 
     # Check if compression labels exists.
     file_compression="${file_t2_ax}_label-compression-manual"
-    FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_compression}.nii.gz"
+    FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_compression}.nii.gz"
     if [[ ! -e ${FILE_COMPRESSION_MANUAL} ]]; then
         echo "File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
         echo "ERROR: File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist. Exiting."
@@ -231,8 +263,8 @@ else
         echo "Found! Using manual compression labels."
         rsync -avzh $FILE_COMPRESSION_MANUAL ${file_compression}.nii.gz
 
-        # Fetch sex from participants.tsv file
-        sex=$(grep ${SUBJECT} ${PARTICIPANTS_PATH} | awk '{print $5}')
+        # Fetch sex from participants.tsv file (adaptated for new folder organization)
+        sex=$(grep ${SUBJECT} ${PARTICIPANTS_PATH} | awk '{print $4}')
         echo "${SUBJECT}: ${sex}"
 
         # TODO: test without angle correction too
