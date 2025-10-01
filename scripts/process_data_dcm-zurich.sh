@@ -41,7 +41,8 @@ segment_if_does_not_exist() {
   local contrast="$2"
   # Update global variable with segmentation file name
   FILESEG="${file}_label-SC_mask"
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${FILESEG}-manual.nii.gz"
+  # Getting the path for manual segmentation with baseline ses-M0
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/ses-M0/anat/${FILESEG}-manual.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -259,7 +260,6 @@ else
         echo "Computing general morphometric metrics across vertebral levels..."
         
         # Check if vertebral-level metrics CSV already exists to avoid reprocessing
-        # WOUld this name be the standard name for vertebral-level metrics CSV?
         vertebral_metrics_csv="${PATH_RESULTS}/vertebral_level_metrics.csv"
 
         # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels if they are not already available
