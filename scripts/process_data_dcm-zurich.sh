@@ -86,8 +86,8 @@ segment_canal_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name 
-  FILESEG="${file}_label-canal_mask"
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
+  FILESEG="${file}_label-canal_seg"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
   echo
   echo "Looking for manual canal segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -108,8 +108,8 @@ segment_lesion_if_does_not_exist() {
   local contrast="$2"
   # Update global variable with segmentation file name 
   # If the segmentation of the lesion already exist, would it have this name?
-  FILESEG="${file}_label-lesion_mask"
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
+  FILESEG="${file}_label-lesion_seg"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
   echo
   echo "Looking for manual lesion segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -291,9 +291,6 @@ else
         # ------------------------------------------------------------------------------
         echo "Computing general morphometric metrics across vertebral levels..."
         
-        # Check if vertebral-level metrics CSV already exists to avoid reprocessing
-        vertebral_metrics_csv="${PATH_RESULTS}/vertebral_level_metrics.csv"
-
         # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels if they are not already available
         sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz  -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
         # Normalized to PAM50 
@@ -304,26 +301,24 @@ else
         file_t2_ax_canal_seg=$FILESEG
 
         # Compute CSA, AP, RL for canal segmentation 
-        if [[ -e ${file_t2_ax}_label-canal_mask.nii.gz ]]; then
-          echo "Computing CSA, AP, RL across vertebral levels for canal segmentation..."
-          # Compute CSA, AP, RL across vertebral levels for canal segmentation
-          vertebral_metrics_canal_csv="${PATH_RESULTS}/vertebral_level_metrics_canal.csv"
-          sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${vertebral_metrics_canal_csv} -append 1
-        fi
+        echo "Computing CSA, AP, RL across vertebral levels for canal segmentation..."
+        # Compute CSA, AP, RL across vertebral levels for canal segmentation
+        sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal.csv -append 1
+        # Normalized to PAM50 
+        sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal_normalized.csv -append 1
 
         # Always try to segment lesion
         segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
         file_t2_ax_lesion_seg=$FILESEG
-        #Compute statistics on segmented lesions if lesion segmentation was performed
-        if [[ -e ${file_t2_ax}_label-lesion_mask.nii.gz ]]; then
-          echo "Computing lesion metrics..."
-          # Compute lesion volume and number of lesions
-          sct_analyze_lesion -m ${file_t2_ax_lesion_seg}.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
-        fi 
+        #Compute statistics on segmented lesions
+        echo "Computing lesion metrics..."
+        # Compute lesion volume and number of lesions
+        sct_analyze_lesion -m ${file_t2_ax_lesion_seg}.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
 
         # Adding aSCOR computation
         sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics.csv -append 1
-      
+        # Normalized to PAM50
+        sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics_normalized.csv -append 1
     fi
 fi
 # ------------------------------------------------------------------------------
