@@ -299,11 +299,11 @@ else
         # Normalized to PAM50 
         sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz  -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
 
-        # Always try to segment canal (check for manual first, then automatic)
+        # Segment the spinal canal if manual segmentation doesn't exists
         segment_canal_if_does_not_exist ${file_t2_ax} 't2'
         file_t2_ax_canal_seg=$FILESEG
 
-        # Compute CSA, AP, RL for canal segmentation 
+        # Compute morphometric measures for canal segmentation (e.g: CSA, AP, RL)
         if [[ -e ${file_t2_ax}_label-canal_mask.nii.gz ]]; then
           echo "Computing CSA, AP, RL across vertebral levels for canal segmentation..."
           # Compute CSA, AP, RL across vertebral levels for canal segmentation
