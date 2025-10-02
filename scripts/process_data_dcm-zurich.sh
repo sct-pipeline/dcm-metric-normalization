@@ -107,19 +107,18 @@ segment_lesion_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name 
-  # If the segmentation of the lesion already exist, would it have this name?
-  FILESEG="${file}_label-lesion_seg"
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
+  FILESEG="${file}"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file}_label-lesion_seg.nii.gz"
   echo
   echo "Looking for manual lesion segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
     echo "Found! Using manual lesion segmentation."
-    rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
-    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_lesion -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    rsync -avzh $FILESEGMANUAL ${file}_lesion_seg.nii.gz
+    sct_qc -i ${file}.nii.gz -s ${file}_lesion_seg.nii.gz -p sct_deepseg_lesion -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
     echo "Not found. Proceeding with automatic segmentation."
     # Segment lesions
-    sct_deepseg lesion_sci_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    sct_deepseg lesion_sci_t2 -i ${file}.nii.gz -o ${file}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
 }
 
@@ -313,12 +312,12 @@ else
         #Compute statistics on segmented lesions
         echo "Computing lesion metrics..."
         # Compute lesion volume and number of lesions
-        sct_analyze_lesion -m ${file_t2_ax_lesion_seg}.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
+        sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
 
         # Adding aSCOR computation
         sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics.csv -append 1
         # Normalized to PAM50
-        sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics_normalized.csv -append 1
+        sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics_normalized.csv -append 1
     fi
 fi
 # ------------------------------------------------------------------------------
