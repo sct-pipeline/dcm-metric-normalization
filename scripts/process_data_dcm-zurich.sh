@@ -214,11 +214,16 @@ if [[ ! -e ${file_t2_ax}.nii.gz ]]; then
     echo "ERROR: File ${file_t2_ax}.nii.gz does not exist. Exiting."
     exit 1
 else
+    # -------------
     # Segment SC (if SC segmentation file already exists under derivatives folder, it will be copied)
+    # -------------
     segment_if_does_not_exist ${file_t2_ax} 't2'
     file_t2_ax_seg=$FILESEG
 
+    # -------------
     # Label SC
+    # TODO: consider moving the if statement inside a new function, e.g., `label_t2w_ax_if_does_not_exist`
+    # -------------
     # Check if manual disc labels file already exists. If so, generate labeled segmentation from manual disc labels.
     echo "Looking for manual disc labels: ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz"
     if [[ -e ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ]]; then
