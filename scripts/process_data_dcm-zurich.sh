@@ -283,7 +283,7 @@ else
         # ------------------------------------------------------------------------------
         # Compute spinal cord morphometrics across all vertebral levels
         # ------------------------------------------------------------------------------
-        echo "Computing general morphometric metrics across vertebral levels..."
+        echo "Computing spinal cord morphometrics across vertebral levels..."
         
         # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels
         sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
