@@ -250,7 +250,50 @@ else
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
 
-    # Check if compression labels exists.
+    # -------------
+    # Compute spinal cord morphometrics across levels
+    # -------------
+    echo "Computing spinal cord morphometrics across vertebral levels..."
+    # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
+    # Normalized to PAM50
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
+
+    # -------------
+    # Segment spinal canal if manual segmentation doesn't exists
+    # -------------
+    segment_canal_if_does_not_exist ${file_t2_ax} 't2'
+    file_t2_ax_canal_seg=$FILESEG
+
+    # -------------
+    # Compute spinal canal morphometrics across levels
+    # -------------
+    echo "Computing spinal canal morphometrics across vertebral levels..."
+    # Compute CSA, AP, RL across vertebral levels for canal segmentation
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal.csv -append 1
+    # Normalized to PAM50
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal_normalized.csv -append 1
+
+    # -------------
+    # Compute aSCOR -- it needs both SC and canal segmentations
+    # -------------
+    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics.csv -append 1
+    # Normalized to PAM50
+    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics_normalized.csv -append 1
+
+    # -------------
+    # Segment intramedullary lesions if manual segmentation doesn't exists
+    # -------------
+    segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
+    file_t2_ax_lesion_seg=$FILESEG
+    # Compute lesion metrics
+    echo "Computing lesion metrics..."
+    sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
+
+    # -------------
+    # Compute compression metrics
+    # -------------
+    # Check if file with compression labels exists.
     file_compression="${file_t2_ax}_label-compression-manual"
     FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_compression}.nii.gz"
     if [[ ! -e ${FILE_COMPRESSION_MANUAL} ]]; then
@@ -280,39 +323,6 @@ else
         # solidity
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
     fi
-    # ------------------------------------------------------------------------------
-    # Compute spinal cord morphometrics across all vertebral levels
-    # ------------------------------------------------------------------------------
-    echo "Computing spinal cord morphometrics across vertebral levels..."
-
-    # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
-    # Normalized to PAM50
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
-
-    # Segment the spinal canal if manual segmentation doesn't exists
-    segment_canal_if_does_not_exist ${file_t2_ax} 't2'
-    file_t2_ax_canal_seg=$FILESEG
-
-    # Compute CSA, AP, RL for canal segmentation
-    echo "Computing CSA, AP, RL across vertebral levels for canal segmentation..."
-    # Compute CSA, AP, RL across vertebral levels for canal segmentation
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal.csv -append 1
-    # Normalized to PAM50
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal_normalized.csv -append 1
-
-    # Always try to segment lesion
-    segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
-    file_t2_ax_lesion_seg=$FILESEG
-    #Compute statistics on segmented lesions
-    echo "Computing lesion metrics..."
-    # Compute lesion volume and number of lesions
-    sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
-
-    # Adding aSCOR computation
-    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics.csv -append 1
-    # Normalized to PAM50
-    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics_normalized.csv -append 1
 fi
 # ------------------------------------------------------------------------------
 # End
