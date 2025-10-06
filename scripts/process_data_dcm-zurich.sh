@@ -281,16 +281,11 @@ else
         sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
 
         # ------------------------------------------------------------------------------
-        # Adding new metrics 
-        # ------------------------------------------------------------------------------
-
-        # ------------------------------------------------------------------------------
-        # Compute general morphometric metrics across all vertebral levels
+        # Compute spinal cord morphometrics across all vertebral levels
         # ------------------------------------------------------------------------------
         echo "Computing general morphometric metrics across vertebral levels..."
         
-        # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels if they are not already available
-        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz  -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
+        # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels
         # Normalized to PAM50 
         sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz  -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
 
