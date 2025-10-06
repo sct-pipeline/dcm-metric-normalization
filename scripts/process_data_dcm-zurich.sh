@@ -286,8 +286,9 @@ else
         echo "Computing general morphometric metrics across vertebral levels..."
         
         # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels
+        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
         # Normalized to PAM50 
-        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz  -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
+        sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
 
         # Segment the spinal canal if manual segmentation doesn't exists
         segment_canal_if_does_not_exist ${file_t2_ax} 't2'
