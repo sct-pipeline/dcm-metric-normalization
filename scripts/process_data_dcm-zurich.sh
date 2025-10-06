@@ -242,11 +242,10 @@ else
         file_t2_ax_labels=${file_t2_sag_seg}_labeled_discs_reg
     fi
 
-    # Label T2w axial spinal cord segmentation. Either using manual disc labels or using disc labels from sagittal image.
-    # Before:"# Note: here we use sct_label_utils instead of sct_label_vertebrae to avoid SC straightening"
-    #sct_label_utils -i ${file_t2_ax_seg}.nii.gz -disc ${file_t2_ax_labels}.nii.gz -o ${file_t2_ax_seg}_labeled.nii.gz
-    # Note: Updated to use sct_label_vertebrae -discfile instead of deprecated sct_label_utils -disc
-    # Context: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4072
+    # Label T2w axial spinal cord segmentation.
+    # Either using manual disc labels or using disc labels from sagittal image -- this is handled in the previous step.
+    # Note: we use `sct_label_vertebrae -discfile` to avoid cord straightening
+    # Details: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4896
     sct_label_vertebrae -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -c t2
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
