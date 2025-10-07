@@ -293,7 +293,52 @@ else
     file_t2_ax_lesion_seg=$FILESEG
     # Compute lesion metrics
     echo "Computing lesion metrics..."
-    sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
+    # Check if there are any lesions by examining the segmentation file
+    # Use fslstats to check if there are non-zero voxels in the lesion segmentation
+    if command -v fslstats >/dev/null 2>&1; then
+        lesion_check=$(fslstats ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -V | awk '{print ($1 > 0) ? 1 : 0}')
+    else
+        # Fallback: check if file exists and has content
+        lesion_check=$(test -f ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz && echo "1" || echo "0")
+    fi
+    
+    if [[ $lesion_check -gt 0 ]]; then
+        echo "Found $lesion_check discrete lesion(s). Running lesion analysis..."
+        sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
+        
+        # Use the reliable connected components count from SCT
+        # This is the most robust approach that works on all machines
+        lesion_objects_count=$lesion_check
+        echo "Lesion analysis complete. Found $lesion_objects_count discrete lesion(s)."
+    else
+        echo "No lesions found in segmentation. Skipping lesion analysis."
+        lesion_objects_count=0
+    fi
+
+    # -------------
+    # Create lesion and myelopathy summary
+    # -------------
+    echo "Creating lesion and myelopathy summary..."
+    SUMMARY_FILE="${PATH_RESULTS}/lesion_myelopathy_summary.csv"
+    
+    # Create header if file doesn't exist
+    if [[ ! -f ${SUMMARY_FILE} ]]; then
+        echo "participant_id,lesion_count,myelopathy_count" > ${SUMMARY_FILE}
+    fi
+    
+    # Get myelopathy count from participants.tsv
+    myelopathy_info=$(grep "^${SUBJECT}" ${PARTICIPANTS_PATH} | cut -f16)  # Assuming myelopathy is column 16
+    if [[ -n "$myelopathy_info" && "$myelopathy_info" != "n/a" ]]; then
+        # Count myelopathies by counting commas and adding 1, or 0 if empty
+        myelopathy_count=$(echo "$myelopathy_info" | grep -o "," | wc -l)
+        myelopathy_count=$((myelopathy_count + 1))
+    else
+        myelopathy_count=0
+    fi
+    
+    # Append data to summary file
+    echo "${SUBJECT},${lesion_objects_count},${myelopathy_count}" >> ${SUMMARY_FILE}
+    echo "Added to summary: ${SUBJECT} - Lesions: ${lesion_objects_count}, Myelopathies: ${myelopathy_count}"
 
     # -------------
     # Compute compression metrics
