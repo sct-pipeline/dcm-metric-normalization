@@ -164,6 +164,9 @@ start=`date +%s`
 # ------------------------------------------------------------------------------
 # SCRIPT STARTS HERE
 # ------------------------------------------------------------------------------
+#
+# Adapting script to perform baseline analysis only (ses-M0) on latest dcm-zurich dataset to obtain SC segmentation, spinal canal segmentation, disc labels, corresponding metrics and aSCOR (commenting out all other analyses)
+#
 # Display useful info for the log, such as SCT version, RAM and CPU cores available
 sct_check_dependencies -short
 
@@ -237,12 +240,12 @@ else
         # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
         # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
         # Note: the '-dseg' is used only for the QC report
-        sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT} -dseg ${file_t2_ax_seg}.nii.gz
+        sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION} -dseg ${file_t2_ax_seg}.nii.gz
         # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
         # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
         sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
         # Generate QC report to assess warped disc labels
-        sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}
+        sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 
         file_t2_ax_labels=${file_t2_sag_seg}_labeled_discs_reg
     fi
@@ -253,7 +256,9 @@ else
     # Details: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4896
     sct_label_vertebrae -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -c t2
     # Generate QC report to assess labeled segmentation
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}
+    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    # Intervertebral discs labeling and vertebrae segmentation and generate QC report
+    sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 
     # -------------
     # Compute spinal cord morphometrics across levels
@@ -289,56 +294,56 @@ else
     # -------------
     # Segment intramedullary lesions if manual segmentation doesn't exists
     # -------------
-    segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
-    file_t2_ax_lesion_seg=$FILESEG
+    #segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
+    #file_t2_ax_lesion_seg=$FILESEG
     # Compute lesion metrics
-    echo "Computing lesion metrics..."
+    #echo "Computing lesion metrics..."
     # Check if there are any lesions by examining the segmentation file
     # Use fslstats to check if there are non-zero voxels in the lesion segmentation
-    if command -v fslstats >/dev/null 2>&1; then
-        lesion_check=$(fslstats ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -V | awk '{print ($1 > 0) ? 1 : 0}')
-    else
+    #if command -v fslstats >/dev/null 2>&1; then
+    #    lesion_check=$(fslstats ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -V | awk '{print ($1 > 0) ? 1 : 0}')
+    #else
         # Fallback: check if file exists and has content
         lesion_check=$(test -f ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz && echo "1" || echo "0")
-    fi
-    
-    if [[ $lesion_check -gt 0 ]]; then
-        echo "Found $lesion_check discrete lesion(s). Running lesion analysis..."
-        sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
+    #fi
+
+    #if [[ $lesion_check -gt 0 ]]; then
+    #    echo "Found $lesion_check discrete lesion(s). Running lesion analysis..."
+    #    sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
         
         # Use the reliable connected components count from SCT
         # This is the most robust approach that works on all machines
-        lesion_objects_count=$lesion_check
-        echo "Lesion analysis complete. Found $lesion_objects_count discrete lesion(s)."
-    else
-        echo "No lesions found in segmentation. Skipping lesion analysis."
-        lesion_objects_count=0
-    fi
+    #    lesion_objects_count=$lesion_check
+    #    echo "Lesion analysis complete. Found $lesion_objects_count discrete lesion(s)."
+    #else
+    #    echo "No lesions found in segmentation. Skipping lesion analysis."
+    #    lesion_objects_count=0
+    #fi
 
     # -------------
     # Create lesion and myelopathy summary
     # -------------
-    echo "Creating lesion and myelopathy summary..."
-    SUMMARY_FILE="${PATH_RESULTS}/lesion_myelopathy_summary.csv"
+    #echo "Creating lesion and myelopathy summary..."
+    #SUMMARY_FILE="${PATH_RESULTS}/lesion_myelopathy_summary.csv"
     
     # Create header if file doesn't exist
-    if [[ ! -f ${SUMMARY_FILE} ]]; then
-        echo "participant_id,lesion_count,myelopathy_count" > ${SUMMARY_FILE}
-    fi
+    #if [[ ! -f ${SUMMARY_FILE} ]]; then
+    #    echo "participant_id,lesion_count,myelopathy_count" > ${SUMMARY_FILE}
+    #fi
     
     # Get myelopathy count from participants.tsv
-    myelopathy_info=$(grep "^${SUBJECT}" ${PARTICIPANTS_PATH} | cut -f16)  # Assuming myelopathy is column 16
-    if [[ -n "$myelopathy_info" && "$myelopathy_info" != "n/a" ]]; then
+    #myelopathy_info=$(grep "^${SUBJECT}" ${PARTICIPANTS_PATH} | cut -f16)  # Assuming myelopathy is column 16
+    #if [[ -n "$myelopathy_info" && "$myelopathy_info" != "n/a" ]]; then
         # Count myelopathies by counting commas and adding 1, or 0 if empty
-        myelopathy_count=$(echo "$myelopathy_info" | grep -o "," | wc -l)
-        myelopathy_count=$((myelopathy_count + 1))
-    else
-        myelopathy_count=0
-    fi
+    #    myelopathy_count=$(echo "$myelopathy_info" | grep -o "," | wc -l)
+    #    myelopathy_count=$((myelopathy_count + 1))
+    #else
+    #    myelopathy_count=0
+    #fi
     
     # Append data to summary file
-    echo "${SUBJECT},${lesion_objects_count},${myelopathy_count}" >> ${SUMMARY_FILE}
-    echo "Added to summary: ${SUBJECT} - Lesions: ${lesion_objects_count}, Myelopathies: ${myelopathy_count}"
+    #echo "${SUBJECT},${lesion_objects_count},${myelopathy_count}" >> ${SUMMARY_FILE}
+    #echo "Added to summary: ${SUBJECT} - Lesions: ${lesion_objects_count}, Myelopathies: ${myelopathy_count}"
 
     # -------------
     # Compute compression metrics
