@@ -12,7 +12,7 @@
 # PATH_LOG="~/log"
 # PATH_QC="~/qc"
 #
-# Authors: Jan Valosek, Sandrine Bedard, Julien Cohen-Adad
+# Authors: Jan Valosek, Sandrine Bedard, Kahina, Julien Cohen-Adad
 #
 
 # Uncomment for full verbose
