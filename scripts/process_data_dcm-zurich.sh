@@ -385,7 +385,7 @@ else
 #        # solidity
 #        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
 #    fi
-#fi
+fi
 # ------------------------------------------------------------------------------
 # End
 # ------------------------------------------------------------------------------
