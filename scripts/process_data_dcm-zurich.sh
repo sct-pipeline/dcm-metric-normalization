@@ -352,40 +352,40 @@ else
     #echo "${SUBJECT},${lesion_objects_count},${myelopathy_count}" >> ${SUMMARY_FILE}
     #echo "Added to summary: ${SUBJECT} - Lesions: ${lesion_objects_count}, Myelopathies: ${myelopathy_count}"
 
-    # -------------
-    # Compute compression metrics
-    # -------------
-    # Check if file with compression labels exists.
-    file_compression="${file_t2_ax}_label-compression-manual"
-    FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_compression}.nii.gz"
-    if [[ ! -e ${FILE_COMPRESSION_MANUAL} ]]; then
-        echo "File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
-        echo "ERROR: File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist. Exiting."
-        exit 1
-    else
-        echo "Found! Using manual compression labels."
-        rsync -avzh $FILE_COMPRESSION_MANUAL ${file_compression}.nii.gz
-
-        # Fetch sex from participants.tsv file (adaptated for new folder organization)
-        sex=$(grep ${SUBJECT} ${PARTICIPANTS_PATH} | awk '{print $4}')
-        echo "${SUBJECT}: ${sex}"
-
-        # TODO: test without angle correction too
-        # Compute morphometric measures normalized to PAM50 template space
-        # Note: CSV file without normalization is also generated automatically
-        # Note: morphometric measures for individual subjects are appended to a single CSV file
-        # diameter_AP
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -o ${PATH_RESULTS}/compression_metrics.csv
-        # cross-sectional area
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric area -o ${PATH_RESULTS}/compression_metrics.csv
-        # diameter_RL
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric diameter_RL -o ${PATH_RESULTS}/compression_metrics.csv
-        # eccentricity
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric eccentricity -o ${PATH_RESULTS}/compression_metrics.csv
-        # solidity
-        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
-    fi
-fi
+#    # -------------
+#    # Compute compression metrics
+#    # -------------
+#    # Check if file with compression labels exists.
+#    file_compression="${file_t2_ax}_label-compression-manual"
+#    FILE_COMPRESSION_MANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_compression}.nii.gz"
+#    if [[ ! -e ${FILE_COMPRESSION_MANUAL} ]]; then
+#        echo "File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
+#        echo "ERROR: File ${FILE_COMPRESSION_MANUAL}.nii.gz does not exist. Exiting."
+#        exit 1
+#    else
+#        echo "Found! Using manual compression labels."
+#        rsync -avzh $FILE_COMPRESSION_MANUAL ${file_compression}.nii.gz
+#
+#        # Fetch sex from participants.tsv file (adaptated for new folder organization)
+#        sex=$(grep ${SUBJECT} ${PARTICIPANTS_PATH} | awk '{print $4}')
+#        echo "${SUBJECT}: ${sex}"
+#
+#        # TODO: test without angle correction too
+#        # Compute morphometric measures normalized to PAM50 template space
+#        # Note: CSV file without normalization is also generated automatically
+#        # Note: morphometric measures for individual subjects are appended to a single CSV file
+#        # diameter_AP
+#        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -o ${PATH_RESULTS}/compression_metrics.csv
+#        # cross-sectional area
+#        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric area -o ${PATH_RESULTS}/compression_metrics.csv
+#        # diameter_RL
+#        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric diameter_RL -o ${PATH_RESULTS}/compression_metrics.csv
+#        # eccentricity
+#        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric eccentricity -o ${PATH_RESULTS}/compression_metrics.csv
+#        # solidity
+#        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
+#    fi
+#fi
 # ------------------------------------------------------------------------------
 # End
 # ------------------------------------------------------------------------------
