@@ -276,13 +276,18 @@ else
     file_t2_ax_canal_seg=$FILESEG
 
     # -------------
-    # Compute spinal canal morphometrics across levels
+    # Compute spinal canal morphometrics
     # -------------
-    echo "Computing spinal canal morphometrics across vertebral levels..."
-    # Compute CSA, AP, RL across vertebral levels for canal segmentation
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal.csv -append 1
-    # Normalized to PAM50
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_canal_normalized.csv -append 1
+    echo "Computing spinal canal morphometrics..."
+    # Compute canal metrics perlevel in the native space -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel.csv -append 1
+    # Compute canal metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice.csv -append 1
+
+    # Normalized to PAM50 perlevel -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel_PAM50.csv -append 1
+    # Normalized to PAM50 perslice -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice_PAM50.csv -append 1
 
     # -------------
     # Compute aSCOR -- it needs both SC and canal segmentations
