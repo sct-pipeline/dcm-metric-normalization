@@ -311,7 +311,7 @@ else
     #    lesion_check=$(fslstats ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -V | awk '{print ($1 > 0) ? 1 : 0}')
     #else
         # Fallback: check if file exists and has content
-        lesion_check=$(test -f ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz && echo "1" || echo "0")
+    #    lesion_check=$(test -f ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz && echo "1" || echo "0")
     #fi
 
     #if [[ $lesion_check -gt 0 ]]; then
