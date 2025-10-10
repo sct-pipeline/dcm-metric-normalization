@@ -261,13 +261,18 @@ else
     sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 
     # -------------
-    # Compute spinal cord morphometrics across levels
+    # Compute spinal cord morphometrics
     # -------------
-    echo "Computing spinal cord morphometrics across vertebral levels..."
-    # Compute CSA, AP, RL, eccentricity and solidity across vertebral levels
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord.csv -append 1
-    # Normalized to PAM50
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/vertebral_level_metrics_cord_normalized.csv -append 1
+    echo "Computing spinal cord morphometrics..."
+    # Compute cord metrics perlevel in the native space -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1
+    # Compute cord metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice.csv -append 1
+
+    # Normalized to PAM50 perlevel -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel_PAM50.csv -append 1
+    # Normalized to PAM50 perslice -- metrics across subjects are appended to a single CSV file
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice_PAM50.csv -append 1
 
     # -------------
     # Segment spinal canal if manual segmentation doesn't exists
