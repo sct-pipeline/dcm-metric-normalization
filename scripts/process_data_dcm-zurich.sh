@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Process dcm-zurich dataset and run `sct_compute_compression` on T2w axial images
+# Process dcm-zurich dataset
 #
 # Usage:
 #     sct_run_batch -c <PATH_TO_REPO>/etc/config_process_data_<DATASET>.json
