@@ -294,9 +294,15 @@ else
     # -------------
     # Compute aSCOR -- it needs both SC and canal segmentations
     # -------------
-    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics.csv -append 1
-    # Normalized to PAM50
-    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics_normalized.csv -append 1
+    # Perlevel in the native space -- metrics across subjects are appended to a single CSV file
+    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_aSCOR_metrics_perlevel.csv -append 1
+    # Perslice in the native space -- metrics across subjects are appended to a single CSV file
+    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_aSCOR_metrics_perslice.csv -append 1
+
+    # Normalized to PAM50 perlevel -- metrics across subjects are appended to a single CSV file
+    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_aSCOR_metrics_perlevel_PAM50.csv -append 1
+    # Normalized to PAM50 perslice -- metrics across subjects are appended to a single CSV
+    sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_aSCOR_metrics_perslice_PAM50.csv -append 1
 
 #    # -------------
 #    # Segment intramedullary lesions if manual segmentation doesn't exists
