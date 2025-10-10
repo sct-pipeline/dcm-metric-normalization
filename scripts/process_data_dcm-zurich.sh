@@ -327,30 +327,30 @@ else
     #    lesion_objects_count=0
     #fi
 
-    # -------------
-    # Create lesion and myelopathy summary
-    # -------------
-    #echo "Creating lesion and myelopathy summary..."
-    #SUMMARY_FILE="${PATH_RESULTS}/lesion_myelopathy_summary.csv"
-    
-    # Create header if file doesn't exist
-    #if [[ ! -f ${SUMMARY_FILE} ]]; then
-    #    echo "participant_id,lesion_count,myelopathy_count" > ${SUMMARY_FILE}
-    #fi
-    
-    # Get myelopathy count from participants.tsv
-    #myelopathy_info=$(grep "^${SUBJECT}" ${PARTICIPANTS_PATH} | cut -f16)  # Assuming myelopathy is column 16
-    #if [[ -n "$myelopathy_info" && "$myelopathy_info" != "n/a" ]]; then
-        # Count myelopathies by counting commas and adding 1, or 0 if empty
-    #    myelopathy_count=$(echo "$myelopathy_info" | grep -o "," | wc -l)
-    #    myelopathy_count=$((myelopathy_count + 1))
-    #else
-    #    myelopathy_count=0
-    #fi
-    
-    # Append data to summary file
-    #echo "${SUBJECT},${lesion_objects_count},${myelopathy_count}" >> ${SUMMARY_FILE}
-    #echo "Added to summary: ${SUBJECT} - Lesions: ${lesion_objects_count}, Myelopathies: ${myelopathy_count}"
+#    # -------------
+#    # Create lesion and myelopathy summary
+#    # -------------
+#    echo "Creating lesion and myelopathy summary..."
+#    SUMMARY_FILE="${PATH_RESULTS}/lesion_myelopathy_summary.csv"
+#
+#    # Create header if file doesn't exist
+#    if [[ ! -f ${SUMMARY_FILE} ]]; then
+#        echo "participant_id,lesion_count,myelopathy_count" > ${SUMMARY_FILE}
+#    fi
+#
+#    # Get myelopathy count from participants.tsv
+#    myelopathy_info=$(grep "^${SUBJECT}" ${PARTICIPANTS_PATH} | cut -f16)  # Assuming myelopathy is column 16
+#    if [[ -n "$myelopathy_info" && "$myelopathy_info" != "n/a" ]]; then
+#         Count myelopathies by counting commas and adding 1, or 0 if empty
+#        myelopathy_count=$(echo "$myelopathy_info" | grep -o "," | wc -l)
+#        myelopathy_count=$((myelopathy_count + 1))
+#    else
+#        myelopathy_count=0
+#    fi
+#
+#    # Append data to summary file
+#    echo "${SUBJECT},${lesion_objects_count},${myelopathy_count}" >> ${SUMMARY_FILE}
+#    echo "Added to summary: ${SUBJECT} - Lesions: ${lesion_objects_count}, Myelopathies: ${myelopathy_count}"
 
 #    # -------------
 #    # Compute compression metrics
