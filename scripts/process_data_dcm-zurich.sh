@@ -298,34 +298,34 @@ else
     # Normalized to PAM50
     sct_compute_ascor -i-SC ${file_t2_ax_seg}.nii.gz -i-canal ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/aSCOR_metrics_normalized.csv -append 1
 
-    # -------------
-    # Segment intramedullary lesions if manual segmentation doesn't exists
-    # -------------
-    #segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
-    #file_t2_ax_lesion_seg=$FILESEG
-    # Compute lesion metrics
-    #echo "Computing lesion metrics..."
-    # Check if there are any lesions by examining the segmentation file
-    # Use fslstats to check if there are non-zero voxels in the lesion segmentation
-    #if command -v fslstats >/dev/null 2>&1; then
-    #    lesion_check=$(fslstats ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -V | awk '{print ($1 > 0) ? 1 : 0}')
-    #else
-        # Fallback: check if file exists and has content
-    #    lesion_check=$(test -f ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz && echo "1" || echo "0")
-    #fi
-
-    #if [[ $lesion_check -gt 0 ]]; then
-    #    echo "Found $lesion_check discrete lesion(s). Running lesion analysis..."
-    #    sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
-        
-        # Use the reliable connected components count from SCT
-        # This is the most robust approach that works on all machines
-    #    lesion_objects_count=$lesion_check
-    #    echo "Lesion analysis complete. Found $lesion_objects_count discrete lesion(s)."
-    #else
-    #    echo "No lesions found in segmentation. Skipping lesion analysis."
-    #    lesion_objects_count=0
-    #fi
+#    # -------------
+#    # Segment intramedullary lesions if manual segmentation doesn't exists
+#    # -------------
+#    segment_lesion_if_does_not_exist ${file_t2_ax} 't2'
+#    file_t2_ax_lesion_seg=$FILESEG
+#    # Compute lesion metrics
+#    echo "Computing lesion metrics..."
+#    # Check if there are any lesions by examining the segmentation file
+#    # Use fslstats to check if there are non-zero voxels in the lesion segmentation
+#    if command -v fslstats >/dev/null 2>&1; then
+#        lesion_check=$(fslstats ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -V | awk '{print ($1 > 0) ? 1 : 0}')
+#    else
+#        # Fallback: check if file exists and has content
+#        lesion_check=$(test -f ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz && echo "1" || echo "0")
+#    fi
+#
+#    if [[ $lesion_check -gt 0 ]]; then
+#        echo "Found $lesion_check discrete lesion(s). Running lesion analysis..."
+#        sct_analyze_lesion -m ${file_t2_ax_lesion_seg}_lesion_seg.nii.gz -s ${file_t2_ax_seg}.nii.gz -ofolder ${PATH_RESULTS}
+#
+#        # Use the reliable connected components count from SCT
+#        # This is the most robust approach that works on all machines
+#        lesion_objects_count=$lesion_check
+#        echo "Lesion analysis complete. Found $lesion_objects_count discrete lesion(s)."
+#    else
+#        echo "No lesions found in segmentation. Skipping lesion analysis."
+#        lesion_objects_count=0
+#    fi
 
 #    # -------------
 #    # Create lesion and myelopathy summary
