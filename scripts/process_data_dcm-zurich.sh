@@ -164,9 +164,6 @@ start=`date +%s`
 # ------------------------------------------------------------------------------
 # SCRIPT STARTS HERE
 # ------------------------------------------------------------------------------
-#
-# Adapting script to perform baseline analysis only (ses-M0) on latest dcm-zurich dataset to obtain SC segmentation, spinal canal segmentation, disc labels, corresponding metrics and aSCOR (commenting out all other analyses)
-#
 # Display useful info for the log, such as SCT version, RAM and CPU cores available
 sct_check_dependencies -short
 
