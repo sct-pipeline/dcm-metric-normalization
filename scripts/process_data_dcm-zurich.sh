@@ -58,9 +58,9 @@ segment_if_does_not_exist() {
   fi
 }
 
-# Check if manual label already exists. If it does, generate labeled segmentation from manual disc labels.
+# Check if manual T2w sag disc labels already exist. If it does, generate labeled segmentation from manual disc labels.
 # If it doesn't, perform automatic spinal cord labeling
-label_if_does_not_exist(){
+label_t2_sag_if_does_not_exist(){
   local file="$1"
   local file_seg="$2"
   local contrast="$3"
@@ -195,7 +195,7 @@ else
     # Segment SC
     segment_if_does_not_exist ${file_t2_sag} 't2'
     file_t2_sag_seg=$FILESEG
-    label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
+    label_t2_sag_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
 
     echo "Finished processing ${file_t2_sag}" >> ${PATH_LOG}/processed_files_T2w_sag.log
 
