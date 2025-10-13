@@ -88,7 +88,6 @@ segment_canal_if_does_not_exist() {
   # Update global variable with segmentation file name 
   FILESEG="${file}_label-canal_seg"
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
-  echo
   echo "Looking for manual canal segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
     echo "Found! Using manual canal segmentation."
@@ -109,7 +108,6 @@ segment_lesion_if_does_not_exist() {
   # Update global variable with segmentation file name 
   FILESEG="${file}"
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file}_label-lesion_seg.nii.gz"
-  echo
   echo "Looking for manual lesion segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
     echo "Found! Using manual lesion segmentation."
