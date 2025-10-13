@@ -145,15 +145,6 @@ else
     SESSION=$SESSION_INPUT
 fi
 
-# Validate parameters
-if [[ -z "$SUBJECT" ]]; then
-    echo "ERROR: SUBJECT parameter is required"
-    echo "       $0 <SUBJECT/SESSION>     (sct_run_batch format)"
-    echo "Example: $0 sub-001          (uses default ses-M0)"
-    echo "         $0 sub-001/ses-M0   (sct_run_batch format)"
-    exit 1
-fi
-
 # Verify the session directory exists (only if PATH_DATA is set)
 if [[ -n "${PATH_DATA}" && ! -d "${PATH_DATA}/${SUBJECT}/${SESSION}" ]]; then
     echo "ERROR: Session directory ${PATH_DATA}/${SUBJECT}/${SESSION} does not exist"
