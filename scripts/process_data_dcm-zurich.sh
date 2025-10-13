@@ -46,11 +46,13 @@ segment_if_does_not_exist() {
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
-    echo "Found! Using manual segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual spinal cord segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz found under derivatives/labels --> using manual spinal cord segmentation" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
     rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
     sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "Not found. Proceeding with automatic segmentation."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic spinal cord segmentation."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting spinal cord automatically" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
     # Segment spinal cord
     sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
@@ -67,12 +69,14 @@ label_if_does_not_exist(){
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual disc labels: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
-    echo "Found! Using manual disc labels."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual disc labels."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found --> using manual disc labels" >> "${PATH_LOG}/T2w_disc_labels.log"
     rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
     # Generate labeled segmentation from manual disc labels
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "Not found. Proceeding with automatic labeling."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Manual disc labels not found. Proceeding with automatic labeling."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic labeling" >> "${PATH_LOG}/T2w_disc_labels.log"
     # Generate labeled segmentation automatically (no manual disc labels provided)
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
@@ -90,11 +94,13 @@ segment_canal_if_does_not_exist() {
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
   echo "Looking for manual canal segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
-    echo "Found! Using manual canal segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual canal segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz found under derivatives/labels --> using manual canal segmentation" >> "${PATH_LOG}/T2w_canal_segmentations.log"
     rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
     sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "Not found. Proceeding with automatic segmentation."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic canal segmentation."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting canal automatically" >> "${PATH_LOG}/T2w_canal_segmentations.log"
     # Segment canal
     sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
@@ -110,11 +116,13 @@ segment_lesion_if_does_not_exist() {
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file}_label-lesion_seg.nii.gz"
   echo "Looking for manual lesion segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
-    echo "Found! Using manual lesion segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual lesion segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${file}_lesion_seg.nii.gz found under derivatives/labels --> using manual lesion segmentation" >> "${PATH_LOG}/T2w_lesion_segmentations.log"
     rsync -avzh $FILESEGMANUAL ${file}_lesion_seg.nii.gz
     sct_qc -i ${file}.nii.gz -s ${file}_lesion_seg.nii.gz -p sct_deepseg_lesion -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "Not found. Proceeding with automatic segmentation."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic lesion segmentation."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${file}_lesion_seg.nii.gz NOT found --> segmenting lesion automatically" >> "${PATH_LOG}/T2w_lesion_segmentations.log"
     # Segment lesions
     sct_deepseg lesion_sci_t2 -i ${file}.nii.gz -o ${file}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
