@@ -199,6 +199,9 @@ else
     segment_if_does_not_exist ${file_t2_sag} 't2'
     file_t2_sag_seg=$FILESEG
     label_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
+
+    echo "Finished processing ${file_t2_sag}" >> ${PATH_LOG}/processed_files_T2w_sag.log
+
 fi
 # ------------------------------------------------------------------------------
 # T2w Axial
@@ -391,6 +394,9 @@ else
 #        # solidity
 #        sct_compute_compression -i ${file_t2_ax_seg}.nii.gz -vertfile ${file_t2_ax_seg}_labeled.nii.gz -l ${file_compression}.nii.gz -normalize-hc 1 -sex ${sex} -metric solidity -o ${PATH_RESULTS}/compression_metrics.csv
 #    fi
+
+    echo "Finished processing ${file_t2_ax}" >> ${PATH_LOG}/processed_files_T2w_ax.log
+
 fi
 # ------------------------------------------------------------------------------
 # End
