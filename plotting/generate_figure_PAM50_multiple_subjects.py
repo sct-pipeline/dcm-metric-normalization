@@ -283,35 +283,10 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
 
         # Plot each session's mean and std
         for ses in sessions_to_process:
-            # # Calculate mean and std across subjects for each slice
-            # mean_series = subjects_df[subjects_df['session_id'] == ses].groupby('Slice (I->S)')[metric].mean()
-            # std_series = subjects_df[subjects_df['session_id'] == ses].groupby('Slice (I->S)')[metric].std()
-            #
-            # # Reset to DataFrame for seaborn
-            # plot_df = pd.DataFrame({
-            #     'Slice (I->S)': mean_series.index,
-            #     metric: mean_series.values,
-            #     'std': std_series.values
-            # })
-            #
-            # # Keep only rows without NaN values
-            # plot_df = plot_df.dropna(axis=0, how='any').reset_index(drop=True)
-
             # Plot the mean with std error band
             sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=subjects_df, errorbar='sd',
                          linewidth=2, color=SESSION_COLORS[ses],
                          label=f"{ses} (n={n_subjects})")
-
-            # # Plot the mean with std error band
-            # sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=plot_df,
-            #              linewidth=2, color=SESSION_COLORS[ses],
-            #              label=f"{ses} (n={n_subjects})")
-            #
-            # # Add error bands
-            # ax.fill_between(plot_df['Slice (I->S)'],
-            #                 plot_df[metric] - plot_df['std'],
-            #                 plot_df[metric] + plot_df['std'],
-            #                 color=SESSION_COLORS[ses], alpha=0.2)
 
         # Keep the legend only for one plot to avoid duplication
         if metric_idx == 0:
