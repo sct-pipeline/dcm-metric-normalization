@@ -358,11 +358,12 @@ def main():
     # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
     # print("Number of subjects per slice:")
     # print(slice_counts)
+
     # Keep only VertLevel from C2 to C7
     subjects_df = subjects_df[subjects_df['VertLevel'] >= 2]
     subjects_df = subjects_df[subjects_df['VertLevel'] <= 7]
 
-    # Exclude subjects
+    # Exclude subjects -- canal correction needed
     subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-004']
     subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-008']
     subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-014']
