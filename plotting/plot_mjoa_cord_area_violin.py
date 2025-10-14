@@ -1,0 +1,320 @@
+#!/usr/bin/env python
+#
+# Plot violin plots showing univariate associations between spinal cord area at C3 and mJOA scores
+#
+# The script reads:
+# - Clinical scores from an Excel file (total_mjoa column)
+# - Spinal cord area metrics from a CSV file (VertLevel 3, MEAN(area) column)
+#
+# Example usage:
+#   python plot_mjoa_cord_area_violin.py
+#       -clinical clinical_scores.xlsx
+#       -metrics T2w_ax_cord_metrics_perlevel.csv
+#       -o output_directory
+#
+# Author: Jan Valosek, GitHub Copilot (Claude Sonnet 4)
+#
+
+import os
+import argparse
+import re
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+from scipy.stats import spearmanr
+
+# Font sizes for plots
+LABELS_FONT_SIZE = 14
+TICKS_FONT_SIZE = 12
+TITLE_FONT_SIZE = 16
+
+def get_parser():
+    parser = argparse.ArgumentParser(
+        description="Plot violin plots showing association between spinal cord area at C3 and mJOA scores")
+    parser.add_argument('-clinical', required=True, type=str,
+                        help="Excel file with clinical scores (must contain 'total_mjoa' column)")
+    parser.add_argument('-metrics', required=True, type=str,
+                        help="CSV file with spinal cord metrics per level (must contain 'VertLevel' and 'MEAN(area)' columns)")
+    parser.add_argument('-o', required=True, type=str,
+                        help="Output directory for the figure")
+
+    return parser
+
+
+def load_clinical_data(clinical_file, subject_col='record_id'):
+    """
+    Load clinical scores from Excel file
+
+    Args:
+        clinical_file: Path to Excel file with clinical scores
+        subject_col: Column name for subject IDs
+
+    Returns:
+        pandas.DataFrame: Clinical data with subject IDs and mJOA scores
+    """
+    print(f"Loading clinical data from: {clinical_file}")
+
+    # Try different Excel reading methods
+    try:
+        df_clinical = pd.read_excel(clinical_file)
+    except Exception as e:
+        print(f"Error reading Excel file: {e}")
+        return None
+
+    # Check required columns
+    required_cols = [subject_col, 'total_mjoa']
+    missing_cols = [col for col in required_cols if col not in df_clinical.columns]
+
+    if missing_cols:
+        print(f"Missing required columns: {missing_cols}")
+        print(f"Available columns: {list(df_clinical.columns)}")
+        return None
+
+    # Remove rows with missing mJOA scores
+    df_clinical = df_clinical.dropna(subset=['total_mjoa'])
+
+    # Keep only relevant columns
+    df_clinical = df_clinical[[subject_col, 'total_mjoa']].copy()
+
+    # Rename subject column
+    df_clinical = df_clinical.rename(columns={subject_col: 'participant_id'})
+
+    # Format participant_id column; from `1` to `sub-001`
+    df_clinical['participant_id'] = df_clinical['participant_id'].apply(
+        lambda x: f"sub-{int(x):03d}" if isinstance(x, (int, float)) and not pd.isna(x) else str(x))
+
+    print(f"Loaded clinical data for {len(df_clinical)} subjects")
+    print(f"mJOA score range: {df_clinical['total_mjoa'].min():.1f} - {df_clinical['total_mjoa'].max():.1f}")
+
+    return df_clinical
+
+
+def fetch_participant_and_session(filename_path):
+    """
+    Get participant_id, session_ide and filename from the input BIDS-compatible filename or file path
+    The function works both on absolute file path as well as filename
+    :param filename_path: input nifti filename (e.g., sub-001_ses-01_T1w.nii.gz) or file path
+    (e.g., /home/user/MRI/bids/derivatives/labels/sub-001/ses-01/anat/sub-001_ses-01_T1w.nii.gz
+    :return: participant_id, session_id (e.g., sub-001, ses-01)
+    """
+
+    _, filename = os.path.split(filename_path)              # Get just the filename (i.e., remove the path)
+    participant_tmp = re.search('sub-(.*?)[_/]', filename_path)
+    participant_id = participant_tmp.group(0)[:-1] if participant_tmp else ""    # [:-1] removes the last underscore or slash
+
+    session_tmp = re.search('ses-(.*?)[_/]', filename_path)     # [_/] means either underscore or slash
+    session_id = session_tmp.group(0)[:-1] if session_tmp else ""    # [:-1] removes the last underscore or slash
+    # REGEX explanation
+    # \d - digit
+    # \d? - no or one occurrence of digit
+    # *? - match the previous element as few times as possible (zero or more times)
+
+    return participant_id, session_id
+
+def load_cord_metrics(metrics_file):
+    """
+    Load spinal cord metrics and filter for C3 level
+
+    Args:
+        metrics_file: Path to CSV file with cord metrics
+
+    Returns:
+        pandas.DataFrame: Cord area data at C3 level
+    """
+    print(f"Loading cord metrics from: {metrics_file}")
+
+    try:
+        df_metrics = pd.read_csv(metrics_file)
+    except Exception as e:
+        print(f"Error reading CSV file: {e}")
+        return None
+
+    # Check required columns
+    required_cols = ['Filename', 'VertLevel', 'MEAN(area)']
+    missing_cols = [col for col in required_cols if col not in df_metrics.columns]
+
+    if missing_cols:
+        print(f"Missing required columns: {missing_cols}")
+        print(f"Available columns: {list(df_metrics.columns)}")
+        return None
+
+    # Filter for C3 level (VertLevel = 3)
+    df_c3 = df_metrics[df_metrics['VertLevel'] == 3].copy()
+
+    if len(df_c3) == 0:
+        print("No data found for VertLevel 3 (C3)")
+        print(f"Available VertLevels: {sorted(df_metrics['VertLevel'].unique())}")
+        return None
+
+    # Remove rows with missing area values
+    df_c3 = df_c3.dropna(subset=['MEAN(area)'])
+
+    participant_ids = []
+    for file_path in df_c3['Filename']:
+        participant_id, _ = fetch_participant_and_session(file_path)
+        participant_ids.append(participant_id)
+    df_c3.insert(0, 'participant_id', participant_ids)
+
+    # Keep only relevant columns
+    df_c3 = df_c3[['participant_id', 'MEAN(area)']].copy()
+
+    print(f"Loaded C3 cord area data for {len(df_c3)} measurements")
+    print(f"Cord area range: {df_c3['MEAN(area)'].min():.1f} - {df_c3['MEAN(area)'].max():.1f} mm²")
+
+    return df_c3
+
+
+def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
+    """
+    Merge clinical and metrics data
+
+    Args:
+        df_clinical: Clinical data with mJOA scores
+        df_metrics: Cord area data at C3
+        subject_col: Column name for subject IDs
+
+    Returns:
+        pandas.DataFrame: Merged data
+    """
+    # Merge on subject ID
+    df_merged = pd.merge(df_clinical, df_metrics, on=subject_col, how='inner')
+
+    print(f"Merged data for {len(df_merged)} subjects")
+
+    if len(df_merged) == 0:
+        print("No matching subjects found between clinical and metrics data")
+        return None
+
+    return df_merged
+
+
+def plot_violin_association(df, output_dir):
+    """
+    Create violin plot showing association between mJOA and spinal cord area
+
+    Args:
+        df: Merged dataframe with mJOA and cord area data
+        output_dir: Output directory for the figure
+    """
+    mpl.rcParams['font.family'] = 'Arial'
+
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Calculate correlation
+    r, p_value = spearmanr(df['total_mjoa'], df['MEAN(area)'])
+
+    # Calculate confidence interval for correlation using the Fisher transformation
+    n = len(df)
+    r_z = np.arctanh(r)     # hyperbolic tangent (Fisher's z-transform) to normalize the correlation coefficient
+    se = 1 / np.sqrt(n - 3)     # 3 DOFs are lost due to the statistical properties of the Pearson correlation coefficient (2 DOF lost for estimating the two sample means (one for each variable), 1 additional DOF lost for estimating the correlation coefficient itself)
+    ci_low = np.tanh(r_z - 1.96 * se)
+    ci_high = np.tanh(r_z + 1.96 * se)
+
+    # Create figure
+    plt.figure(figsize=(12, 8))
+
+    # Create violin plot using continuous mJOA values
+    ax = sns.violinplot(data=df, x='total_mjoa', y='MEAN(area)',
+                       color='lightblue', alpha=0.4)
+
+    # Add scatter points
+    sns.stripplot(data=df, x='total_mjoa', y='MEAN(area)',
+                 color='darkblue', alpha=0.4, size=4, jitter=True)
+
+    # Add regression line
+    x_numeric = df['total_mjoa']
+    y = df['MEAN(area)']
+    z = np.polyfit(x_numeric, y, 1)
+    p = np.poly1d(z)
+
+    # Map regression line to violin plot x-axis positions
+    unique_mjoa = sorted(df['total_mjoa'].unique())
+
+    # Plot regression line using the mapped positions
+    x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
+    x_line_mjoa = np.interp(x_line_positions, range(len(unique_mjoa)), unique_mjoa)
+    y_line_smooth = p(x_line_mjoa)
+
+    plt.plot(x_line_positions, y_line_smooth, color='red', linewidth=2, alpha=0.8)
+
+    # Create x-tick labels with subject counts
+    x_tick_labels = []
+    for mjoa_val in unique_mjoa:
+        n_subjects = len(df[df['total_mjoa'] == mjoa_val])
+        x_tick_labels.append(f'{mjoa_val}\n(n={n_subjects})')
+
+    # Set custom x-tick labels
+    ax.set_xticklabels(x_tick_labels)
+
+    # Formatting
+    plt.xlabel('mJOA Score', fontsize=LABELS_FONT_SIZE)
+    plt.ylabel('Spinal Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
+    plt.title('Association between mJOA and Spinal Cord Area at C3', fontsize=TITLE_FONT_SIZE)
+
+    # Add statistics text box
+    if p_value < 0.001:
+        p_text = "p < 0.001"
+    elif p_value < 0.01:
+        p_text = f"p < 0.01"
+    elif p_value < 0.05:
+        p_text = f"p < 0.05"
+    else:
+        p_text = f"p = {p_value:.3f}"
+
+    # Format stats text similar to the inspiration image
+    stats_text = f'Spearman r (95% CI), p\n{r:.2f} ({ci_low:.2f}, {ci_high:.2f}), {p_text}'
+
+    # Add text box with statistics in top right corner
+    plt.text(0.98, 0.98, stats_text, transform=ax.transAxes,
+             verticalalignment='top', horizontalalignment='right',
+             bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+             fontsize=12)
+
+    plt.xticks(fontsize=TICKS_FONT_SIZE)
+    plt.yticks(fontsize=TICKS_FONT_SIZE)
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+
+    # Save figure
+    figure_path = os.path.join(output_dir, 'mjoa_cord_area_association_violin.png')
+    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
+    print(f"Figure saved to: {figure_path}")
+
+    plt.show()
+
+    # Print summary statistics
+    print(f"\nAssociation Results:")
+    print(f"Correlation coefficient: r = {r:.3f}")
+    print(f"95% Confidence interval: ({ci_low:.3f}, {ci_high:.3f})")
+    print(f"P-value: {p_value:.6f}")
+    print(f"Sample size: n = {n}")
+
+
+def main():
+    parser = get_parser()
+    args = parser.parse_args()
+
+    # Validate input files
+    if not os.path.exists(args.clinical):
+        raise FileNotFoundError(f"Clinical scores file not found: {args.clinical}")
+
+    if not os.path.exists(args.metrics):
+        raise FileNotFoundError(f"Metrics file not found: {args.metrics}")
+
+    # Load data
+    df_clinical = load_clinical_data(args.clinical)
+    df_metrics = load_cord_metrics(args.metrics)
+
+    # Merge data
+    df_merged = merge_data(df_clinical, df_metrics)
+
+    # Create violin plot
+    plot_violin_association(df_merged, args.o)
+
+
+if __name__ == "__main__":
+    main()
