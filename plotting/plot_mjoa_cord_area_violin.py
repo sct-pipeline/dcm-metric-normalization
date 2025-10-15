@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Plot violin plots showing univariate associations between spinal cord area at C3 and mJOA scores
+# Plot violin plots showing univariate associations between spinal cord area at specified vert level and mJOA scores
 #
 # The script reads:
 # - Clinical scores from an Excel file (total_mjoa column)
@@ -33,11 +33,13 @@ TITLE_FONT_SIZE = 16
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Plot violin plots showing association between spinal cord area at C3 and mJOA scores")
+        description="Plot violin plots showing association between spinal cord area at specified vert level and mJOA scores")
     parser.add_argument('-clinical', required=True, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa' column)")
     parser.add_argument('-metrics', required=True, type=str,
                         help="CSV file with spinal cord metrics per level (must contain 'VertLevel' and 'MEAN(area)' columns)")
+    parser.add_argument('-level', required=False, type=int,
+                        help="Spinal level to analyze (default: 3)", default=2)
     parser.add_argument('-o', required=True, type=str,
                         help="Output directory for the figure")
 
@@ -114,15 +116,16 @@ def fetch_participant_and_session(filename_path):
 
     return participant_id, session_id
 
-def load_cord_metrics(metrics_file):
+def load_cord_metrics(metrics_file, level):
     """
-    Load spinal cord metrics and filter for C3 level
+    Load spinal cord metrics and filter for specified level
 
     Args:
         metrics_file: Path to CSV file with cord metrics
+        level: Spinal level to filter (default: 3 for C3)
 
     Returns:
-        pandas.DataFrame: Cord area data at C3 level
+        pandas.DataFrame: Cord area data at specified level
     """
     print(f"Loading cord metrics from: {metrics_file}")
 
@@ -141,30 +144,30 @@ def load_cord_metrics(metrics_file):
         print(f"Available columns: {list(df_metrics.columns)}")
         exit(1)
 
-    # Filter for C3 level (VertLevel = 3)
-    df_c3 = df_metrics[df_metrics['VertLevel'] == 3].copy()
+    # Filter for specified level
+    df_level = df_metrics[df_metrics['VertLevel'] == level].copy()
 
-    if len(df_c3) == 0:
-        print("No data found for VertLevel 3 (C3)")
+    if len(df_level) == 0:
+        print(f"No data found for VertLevel {level} (C{level})")
         print(f"Available VertLevels: {sorted(df_metrics['VertLevel'].unique())}")
         exit(1)
 
     # Remove rows with missing area values
-    df_c3 = df_c3.dropna(subset=['MEAN(area)'])
+    df_level = df_level.dropna(subset=['MEAN(area)'])
 
     participant_ids = []
-    for file_path in df_c3['Filename']:
+    for file_path in df_level['Filename']:
         participant_id, _ = fetch_participant_and_session(file_path)
         participant_ids.append(participant_id)
-    df_c3.insert(0, 'participant_id', participant_ids)
+    df_level.insert(0, 'participant_id', participant_ids)
 
     # Keep only relevant columns
-    df_c3 = df_c3[['participant_id', 'MEAN(area)']].copy()
+    df_level = df_level[['participant_id', 'MEAN(area)']].copy()
 
-    print(f"Loaded C3 cord area data for {len(df_c3)} measurements")
-    print(f"Cord area range: {df_c3['MEAN(area)'].min():.1f} - {df_c3['MEAN(area)'].max():.1f} mm²")
+    print(f"Loaded C{level} cord area data for {len(df_level)} measurements")
+    print(f"Cord area range: {df_level['MEAN(area)'].min():.1f} - {df_level['MEAN(area)'].max():.1f} mm²")
 
-    return df_c3
+    return df_level
 
 
 def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
@@ -173,7 +176,7 @@ def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
 
     Args:
         df_clinical: Clinical data with mJOA scores
-        df_metrics: Cord area data at C3
+        df_metrics: Cord area data at specified level
         subject_col: Column name for subject IDs
 
     Returns:
@@ -191,13 +194,14 @@ def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
     return df_merged
 
 
-def plot_violin_association(df, output_dir):
+def plot_violin_association(df, output_dir, level):
     """
     Create violin plot showing association between mJOA and spinal cord area
 
     Args:
         df: Merged dataframe with mJOA and cord area data
         output_dir: Output directory for the figure
+        level: Spinal level (for title)
     """
     mpl.rcParams['font.family'] = 'Arial'
 
@@ -219,7 +223,7 @@ def plot_violin_association(df, output_dir):
 
     # Create violin plot using continuous mJOA values
     ax = sns.violinplot(data=df, x='total_mjoa', y='MEAN(area)',
-                       color='lightblue', alpha=0.4)
+                       color='lightblue', alpha=0.4, scale="width")
 
     # Add scatter points
     sns.stripplot(data=df, x='total_mjoa', y='MEAN(area)',
@@ -253,7 +257,7 @@ def plot_violin_association(df, output_dir):
     # Formatting
     plt.xlabel('mJOA Score', fontsize=LABELS_FONT_SIZE)
     plt.ylabel('Spinal Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
-    plt.title('Association between mJOA and Spinal Cord Area at C3', fontsize=TITLE_FONT_SIZE)
+    plt.title(f'Association between mJOA and Spinal Cord Area at C{level}', fontsize=TITLE_FONT_SIZE)
 
     # Add statistics text box
     if p_value < 0.001:
@@ -280,7 +284,7 @@ def plot_violin_association(df, output_dir):
     plt.tight_layout()
 
     # Save figure
-    figure_path = os.path.join(output_dir, 'mjoa_cord_area_association_violin.png')
+    figure_path = os.path.join(output_dir, f'mjoa_cord_C{level}_area_association_violin.png')
     plt.savefig(figure_path, dpi=300, bbox_inches='tight')
     print(f"Figure saved to: {figure_path}")
 
@@ -307,13 +311,13 @@ def main():
 
     # Load data
     df_clinical = load_clinical_data(args.clinical)
-    df_metrics = load_cord_metrics(args.metrics)
+    df_metrics = load_cord_metrics(args.metrics, args.level)
 
     # Merge data
     df_merged = merge_data(df_clinical, df_metrics)
 
     # Create violin plot
-    plot_violin_association(df_merged, args.o)
+    plot_violin_association(df_merged, args.o, args.level)
 
 
 if __name__ == "__main__":
