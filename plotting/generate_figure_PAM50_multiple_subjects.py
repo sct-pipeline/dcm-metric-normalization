@@ -390,7 +390,7 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
 
         # Keep the legend only for one plot to avoid duplication
         if metric_idx == 0:
-            axs[metric_idx].legend(loc='lower left', fontsize=TICKS_FONT_SIZE)
+            axs[metric_idx].legend(fontsize=TICKS_FONT_SIZE)
         else:
             axs[metric_idx].get_legend().remove()
 
