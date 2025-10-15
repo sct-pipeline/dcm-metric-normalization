@@ -60,6 +60,15 @@ SESSION_COLORS = {
     'ses-M12': '#ff9999'  # light red
 }
 
+# Color mapping for Maximum Compression Level (MCL) stratification
+MCL_COLORS = {
+    'C2/C3': '#d62728',    # red
+    'C3/C4': '#ff7f0e',    # orange
+    'C4/C5': '#2ca02c',    # green
+    'C5/C6': '#1f77b4',    # blue
+    'C6/C7': '#9467bd',    # purple
+}
+
 METRICS_YLIMITS = {
     'MEAN(diameter_AP)': (5, 9),
     'MEAN(area)': (35, 90),
@@ -88,6 +97,8 @@ def get_parser():
     parser.add_argument('-participants-file-pam50', required=False, type=str,
                         default='$SCT_DIR/data/PAM50_normalized_metrics/participants.tsv',
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
+    parser.add_argument('-participants-mcl', required=False, type=str,
+                        help="Path to the participants.tsv file containing maximum_stenosis data for MCL stratification.")
 
     return parser
 
@@ -208,12 +219,13 @@ def fetch_participant_and_session(filename_path):
     return participant_id, session_id
 
 
-def read_csv_file(csv_file):
+def read_csv_file(csv_file, participants_mcl_file=None):
     """
-    Read CSV file with morphometrics in the PAM50 space across multiple subjects
-    This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`
+    Read CSV file with morphometrics in the PAM50 space across multiple subjects.
+    This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`.
     :param csv_file: input CSV file path
-    :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio)
+    :param participants_mcl_file: path to participants.tsv file with maximum_stenosis data
+    :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio), and optionally MCL
     """
 
     subjects_df = pd.read_csv(csv_file)
@@ -239,9 +251,35 @@ def read_csv_file(csv_file):
     subjects_df.insert(0, 'participant_id', participant_ids)
     subjects_df.insert(1, 'session_id', session_ids)
 
+    # Add MCL data if stratification is requested
+    if participants_mcl_file:
+        if os.path.isfile(participants_mcl_file):
+            df_participants_mcl = pd.read_csv(participants_mcl_file, sep='\t')
+            if 'maximum_stenosis' in df_participants_mcl.columns:
+                # Merge MCL data
+                subjects_df = subjects_df.merge(
+                    df_participants_mcl[['participant_id', 'maximum_stenosis']],
+                    on='participant_id', how='left'
+                )
+                # Clean up maximum_stenosis values and map to standard format
+                subjects_df['MCL'] = subjects_df['maximum_stenosis'].fillna('NA')
+                # Standardize MCL values
+                subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
+                # Exclude subjects with MCL == 'NA'
+                subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
+            else:
+                print("Warning: 'maximum_stenosis' column not found in participants file")
+                exit(1)
+        else:
+            print(f"Warning: MCL participants file not found: {participants_mcl_file}")
+            exit(1)
+    else:
+        subjects_df['MCL'] = 'NA'
+
     return subjects_df
 
-def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path):
+
+def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, participants_mcl_file=None):
     """
     Create figure with mean and std of morphometric metrics across subjects, separately for multiple sessions
     :param subjects_df: pandas dataframe with morphometric metrics across multiple subjects
@@ -249,6 +287,7 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
     :param df_normative_data: pandas dataframe with normative data from spine-generic dataset
     :param sessions_to_process: list of sessions to process (e.g., ['ses-M0', 'ses-M3'])
     :param figure_path: path to save figure
+    :param participants_mcl_file: path to participants.tsv file with maximum_stenosis data
     """
     mpl.rcParams['font.family'] = 'Arial'
 
@@ -281,12 +320,27 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
                      linewidth=2, color='black',
                      label=f'normative data (n={len(df_normative_data["participant_id"].unique())})')
 
-        # Plot each session's mean and std
-        for ses in sessions_to_process:
-            # Plot the mean with std error band
-            sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=subjects_df, errorbar='sd',
-                         linewidth=2, color=SESSION_COLORS[ses],
-                         label=f"{ses} (n={n_subjects})")
+        if participants_mcl_file:
+            # Plot by MCL groups instead of sessions
+            mcl_groups = subjects_df['MCL'].unique()
+            mcl_groups = sorted([mcl for mcl in mcl_groups if mcl in MCL_COLORS])
+
+            for mcl in mcl_groups:
+                mcl_data = subjects_df[subjects_df['MCL'] == mcl]
+                if len(mcl_data) > 0:
+                    mcl_n_subjects = len(mcl_data['participant_id'].unique())
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mcl_data, errorbar='sd',
+                                linewidth=2, color=MCL_COLORS[mcl],
+                                label=f"MCL {mcl} (n={mcl_n_subjects})")
+        else:
+            # Plot each session's mean and std (original behavior)
+            for ses in sessions_to_process:
+                session_data = subjects_df[subjects_df['session_id'] == ses]
+                if len(session_data) > 0:
+                    ses_n_subjects = len(session_data['participant_id'].unique())
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=session_data, errorbar='sd',
+                                linewidth=2, color=SESSION_COLORS[ses],
+                                label=f"{ses} (n={ses_n_subjects})")
 
         # Keep the legend only for one plot to avoid duplication
         if metric_idx == 0:
@@ -335,7 +389,13 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
     elif 'aSCOR' in figure_path:
         structure = 'aSCOR'
 
-    plt.suptitle(f"{structure} in the PAM50 space: mean ± std across {n_subjects} subjects",
+    # Update title based on stratification
+    if participants_mcl_file:
+        stratification_info = "stratified by MCL"
+    else:
+        stratification_info = f"across {n_subjects} subjects"
+
+    plt.suptitle(f"{structure} in the PAM50 space: mean ± std {stratification_info}",
                  fontsize=LABELS_FONT_SIZE, fontweight='bold', y=0.92)
     # Save figure
     plt.savefig(figure_path, dpi=300, bbox_inches='tight')
@@ -352,7 +412,9 @@ def main():
     csv_file = os.path.abspath(args.i)
     if not os.path.isfile(csv_file):
         raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
-    subjects_df = read_csv_file(csv_file)
+
+    # Read CSV file with optional MCL data
+    subjects_df = read_csv_file(csv_file, args.participants_mcl)
 
     # # Print number of subjects for each slice
     # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
@@ -389,9 +451,15 @@ def main():
     os.makedirs(path_out, exist_ok=True)
     # Use basename from args.i to create figure name
     figure_basename = os.path.basename(args.i).replace('.csv', '')
-    figure_fname = f'{figure_basename}_{n_subjects}subjects_{len(sessions_to_process)}sessions.png'
+
+    # Update figure filename based on stratification type
+    if args.participants_mcl:
+        figure_fname = f'{figure_basename}_{n_subjects}subjects_MCL-stratified.png'
+    else:
+        figure_fname = f'{figure_basename}_{n_subjects}subjects_{len(sessions_to_process)}sessions.png'
+
     figure_path = os.path.join(path_out, figure_fname)
-    create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path)
+    create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, args.participants_mcl)
 
 
 if __name__ == '__main__':
