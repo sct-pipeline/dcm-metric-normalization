@@ -116,13 +116,14 @@ def fetch_participant_and_session(filename_path):
 
     return participant_id, session_id
 
-def load_cord_metrics(metrics_file, level):
+def load_cord_metrics(metrics_file, level, structure):
     """
     Load spinal cord metrics and filter for specified level
 
     Args:
         metrics_file: Path to CSV file with cord metrics
         level: Spinal level to filter (default: 3 for C3)
+        structure: Structure to filter (default: 3 for C3)
 
     Returns:
         pandas.DataFrame: Cord area data at specified level
@@ -135,8 +136,15 @@ def load_cord_metrics(metrics_file, level):
         print(f"Error reading CSV file: {e}")
         exit(1)
 
+    if structure == 'aSCOR':
+        metric_column = 'aSCOR'
+        filename_column = 'Filename_sc'
+    else:
+        metric_column = 'MEAN(area)'
+        filename_column = 'Filename'
+
     # Check required columns
-    required_cols = ['Filename', 'VertLevel', 'MEAN(area)']
+    required_cols = [filename_column, 'VertLevel', metric_column]
     missing_cols = [col for col in required_cols if col not in df_metrics.columns]
 
     if missing_cols:
@@ -153,19 +161,19 @@ def load_cord_metrics(metrics_file, level):
         exit(1)
 
     # Remove rows with missing area values
-    df_level = df_level.dropna(subset=['MEAN(area)'])
+    df_level = df_level.dropna(subset=[metric_column])
 
     participant_ids = []
-    for file_path in df_level['Filename']:
+    for file_path in df_level[filename_column]:
         participant_id, _ = fetch_participant_and_session(file_path)
         participant_ids.append(participant_id)
     df_level.insert(0, 'participant_id', participant_ids)
 
     # Keep only relevant columns
-    df_level = df_level[['participant_id', 'MEAN(area)']].copy()
+    df_level = df_level[['participant_id', metric_column]].copy()
 
     print(f"Loaded C{level} cord area data for {len(df_level)} measurements")
-    print(f"Cord area range: {df_level['MEAN(area)'].min():.1f} - {df_level['MEAN(area)'].max():.1f} mm²")
+    print(f"Cord area range: {df_level[metric_column].min():.1f} - {df_level[metric_column].max():.1f} mm²")
 
     return df_level
 
@@ -194,7 +202,7 @@ def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
     return df_merged
 
 
-def plot_violin_association(df, output_dir, level):
+def plot_violin_association(df, output_dir, level, structure):
     """
     Create violin plot showing association between mJOA and spinal cord area
 
@@ -202,14 +210,20 @@ def plot_violin_association(df, output_dir, level):
         df: Merged dataframe with mJOA and cord area data
         output_dir: Output directory for the figure
         level: Spinal level (for title)
+        structure: Structure name (for title)
     """
     mpl.rcParams['font.family'] = 'Arial'
+
+    if structure == 'aSCOR':
+        metric_column = 'aSCOR'
+    else:
+        metric_column = 'MEAN(area)'
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
 
     # Calculate correlation
-    r, p_value = spearmanr(df['total_mjoa'], df['MEAN(area)'])
+    r, p_value = spearmanr(df['total_mjoa'], df[metric_column])
 
     # Calculate confidence interval for correlation using the Fisher transformation
     n = len(df)
@@ -222,16 +236,16 @@ def plot_violin_association(df, output_dir, level):
     plt.figure(figsize=(12, 8))
 
     # Create violin plot using continuous mJOA values
-    ax = sns.violinplot(data=df, x='total_mjoa', y='MEAN(area)',
+    ax = sns.violinplot(data=df, x='total_mjoa', y=metric_column,
                        color='lightblue', alpha=0.4, scale="width")
 
     # Add scatter points
-    sns.stripplot(data=df, x='total_mjoa', y='MEAN(area)',
+    sns.stripplot(data=df, x='total_mjoa', y=metric_column,
                  color='darkblue', alpha=0.4, size=4, jitter=True)
 
     # Add regression line
     x_numeric = df['total_mjoa']
-    y = df['MEAN(area)']
+    y = df[metric_column]
     z = np.polyfit(x_numeric, y, 1)
     p = np.poly1d(z)
 
@@ -284,7 +298,7 @@ def plot_violin_association(df, output_dir, level):
     plt.tight_layout()
 
     # Save figure
-    figure_path = os.path.join(output_dir, f'mjoa_cord_C{level}_area_association_violin.png')
+    figure_path = os.path.join(output_dir, f'mjoa_{structure}_C{level}_area_association_violin.png')
     plt.savefig(figure_path, dpi=300, bbox_inches='tight')
     print(f"Figure saved to: {figure_path}")
 
@@ -309,15 +323,22 @@ def main():
     if not os.path.exists(args.metrics):
         raise FileNotFoundError(f"Metrics file not found: {args.metrics}")
 
+    if 'cord' in args.metrics:
+        structure = 'spinal_cord'
+    elif 'canal' in args.metrics:
+        structure = 'canal'
+    elif 'aSCOR' in args.metrics:
+        structure = 'aSCOR'
+
     # Load data
     df_clinical = load_clinical_data(args.clinical)
-    df_metrics = load_cord_metrics(args.metrics, args.level)
+    df_metrics = load_cord_metrics(args.metrics, args.level, structure)
 
     # Merge data
     df_merged = merge_data(df_clinical, df_metrics)
 
     # Create violin plot
-    plot_violin_association(df_merged, args.o, args.level)
+    plot_violin_association(df_merged, args.o, args.level, structure)
 
 
 if __name__ == "__main__":
