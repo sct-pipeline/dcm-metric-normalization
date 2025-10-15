@@ -69,6 +69,12 @@ MCL_COLORS = {
     'C6/C7': '#9467bd',    # purple
 }
 
+# Color mapping for Myelopathy stratification
+MYELOPATHY_COLORS = {
+    'yes': '#d62728',      # red - has myelopathy
+    'no': '#2ca02c',       # green - no myelopathy
+}
+
 METRICS_YLIMITS = {
     'MEAN(diameter_AP)': (5, 9),
     'MEAN(area)': (35, 90),
@@ -97,8 +103,10 @@ def get_parser():
     parser.add_argument('-participants-file-pam50', required=False, type=str,
                         default='$SCT_DIR/data/PAM50_normalized_metrics/participants.tsv',
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
-    parser.add_argument('-participants-mcl', required=False, type=str,
-                        help="Path to the participants.tsv file containing maximum_stenosis data for MCL stratification.")
+    parser.add_argument('-participants-file', required=False, type=str,
+                        help="Path to the participants.tsv file containing maximum_stenosis or myelopathy data for stratification.")
+    parser.add_argument('-stratify', required=False, type=str, choices=['mcl', 'myelopathy'],
+                        help="Stratification method: 'mcl' for Maximum Compression Level or 'myelopathy' for myelopathy status.")
 
     return parser
 
@@ -219,13 +227,14 @@ def fetch_participant_and_session(filename_path):
     return participant_id, session_id
 
 
-def read_csv_file(csv_file, participants_mcl_file=None):
+def read_csv_file(csv_file, participants_file=None, stratify_type=None):
     """
     Read CSV file with morphometrics in the PAM50 space across multiple subjects.
     This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`.
     :param csv_file: input CSV file path
-    :param participants_mcl_file: path to participants.tsv file with maximum_stenosis data
-    :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio), and optionally MCL
+    :param participants_file: path to participants.tsv file with stratification data
+    :param stratify_type: type of stratification ('mcl' or 'myelopathy')
+    :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio), and optionally stratification data
     """
 
     subjects_df = pd.read_csv(csv_file)
@@ -251,35 +260,56 @@ def read_csv_file(csv_file, participants_mcl_file=None):
     subjects_df.insert(0, 'participant_id', participant_ids)
     subjects_df.insert(1, 'session_id', session_ids)
 
-    # Add MCL data if stratification is requested
-    if participants_mcl_file:
-        if os.path.isfile(participants_mcl_file):
-            df_participants_mcl = pd.read_csv(participants_mcl_file, sep='\t')
-            if 'maximum_stenosis' in df_participants_mcl.columns:
-                # Merge MCL data
-                subjects_df = subjects_df.merge(
-                    df_participants_mcl[['participant_id', 'maximum_stenosis']],
-                    on='participant_id', how='left'
-                )
-                # Clean up maximum_stenosis values and map to standard format
-                subjects_df['MCL'] = subjects_df['maximum_stenosis'].fillna('NA')
-                # Standardize MCL values
-                subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
-                # Exclude subjects with MCL == 'NA'
-                subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
-            else:
-                print("Warning: 'maximum_stenosis' column not found in participants file")
-                exit(1)
+    # Add stratification data if requested
+    if stratify_type and participants_file:
+        if os.path.isfile(participants_file):
+            df_participants = pd.read_csv(participants_file, sep='\t')
+
+            if stratify_type == 'mcl':
+                if 'maximum_stenosis' in df_participants.columns:
+                    # Merge MCL data
+                    subjects_df = subjects_df.merge(
+                        df_participants[['participant_id', 'maximum_stenosis']],
+                        on='participant_id', how='left'
+                    )
+                    # Clean up maximum_stenosis values and map to standard format
+                    subjects_df['MCL'] = subjects_df['maximum_stenosis'].fillna('NA')
+                    # Standardize MCL values
+                    subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
+                    # Exclude subjects with MCL == 'NA'
+                    subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
+                    print(f"MCL distribution: {subjects_df['MCL'].value_counts().to_dict()}")
+                else:
+                    print("Warning: 'maximum_stenosis' column not found in participants file")
+                    exit(1)
+
+            elif stratify_type == 'myelopathy':
+                if 'myelopathy' in df_participants.columns:
+                    # Merge myelopathy data
+                    subjects_df = subjects_df.merge(
+                        df_participants[['participant_id', 'myelopathy']],
+                        on='participant_id', how='left'
+                    )
+                    # Process myelopathy values: if not n/a, use 'yes', if n/a, use 'no'
+                    def process_myelopathy(value):
+                        if pd.isna(value) or str(value).lower() == 'n/a':
+                            return 'no'
+                        else:
+                            return 'yes'
+
+                    subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(process_myelopathy)
+                    print(f"Myelopathy distribution: {subjects_df['Myelopathy'].value_counts().to_dict()}")
+                else:
+                    print("Warning: 'myelopathy' column not found in participants file")
+                    exit(1)
         else:
-            print(f"Warning: MCL participants file not found: {participants_mcl_file}")
+            print(f"Warning: Participants file not found: {participants_file}")
             exit(1)
-    else:
-        subjects_df['MCL'] = 'NA'
 
     return subjects_df
 
 
-def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, participants_mcl_file=None):
+def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
     """
     Create figure with mean and std of morphometric metrics across subjects, separately for multiple sessions
     :param subjects_df: pandas dataframe with morphometric metrics across multiple subjects
@@ -287,7 +317,7 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
     :param df_normative_data: pandas dataframe with normative data from spine-generic dataset
     :param sessions_to_process: list of sessions to process (e.g., ['ses-M0', 'ses-M3'])
     :param figure_path: path to save figure
-    :param participants_mcl_file: path to participants.tsv file with maximum_stenosis data
+    :param stratify_type: type of stratification ('mcl' or 'myelopathy')
     """
     mpl.rcParams['font.family'] = 'Arial'
 
@@ -320,7 +350,7 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
                      linewidth=2, color='black',
                      label=f'normative data (n={len(df_normative_data["participant_id"].unique())})')
 
-        if participants_mcl_file:
+        if stratify_type == 'mcl':
             # Plot by MCL groups instead of sessions
             mcl_groups = subjects_df['MCL'].unique()
             mcl_groups = sorted([mcl for mcl in mcl_groups if mcl in MCL_COLORS])
@@ -332,6 +362,18 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mcl_data, errorbar='sd',
                                 linewidth=2, color=MCL_COLORS[mcl],
                                 label=f"MCL {mcl} (n={mcl_n_subjects})")
+        elif stratify_type == 'myelopathy':
+            # Plot by Myelopathy groups instead of sessions
+            myelopathy_groups = subjects_df['Myelopathy'].unique()
+            myelopathy_groups = sorted([myelopathy for myelopathy in myelopathy_groups if myelopathy in MYELOPATHY_COLORS])
+
+            for myelopathy in myelopathy_groups:
+                myelopathy_data = subjects_df[subjects_df['Myelopathy'] == myelopathy]
+                if len(myelopathy_data) > 0:
+                    myelopathy_n_subjects = len(myelopathy_data['participant_id'].unique())
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
+                                linewidth=2, color=MYELOPATHY_COLORS[myelopathy],
+                                label=f"Myelopathy {myelopathy} (n={myelopathy_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
             for ses in sessions_to_process:
@@ -390,8 +432,10 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
         structure = 'aSCOR'
 
     # Update title based on stratification
-    if participants_mcl_file:
+    if stratify_type == 'mcl':
         stratification_info = "stratified by MCL"
+    elif stratify_type == 'myelopathy':
+        stratification_info = "stratified by Myelopathy"
     else:
         stratification_info = f"across {n_subjects} subjects"
 
@@ -414,7 +458,7 @@ def main():
         raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
 
     # Read CSV file with optional MCL data
-    subjects_df = read_csv_file(csv_file, args.participants_mcl)
+    subjects_df = read_csv_file(csv_file, args.participants_file, args.stratify)
 
     # # Print number of subjects for each slice
     # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
@@ -453,13 +497,13 @@ def main():
     figure_basename = os.path.basename(args.i).replace('.csv', '')
 
     # Update figure filename based on stratification type
-    if args.participants_mcl:
-        figure_fname = f'{figure_basename}_{n_subjects}subjects_MCL-stratified.png'
+    if args.stratify:
+        figure_fname = f'{figure_basename}_{n_subjects}subjects_{args.stratify}-stratified.png'
     else:
         figure_fname = f'{figure_basename}_{n_subjects}subjects_{len(sessions_to_process)}sessions.png'
 
     figure_path = os.path.join(path_out, figure_fname)
-    create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, args.participants_mcl)
+    create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, args.stratify)
 
 
 if __name__ == '__main__':
