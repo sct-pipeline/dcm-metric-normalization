@@ -284,7 +284,7 @@ def plot_violin_association(df, output_dir, level, structure):
         p_text = f"p = {p_value:.3f}"
 
     # Format stats text similar to the inspiration image
-    stats_text = f'Spearman r (95% CI), p\n{r:.2f} ({ci_low:.2f}, {ci_high:.2f}), {p_text}'
+    stats_text = f'Spearman r = {r:.2f}\n{p_text}'
 
     # Add text box with statistics in top right corner
     plt.text(0.98, 0.98, stats_text, transform=ax.transAxes,
