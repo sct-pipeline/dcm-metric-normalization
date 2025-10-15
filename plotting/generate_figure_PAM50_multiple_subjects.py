@@ -85,7 +85,7 @@ def get_parser():
     parser.add_argument('-path-HC', required=False, type=str,
                         default='$SCT_DIR/data/PAM50_normalized_metrics',
                         help="Path to the folder with CSV files with normative data from spine-generic dataset")
-    parser.add_argument('-participant-file', required=False, type=str,
+    parser.add_argument('-participants-file-pam50', required=False, type=str,
                         default='$SCT_DIR/data/PAM50_normalized_metrics/participants.tsv',
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
 
@@ -136,11 +136,11 @@ def _read_pam50_df(path_HC):
     return df
 
 
-def load_normative_data(path_HC, path_participants, structure):
+def load_normative_data(path_HC, path_participants_pam50, structure):
     """
     Load normative data from spine-generic dataset in PAM50 space
     :param path_HC:
-    :param path_participants:
+    :param path_participants_pam50:
     :param structure: 'spinal_cord' or 'canal' or 'aSCOR'
     :return:
     """
@@ -158,8 +158,8 @@ def load_normative_data(path_HC, path_participants, structure):
         df = _read_pam50_df(os.path.join(path_HC, structure))
 
     # If a participants.tsv file is provided, insert columns sex, age and manufacturer from df_participants into df
-    if path_participants:
-        df_participants = pd.read_csv(path_participants, sep='\t')
+    if path_participants_pam50:
+        df_participants = pd.read_csv(path_participants_pam50, sep='\t')
         df = df.merge(df_participants[["age", "sex", "height", "weight", "manufacturer", "participant_id"]],
                       on='participant_id')
         # Recode age into age bins by 10 years (decades)
@@ -345,7 +345,7 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
 def main():
     args = get_parser().parse_args()
     path_HC = os.path.expandvars(args.path_HC)
-    path_participants_tsv = os.path.expandvars(args.participant_file)
+    path_participants_tsv_pam50 = os.path.expandvars(args.participants_file_pam50)
     path_out = os.path.abspath(args.o)
     sessions_to_process = args.s
 
@@ -383,7 +383,7 @@ def main():
         structure = 'canal'
     elif 'aSCOR' in args.i:
         structure = 'aSCOR'
-    df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv, structure)
+    df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv_pam50, structure)
 
     # Plotting
     os.makedirs(path_out, exist_ok=True)
