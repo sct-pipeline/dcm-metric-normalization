@@ -278,7 +278,9 @@ def read_csv_file(csv_file, participants_file=None, stratify_type=None):
                     subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
                     # Exclude subjects with MCL == 'NA'
                     subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
-                    print(f"MCL distribution: {subjects_df['MCL'].value_counts().to_dict()}")
+                    # Print distribution based on unique participants
+                    mcl_distribution = subjects_df.drop_duplicates('participant_id')['MCL'].value_counts().to_dict()
+                    print(f"MCL distribution: {mcl_distribution}")
                 else:
                     print("Warning: 'maximum_stenosis' column not found in participants file")
                     exit(1)
@@ -298,7 +300,9 @@ def read_csv_file(csv_file, participants_file=None, stratify_type=None):
                             return 'yes'
 
                     subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(process_myelopathy)
-                    print(f"Myelopathy distribution: {subjects_df['Myelopathy'].value_counts().to_dict()}")
+                    # Print distribution based on unique participants
+                    myelopathy_distribution = subjects_df.drop_duplicates('participant_id')['Myelopathy'].value_counts().to_dict()
+                    print(f"Myelopathy distribution: {myelopathy_distribution}")
                 else:
                     print("Warning: 'myelopathy' column not found in participants file")
                     exit(1)
