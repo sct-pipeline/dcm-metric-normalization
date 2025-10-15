@@ -62,7 +62,7 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
         df_clinical = pd.read_excel(clinical_file)
     except Exception as e:
         print(f"Error reading Excel file: {e}")
-        return None
+        exit(1)
 
     # Check required columns
     required_cols = [subject_col, 'total_mjoa']
@@ -71,7 +71,7 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
     if missing_cols:
         print(f"Missing required columns: {missing_cols}")
         print(f"Available columns: {list(df_clinical.columns)}")
-        return None
+        exit(1)
 
     # Remove rows with missing mJOA scores
     df_clinical = df_clinical.dropna(subset=['total_mjoa'])
@@ -130,7 +130,7 @@ def load_cord_metrics(metrics_file):
         df_metrics = pd.read_csv(metrics_file)
     except Exception as e:
         print(f"Error reading CSV file: {e}")
-        return None
+        exit(1)
 
     # Check required columns
     required_cols = ['Filename', 'VertLevel', 'MEAN(area)']
@@ -139,7 +139,7 @@ def load_cord_metrics(metrics_file):
     if missing_cols:
         print(f"Missing required columns: {missing_cols}")
         print(f"Available columns: {list(df_metrics.columns)}")
-        return None
+        exit(1)
 
     # Filter for C3 level (VertLevel = 3)
     df_c3 = df_metrics[df_metrics['VertLevel'] == 3].copy()
@@ -147,7 +147,7 @@ def load_cord_metrics(metrics_file):
     if len(df_c3) == 0:
         print("No data found for VertLevel 3 (C3)")
         print(f"Available VertLevels: {sorted(df_metrics['VertLevel'].unique())}")
-        return None
+        exit(1)
 
     # Remove rows with missing area values
     df_c3 = df_c3.dropna(subset=['MEAN(area)'])
@@ -186,7 +186,7 @@ def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
 
     if len(df_merged) == 0:
         print("No matching subjects found between clinical and metrics data")
-        return None
+        exit(1)
 
     return df_merged
 
