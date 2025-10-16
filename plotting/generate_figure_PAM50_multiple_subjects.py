@@ -21,6 +21,7 @@
 #
 
 import os
+import sys
 import re
 import argparse
 import numpy as np
@@ -282,8 +283,7 @@ def read_csv_file(csv_file, participants_file=None, stratify_type=None):
                     mcl_distribution = subjects_df.drop_duplicates('participant_id')['MCL'].value_counts().to_dict()
                     print(f"MCL distribution: {mcl_distribution}")
                 else:
-                    print("Warning: 'maximum_stenosis' column not found in participants file")
-                    exit(1)
+                    sys.exit("Warning: 'maximum_stenosis' column not found in participants file")
 
             elif stratify_type == 'myelopathy':
                 if 'myelopathy' in df_participants.columns:
@@ -304,11 +304,9 @@ def read_csv_file(csv_file, participants_file=None, stratify_type=None):
                     myelopathy_distribution = subjects_df.drop_duplicates('participant_id')['Myelopathy'].value_counts().to_dict()
                     print(f"Myelopathy distribution: {myelopathy_distribution}")
                 else:
-                    print("Warning: 'myelopathy' column not found in participants file")
-                    exit(1)
+                    sys.exit("Warning: 'myelopathy' column not found in participants file")
         else:
-            print(f"Warning: Participants file not found: {participants_file}")
-            exit(1)
+            sys.exit(f"Warning: Participants file not found: {participants_file}")
 
     return subjects_df
 

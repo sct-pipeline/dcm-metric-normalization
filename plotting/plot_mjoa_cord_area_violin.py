@@ -16,6 +16,7 @@
 #
 
 import os
+import sys
 import argparse
 import re
 
@@ -63,8 +64,7 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
     try:
         df_clinical = pd.read_excel(clinical_file)
     except Exception as e:
-        print(f"Error reading Excel file: {e}")
-        exit(1)
+        sys.exit(f"Error reading Excel file: {e}")
 
     # Check required columns
     required_cols = [subject_col, 'total_mjoa']
@@ -72,8 +72,7 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
 
     if missing_cols:
         print(f"Missing required columns: {missing_cols}")
-        print(f"Available columns: {list(df_clinical.columns)}")
-        exit(1)
+        sys.exit(f"Available columns: {list(df_clinical.columns)}")
 
     # Remove rows with missing mJOA scores
     df_clinical = df_clinical.dropna(subset=['total_mjoa'])
@@ -133,8 +132,7 @@ def load_cord_metrics(metrics_file, level, structure):
     try:
         df_metrics = pd.read_csv(metrics_file)
     except Exception as e:
-        print(f"Error reading CSV file: {e}")
-        exit(1)
+        sys.exit(f"Error reading CSV file: {e}")
 
     if structure == 'aSCOR':
         metric_column = 'aSCOR'
@@ -149,16 +147,14 @@ def load_cord_metrics(metrics_file, level, structure):
 
     if missing_cols:
         print(f"Missing required columns: {missing_cols}")
-        print(f"Available columns: {list(df_metrics.columns)}")
-        exit(1)
+        sys.exit(f"Available columns: {list(df_metrics.columns)}")
 
     # Filter for specified level
     df_level = df_metrics[df_metrics['VertLevel'] == level].copy()
 
     if len(df_level) == 0:
         print(f"No data found for VertLevel {level} (C{level})")
-        print(f"Available VertLevels: {sorted(df_metrics['VertLevel'].unique())}")
-        exit(1)
+        sys.exit(f"Available VertLevels: {sorted(df_metrics['VertLevel'].unique())}")
 
     # Remove rows with missing area values
     df_level = df_level.dropna(subset=[metric_column])
@@ -196,8 +192,7 @@ def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
     print(f"Merged data for {len(df_merged)} subjects")
 
     if len(df_merged) == 0:
-        print("No matching subjects found between clinical and metrics data")
-        exit(1)
+        sys.exit("No matching subjects found between clinical and metrics data")
 
     return df_merged
 
