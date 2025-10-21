@@ -228,7 +228,7 @@ def plot_violin_association(df, output_dir, level, structure):
     ci_high = np.tanh(r_z + 1.96 * se)
 
     # Create figure
-    plt.figure(figsize=(12, 8))
+    plt.figure(figsize=(14, 6))
 
     # Create violin plot using continuous mJOA values
     ax = sns.violinplot(data=df, x='total_mjoa', y=metric_column,
@@ -297,7 +297,7 @@ def plot_violin_association(df, output_dir, level, structure):
     plt.savefig(figure_path, dpi=300, bbox_inches='tight')
     print(f"Figure saved to: {figure_path}")
 
-    plt.show()
+    # plt.show()
 
     # Print summary statistics
     print(f"\nAssociation Results:")
