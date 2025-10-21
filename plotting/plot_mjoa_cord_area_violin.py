@@ -40,7 +40,7 @@ def get_parser():
     parser.add_argument('-metrics', required=True, type=str,
                         help="CSV file with spinal cord metrics per level (must contain 'VertLevel' and 'MEAN(area)' columns)")
     parser.add_argument('-level', required=False, type=int,
-                        help="Spinal level to analyze (default: 3)", default=2)
+                        help="Spinal level to analyze (default: 2)", default=2)
     parser.add_argument('-o', required=True, type=str,
                         help="Output directory for the figure")
 
