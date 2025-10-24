@@ -367,11 +367,10 @@ def _stratify_mjoa(score):
         return 'unknown'
 
 
-def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
+def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
     """
     Create figure with mean and std of morphometric metrics across subjects, separately for multiple sessions
     :param subjects_df: pandas dataframe with morphometric metrics across multiple subjects
-    :param n_subjects: number of unique subjects in the input dataframe
     :param df_normative_data: pandas dataframe with normative data from spine-generic dataset
     :param sessions_to_process: list of sessions to process (e.g., ['ses-M0', 'ses-M3'])
     :param figure_path: path to save figure
@@ -459,7 +458,7 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
 
         # Keep the legend only for one plot to avoid duplication
         if metric_idx == 0:
-            axs[metric_idx].legend(fontsize=TICKS_FONT_SIZE)
+            axs[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
         else:
             axs[metric_idx].get_legend().remove()
 
@@ -506,19 +505,35 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
 
     # Update title based on stratification
     if stratify_type == 'mcl':
-        stratification_info = "stratified by MCL"
+        plotted_subjects = subjects_df[subjects_df['MCL'].isin(MCL_COLORS.keys())]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by MCL (n={n_subjects_plot} subjects)"
     elif stratify_type == 'myelopathy':
-        stratification_info = "stratified by Myelopathy"
+        plotted_subjects = subjects_df[subjects_df['Myelopathy'].isin(MYELOPATHY_COLORS.keys())]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Myelopathy (n={n_subjects_plot} subjects)"
     elif stratify_type == 'mjoa':
-        stratification_info = "stratified by mJOA severity (dropping 'severe' and 'unknown' mJOA)"
+        valid_mjoa = [k for k in MJOA_COLORS.keys() if k not in ['unknown', 'severe (mJOA ≤ 11)']]
+        plotted_subjects = subjects_df[subjects_df['mJOA_severity'].isin(valid_mjoa)]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by mJOA severity (dropping 'severe' and 'unknown' mJOA)"
     else:
-        stratification_info = f"across {n_subjects} subjects"
+        n_subjects_plot = len(subjects_df['participant_id'].unique())
+        stratification_info = f"(n={n_subjects_plot} subjects)"
 
-    plt.suptitle(f"{structure} in the PAM50 space: mean ± std {stratification_info}",
+    plt.suptitle(f"{structure} in the PAM50 space {stratification_info}",
                  fontsize=LABELS_FONT_SIZE, fontweight='bold', y=0.92)
+    print(f"Number of unique subjects included in the figure: {n_subjects_plot}")
     # Save figure
-    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
-    print(f'Figure saved: {figure_path}')
+
+    # Update figure filename based on stratification type
+    if stratify_type:
+        figure_fname = f'{figure_path}_{n_subjects_plot}subjects_{stratify_type}-stratified.png'
+    else:
+        figure_fname = f'{figure_path}_{n_subjects_plot}subjects_{len(sessions_to_process)}sessions.png'
+
+    plt.savefig(figure_fname, dpi=300, bbox_inches='tight')
+    print(f'Figure saved: {figure_fname}')
 
 
 def main():
@@ -570,15 +585,8 @@ def main():
     os.makedirs(path_out, exist_ok=True)
     # Use basename from args.i to create figure name
     figure_basename = os.path.basename(args.i).replace('.csv', '')
-
-    # Update figure filename based on stratification type
-    if args.stratify:
-        figure_fname = f'{figure_basename}_{n_subjects}subjects_{args.stratify}-stratified.png'
-    else:
-        figure_fname = f'{figure_basename}_{n_subjects}subjects_{len(sessions_to_process)}sessions.png'
-
-    figure_path = os.path.join(path_out, figure_fname)
-    create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, args.stratify)
+    figure_path = os.path.join(path_out, figure_basename)
+    create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, args.stratify)
 
 
 if __name__ == '__main__':
