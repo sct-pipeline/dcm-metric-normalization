@@ -76,6 +76,14 @@ MYELOPATHY_COLORS = {
     'no': '#2ca02c',       # green - no myelopathy
 }
 
+MJOA_COLORS = {
+    'mJOA=18': '#2ca02c',    # green
+    'mild (15 ≤ mJOA ≤ 17)': '#ffdb4d',     # yellow for mild
+    'moderate (12 ≤ mJOA ≤ 14)': '#ff7f0e',     # orange for moderate
+    'severe (mJOA ≤ 11)': '#d62728',        # red for severe
+    'unknown': '#7f7f7f'        # gray for unknown
+}
+
 METRICS_YLIMITS = {
     'MEAN(diameter_AP)': (5, 9),
     'MEAN(area)': (35, 90),
@@ -106,8 +114,13 @@ def get_parser():
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
     parser.add_argument('-participants-file', required=False, type=str,
                         help="Path to the participants.tsv file containing maximum_stenosis or myelopathy data for stratification.")
-    parser.add_argument('-stratify', required=False, type=str, choices=['mcl', 'myelopathy'],
-                        help="Stratification method: 'mcl' for Maximum Compression Level or 'myelopathy' for myelopathy status.")
+    parser.add_argument('-clinical-file', required=False, type=str,
+                        help="Excel file with clinical scores (must contain 'total_mjoa' column)")
+    parser.add_argument('-stratify', required=False, type=str, choices=['mcl', 'myelopathy', 'mjoa'],
+                        help="Stratification method:"
+                             "'mcl' for Maximum Compression Level; '-participants-file' is required, "
+                             "'myelopathy' for myelopathy status; '-participants-file' is required, "
+                             "mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required.")
 
     return parser
 
@@ -228,12 +241,15 @@ def fetch_participant_and_session(filename_path):
     return participant_id, session_id
 
 
-def read_csv_file(csv_file, participants_file=None, stratify_type=None):
+def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify_type=None):
     """
-    Read CSV file with morphometrics in the PAM50 space across multiple subjects.
-    This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`.
+    - Read CSV file with morphometrics in the PAM50 space across multiple subjects.
+        This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`.
+    - Read participants.tsv file with MCL or myelopathy data for stratification (if provided) or
+        clinical Excel file with mJOA scores (if provided).
     :param csv_file: input CSV file path
     :param participants_file: path to participants.tsv file with stratification data
+    :param clinical_file: path to Excel file with clinical scores (must contain 'total_mjoa' column)
     :param stratify_type: type of stratification ('mcl' or 'myelopathy')
     :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio), and optionally stratification data
     """
@@ -262,8 +278,8 @@ def read_csv_file(csv_file, participants_file=None, stratify_type=None):
     subjects_df.insert(1, 'session_id', session_ids)
 
     # Add stratification data if requested
-    if stratify_type and participants_file:
-        if os.path.isfile(participants_file):
+    if stratify_type in ['mcl', 'myelopathy']:
+        if participants_file and os.path.isfile(participants_file):
             df_participants = pd.read_csv(participants_file, sep='\t')
 
             if stratify_type == 'mcl':
@@ -307,8 +323,48 @@ def read_csv_file(csv_file, participants_file=None, stratify_type=None):
                     sys.exit("Warning: 'myelopathy' column not found in participants file")
         else:
             sys.exit(f"Warning: Participants file not found: {participants_file}")
+    elif stratify_type == 'mjoa':
+        if clinical_file and os.path.isfile(clinical_file):
+            df_clinical = pd.read_excel(clinical_file, usecols=['record_id', 'total_mjoa'])
+            # Format record_id to match participant_id format (e.g., `1` to `sub-001`)
+            df_clinical['participant_id'] = df_clinical['record_id'].apply(lambda x: f'sub-{int(x):03d}')
+            # Drop record_id column
+            df_clinical = df_clinical.drop(columns=['record_id'])
+            # Stratify mJOA
+            df_clinical['mJOA_severity'] = df_clinical['total_mjoa'].apply(_stratify_mjoa)
+
+            if 'total_mjoa' in df_clinical.columns:
+                # Merge mJOA data
+                subjects_df = subjects_df.merge(
+                    df_clinical[['participant_id', 'mJOA_severity']],
+                    on='participant_id', how='left'
+                )
+
+                # Print distribution based on unique participants
+                mjoa_distribution = subjects_df.drop_duplicates('participant_id')['mJOA_severity'].value_counts().to_dict()
+                print(f"mJOA severity distribution: {mjoa_distribution}")
+            else:
+                sys.exit("Warning: 'total_mjoa' column not found in clinical file")
+        else:
+            sys.exit(f"Warning: Clinical file not found: {clinical_file}")
 
     return subjects_df
+
+
+# Stratify based on mJOA scores
+def _stratify_mjoa(score):
+    if pd.isna(score):
+        return 'unknown'
+    elif score == 18:
+        return 'mJOA=18'
+    elif 15 <= score <= 17:
+        return 'mild (15 ≤ mJOA ≤ 17)'
+    elif 12 <= score <= 14:
+        return 'moderate (12 ≤ mJOA ≤ 14)'
+    elif score < 12:
+        return 'severe (mJOA ≤ 11)'
+    else:
+        return 'unknown'
 
 
 def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
@@ -376,6 +432,21 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
                                 linewidth=2, color=MYELOPATHY_COLORS[myelopathy],
                                 label=f"Myelopathy {myelopathy} (n={myelopathy_n_subjects})")
+        elif stratify_type == 'mjoa':
+            # Plot by mJOA severity groups instead of sessions
+            mjoa_groups = subjects_df['mJOA_severity'].unique()
+            # Filter out 'unknown' and 'severe' groups, and only keep those in MJOA_COLORS
+            mjoa_groups = sorted([mjoa for mjoa in mjoa_groups
+                                  if mjoa in MJOA_COLORS
+                                  and mjoa not in ['unknown', 'severe (mJOA ≤ 11)']])
+
+            for mjoa in mjoa_groups:
+                mjoa_data = subjects_df[subjects_df['mJOA_severity'] == mjoa]
+                if len(mjoa_data) > 0:
+                    mjoa_n_subjects = len(mjoa_data['participant_id'].unique())
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mjoa_data, errorbar='sd',
+                                linewidth=2, color=MJOA_COLORS[mjoa],
+                                label=f"{mjoa} (n={mjoa_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
             for ses in sessions_to_process:
@@ -438,6 +509,8 @@ def create_figure(subjects_df, n_subjects, df_normative_data, sessions_to_proces
         stratification_info = "stratified by MCL"
     elif stratify_type == 'myelopathy':
         stratification_info = "stratified by Myelopathy"
+    elif stratify_type == 'mjoa':
+        stratification_info = "stratified by mJOA severity (dropping 'severe' and 'unknown' mJOA)"
     else:
         stratification_info = f"across {n_subjects} subjects"
 
@@ -460,7 +533,7 @@ def main():
         raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
 
     # Read CSV file with optional MCL data
-    subjects_df = read_csv_file(csv_file, args.participants_file, args.stratify)
+    subjects_df = read_csv_file(csv_file, args.participants_file, args.clinical_file, args.stratify)
 
     # # Print number of subjects for each slice
     # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
