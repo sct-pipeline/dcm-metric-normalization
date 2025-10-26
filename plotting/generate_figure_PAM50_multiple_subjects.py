@@ -70,6 +70,12 @@ MCL_COLORS = {
     'C6/C7': '#9467bd',    # purple
 }
 
+AGE_GROUP_COLORS = {
+    '<50': '#2ca02c',       # green
+    '50-65': '#ff7f0e',     # orange
+    '>65': '#d62728'        # red
+}
+
 # Color mapping for Myelopathy stratification
 MYELOPATHY_COLORS = {
     'yes': '#d62728',      # red - has myelopathy
@@ -122,12 +128,14 @@ def get_parser():
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa' column)")
     parser.add_argument('-stratify', required=False, type=str,
-                        choices=['mcl', 'myelopathy', 'mjoa', 'therapeutic_decision', 'None'],
+                        choices=['mcl', 'myelopathy', 'mjoa', 'therapeutic_decision', 'age', 'None'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; '-participants-file' is required, "
                              "'myelopathy' for myelopathy status; '-participants-file' is required, "
                              "'therapeutic_decision' (operative/conservative); -participants-file' is required, "
-                             "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required.")
+                             "'age' for age group stratification; '-participants-file' is required, "
+                             "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required. "
+                             )
 
     return parser
 
@@ -356,9 +364,35 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                 sys.exit("Warning: 'total_mjoa' column not found in clinical file")
         else:
             sys.exit(f"Warning: Clinical file not found: {clinical_file}")
+    elif stratify_type == 'age':
+        if participants_file and os.path.isfile(participants_file):
+            df_participants = pd.read_csv(participants_file, sep='\t')
+            if 'age' in df_participants.columns:
+                subjects_df = subjects_df.merge(
+                    df_participants[['participant_id', 'age']],
+                    on='participant_id', how='left'
+                )
+                subjects_df['age_group'] = subjects_df['age'].apply(_create_age_group)
+                # Exclude unknown age
+                subjects_df = subjects_df[subjects_df['age_group'] != 'unknown']
+            else:
+                sys.exit("Warning: 'age' column not found in participants file")
+        else:
+            sys.exit(f"Warning: Participants file not found: {participants_file}")
 
     return subjects_df
 
+
+def _create_age_group(age):
+    if pd.isna(age):
+        return 'unknown'
+    age = float(age)
+    if age < 50:
+        return '<50'
+    elif 50 <= age <= 65:
+        return '50-65'
+    else:
+        return '>65'
 
 # Stratify based on mJOA scores
 def _stratify_mjoa(score):
@@ -472,6 +506,17 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mjoa_data, errorbar='sd',
                                 linewidth=2, color=MJOA_COLORS[mjoa],
                                 label=f"{mjoa} (n={mjoa_n_subjects})")
+        elif stratify_type == 'age':
+            # Plot by age groups
+            age_groups = ['<50', '50-65', '>65']  # Ensure legend order
+            for age in age_groups:
+                age_data = subjects_df[subjects_df['age_group'] == age]
+                if len(age_data) > 0:
+                    age_n_subjects = len(age_data['participant_id'].unique())
+                    print(f"Age group '{age}': {age_n_subjects} subjects") if metric == 'MEAN(area)' else None
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=age_data, errorbar='sd',
+                                linewidth=2, color=AGE_GROUP_COLORS[age],
+                                label=f"Age {age} (n={age_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
             for ses in sessions_to_process:
@@ -548,6 +593,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['mJOA_severity'].isin(valid_mjoa)]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by mJOA severity (dropping 'severe' and 'unknown' mJOA)"
+    elif stratify_type == 'age':
+        plotted_subjects = subjects_df[subjects_df['age_group'].isin(['<50', '50-65', '>65'])]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by age group (<50, 50-65, >65)"
     else:
         n_subjects_plot = len(subjects_df['participant_id'].unique())
         stratification_info = f"(n={n_subjects_plot} subjects)"
