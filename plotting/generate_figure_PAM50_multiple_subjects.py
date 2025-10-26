@@ -76,6 +76,11 @@ MYELOPATHY_COLORS = {
     'no': '#2ca02c',       # green - no myelopathy
 }
 
+THERAPEUTIC_DECISION_COLORS = {
+    'operative': '#d62728',         # red
+    'conservative': '#2ca02c',      # green - no myelopathy
+}
+
 MJOA_COLORS = {
     'mJOA=18': '#2ca02c',    # green
     'mild (15 ≤ mJOA ≤ 17)': '#ffdb4d',     # yellow for mild
@@ -116,11 +121,13 @@ def get_parser():
                         help="Path to the participants.tsv file containing maximum_stenosis or myelopathy data for stratification.")
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa' column)")
-    parser.add_argument('-stratify', required=False, type=str, choices=['mcl', 'myelopathy', 'mjoa'],
+    parser.add_argument('-stratify', required=False, type=str,
+                        choices=['mcl', 'myelopathy', 'mjoa', 'therapeutic_decision'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; '-participants-file' is required, "
                              "'myelopathy' for myelopathy status; '-participants-file' is required, "
-                             "mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required.")
+                             "'therapeutic_decision' (operative/conservative); -participants-file' is required, "
+                             "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required.")
 
     return parser
 
@@ -278,7 +285,7 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
     subjects_df.insert(1, 'session_id', session_ids)
 
     # Add stratification data if requested
-    if stratify_type in ['mcl', 'myelopathy']:
+    if stratify_type in ['mcl', 'myelopathy', 'therapeutic_decision']:
         if participants_file and os.path.isfile(participants_file):
             df_participants = pd.read_csv(participants_file, sep='\t')
 
@@ -321,6 +328,21 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                     print(f"Myelopathy distribution: {myelopathy_distribution}")
                 else:
                     sys.exit("Warning: 'myelopathy' column not found in participants file")
+            elif stratify_type == 'therapeutic_decision':
+                if 'therapeutic_decision' in df_participants.columns:
+                    # Merge therapeutic decision data
+                    subjects_df = subjects_df.merge(
+                        df_participants[['participant_id', 'therapeutic_decision']],
+                        on='participant_id', how='left'
+                    )
+                    subjects_df['therapeutic_decision'] = subjects_df['therapeutic_decision'].fillna('NA')
+                    # Exclude subjects with MCL == 'NA'
+                    subjects_df = subjects_df[subjects_df['therapeutic_decision'] != 'NA']
+                    # Print distribution based on unique participants
+                    decision_distribution = subjects_df.drop_duplicates('participant_id')['therapeutic_decision'].value_counts().to_dict()
+                    print(f"Therapeutic decision distribution: {decision_distribution}")
+                else:
+                    sys.exit("Warning: 'therapeutic_decision' column not found in participants file")
         else:
             sys.exit(f"Warning: Participants file not found: {participants_file}")
     elif stratify_type == 'mjoa':
@@ -374,7 +396,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     :param df_normative_data: pandas dataframe with normative data from spine-generic dataset
     :param sessions_to_process: list of sessions to process (e.g., ['ses-M0', 'ses-M3'])
     :param figure_path: path to save figure
-    :param stratify_type: type of stratification ('mcl' or 'myelopathy')
+    :param stratify_type: type of stratification ('mcl', 'myelopathy', 'therapeutic_decision', 'mjoa') or None
     """
     mpl.rcParams['font.family'] = 'Arial'
 
@@ -431,6 +453,19 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
                                 linewidth=2, color=MYELOPATHY_COLORS[myelopathy],
                                 label=f"Myelopathy {myelopathy} (n={myelopathy_n_subjects})")
+        elif stratify_type == 'therapeutic_decision':
+            # Plot by Therapeutic Decision groups instead of sessions
+            decision_groups = subjects_df['therapeutic_decision'].unique()
+            decision_groups = sorted([decision for decision in decision_groups if decision in THERAPEUTIC_DECISION_COLORS])
+
+            for decision in decision_groups:
+                decision_data = subjects_df[subjects_df['therapeutic_decision'] == decision]
+                if len(decision_data) > 0:
+                    decision_n_subjects = len(decision_data['participant_id'].unique())
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=decision_data, errorbar='sd',
+                                linewidth=2, color=THERAPEUTIC_DECISION_COLORS[decision],
+                                label=f"{decision} (n={decision_n_subjects})")
+
         elif stratify_type == 'mjoa':
             # Plot by mJOA severity groups instead of sessions
             mjoa_groups = subjects_df['mJOA_severity'].unique()
@@ -512,6 +547,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['Myelopathy'].isin(MYELOPATHY_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by Myelopathy (n={n_subjects_plot} subjects)"
+    elif stratify_type == 'therapeutic_decision':
+        plotted_subjects = subjects_df[subjects_df['therapeutic_decision'].isin(THERAPEUTIC_DECISION_COLORS.keys())]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Therapeutic Decision (n={n_subjects_plot} subjects)"
     elif stratify_type == 'mjoa':
         valid_mjoa = [k for k in MJOA_COLORS.keys() if k not in ['unknown', 'severe (mJOA ≤ 11)']]
         plotted_subjects = subjects_df[subjects_df['mJOA_severity'].isin(valid_mjoa)]['participant_id'].unique()
