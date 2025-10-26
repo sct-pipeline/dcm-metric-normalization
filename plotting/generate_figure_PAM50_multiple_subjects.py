@@ -122,7 +122,7 @@ def get_parser():
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa' column)")
     parser.add_argument('-stratify', required=False, type=str,
-                        choices=['mcl', 'myelopathy', 'mjoa', 'therapeutic_decision'],
+                        choices=['mcl', 'myelopathy', 'mjoa', 'therapeutic_decision', 'None'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; '-participants-file' is required, "
                              "'myelopathy' for myelopathy status; '-participants-file' is required, "
