@@ -302,9 +302,6 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                     subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
                     # Exclude subjects with MCL == 'NA'
                     subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
-                    # Print distribution based on unique participants
-                    mcl_distribution = subjects_df.drop_duplicates('participant_id')['MCL'].value_counts().to_dict()
-                    print(f"MCL distribution: {mcl_distribution}")
                 else:
                     sys.exit("Warning: 'maximum_stenosis' column not found in participants file")
 
@@ -323,9 +320,6 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                             return 'yes'
 
                     subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(process_myelopathy)
-                    # Print distribution based on unique participants
-                    myelopathy_distribution = subjects_df.drop_duplicates('participant_id')['Myelopathy'].value_counts().to_dict()
-                    print(f"Myelopathy distribution: {myelopathy_distribution}")
                 else:
                     sys.exit("Warning: 'myelopathy' column not found in participants file")
             elif stratify_type == 'therapeutic_decision':
@@ -338,9 +332,6 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                     subjects_df['therapeutic_decision'] = subjects_df['therapeutic_decision'].fillna('NA')
                     # Exclude subjects with MCL == 'NA'
                     subjects_df = subjects_df[subjects_df['therapeutic_decision'] != 'NA']
-                    # Print distribution based on unique participants
-                    decision_distribution = subjects_df.drop_duplicates('participant_id')['therapeutic_decision'].value_counts().to_dict()
-                    print(f"Therapeutic decision distribution: {decision_distribution}")
                 else:
                     sys.exit("Warning: 'therapeutic_decision' column not found in participants file")
         else:
@@ -361,10 +352,6 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                     df_clinical[['participant_id', 'mJOA_severity']],
                     on='participant_id', how='left'
                 )
-
-                # Print distribution based on unique participants
-                mjoa_distribution = subjects_df.drop_duplicates('participant_id')['mJOA_severity'].value_counts().to_dict()
-                print(f"mJOA severity distribution: {mjoa_distribution}")
             else:
                 sys.exit("Warning: 'total_mjoa' column not found in clinical file")
         else:
@@ -438,6 +425,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                 mcl_data = subjects_df[subjects_df['MCL'] == mcl]
                 if len(mcl_data) > 0:
                     mcl_n_subjects = len(mcl_data['participant_id'].unique())
+                    print(f"MCL group '{mcl}': {mcl_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mcl_data, errorbar='sd',
                                 linewidth=2, color=MCL_COLORS[mcl],
                                 label=f"MCL {mcl} (n={mcl_n_subjects})")
@@ -450,6 +438,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                 myelopathy_data = subjects_df[subjects_df['Myelopathy'] == myelopathy]
                 if len(myelopathy_data) > 0:
                     myelopathy_n_subjects = len(myelopathy_data['participant_id'].unique())
+                    print(f"Myelopathy group '{myelopathy}': {myelopathy_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
                                 linewidth=2, color=MYELOPATHY_COLORS[myelopathy],
                                 label=f"Myelopathy {myelopathy} (n={myelopathy_n_subjects})")
@@ -462,6 +451,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                 decision_data = subjects_df[subjects_df['therapeutic_decision'] == decision]
                 if len(decision_data) > 0:
                     decision_n_subjects = len(decision_data['participant_id'].unique())
+                    print(f"Therapeutic Decision group '{decision}': {decision_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=decision_data, errorbar='sd',
                                 linewidth=2, color=THERAPEUTIC_DECISION_COLORS[decision],
                                 label=f"{decision} (n={decision_n_subjects})")
@@ -477,7 +467,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             for mjoa in mjoa_groups:
                 mjoa_data = subjects_df[subjects_df['mJOA_severity'] == mjoa]
                 if len(mjoa_data) > 0:
-                    mjoa_n_subjects = len(mjoa_data['participant_id'].unique())
+                    mjoa_n_subjects = len(mjoa_data['participant_id'].unique()) if metric == 'MEAN(area)' else None
+                    print(f"mJOA severity group '{mjoa}': {mjoa_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mjoa_data, errorbar='sd',
                                 linewidth=2, color=MJOA_COLORS[mjoa],
                                 label=f"{mjoa} (n={mjoa_n_subjects})")
@@ -487,6 +478,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                 session_data = subjects_df[subjects_df['session_id'] == ses]
                 if len(session_data) > 0:
                     ses_n_subjects = len(session_data['participant_id'].unique())
+                    print(f"Session '{ses}': {ses_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=session_data, errorbar='sd',
                                 linewidth=2, color=SESSION_COLORS[ses],
                                 label=f"{ses} (n={ses_n_subjects})")
