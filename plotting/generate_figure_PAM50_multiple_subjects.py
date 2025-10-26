@@ -534,15 +534,15 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     if stratify_type == 'mcl':
         plotted_subjects = subjects_df[subjects_df['MCL'].isin(MCL_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
-        stratification_info = f"(n={n_subjects_plot} subjects) stratified by MCL (n={n_subjects_plot} subjects)"
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by MCL (maximum compression level)"
     elif stratify_type == 'myelopathy':
         plotted_subjects = subjects_df[subjects_df['Myelopathy'].isin(MYELOPATHY_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
-        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Myelopathy (n={n_subjects_plot} subjects)"
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Myelopathy"
     elif stratify_type == 'therapeutic_decision':
         plotted_subjects = subjects_df[subjects_df['therapeutic_decision'].isin(THERAPEUTIC_DECISION_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
-        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Therapeutic Decision (n={n_subjects_plot} subjects)"
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Therapeutic Decision"
     elif stratify_type == 'mjoa':
         valid_mjoa = [k for k in MJOA_COLORS.keys() if k not in ['unknown', 'severe (mJOA ≤ 11)']]
         plotted_subjects = subjects_df[subjects_df['mJOA_severity'].isin(valid_mjoa)]['participant_id'].unique()
