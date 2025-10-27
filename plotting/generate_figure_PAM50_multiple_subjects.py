@@ -601,8 +601,12 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         n_subjects_plot = len(subjects_df['participant_id'].unique())
         stratification_info = f"(n={n_subjects_plot} subjects)"
 
-    plt.suptitle(f"{structure} in the PAM50 space {stratification_info}",
-                 fontsize=LABELS_FONT_SIZE, fontweight='bold', y=0.92)
+    # No title for aSCOR
+    if 'aSCOR' in figure_path:
+        plt.suptitle(f"", fontsize=LABELS_FONT_SIZE, fontweight='bold', y=0.92)
+    else:
+        plt.suptitle(f"{structure} in the PAM50 space {stratification_info}",
+                     fontsize=LABELS_FONT_SIZE, fontweight='bold', y=0.92)
     print(f"Number of unique subjects included in the figure: {n_subjects_plot}")
     # Save figure
 
