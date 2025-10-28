@@ -32,12 +32,16 @@ LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
 TITLE_FONT_SIZE = 16
 
-clinical_scores = ['total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth']
+clinical_scores = ['total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth',
+                   'nurick_bl', 'nurick_6mth', 'nurick_12mth']
 
 score_to_label = {
     'total_mjoa_bl': 'mJOA Score baseline',
     'total_mjoa_6mth': 'mJOA Score 6 months',
-    'total_mjoa_12mth': 'mJOA Score 12 months'
+    'total_mjoa_12mth': 'mJOA Score 12 months',
+    'nurick_bl': 'Nurick baseline',
+    'nurick_6mth': 'Nurick 6 months',
+    'nurick_12mth': 'Nurick 12 months'
 }
 
 metrics = ['MEAN(area)', 'MEAN(diameter_AP)', 'MEAN(diameter_RL)']
@@ -108,7 +112,8 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
         lambda x: f"sub-{int(x):03d}" if isinstance(x, (int, float)) and not pd.isna(x) else str(x))
 
     print(f"Loaded clinical data for {len(df_clinical)} subjects")
-    print(f"mJOA score range: {df_clinical['total_mjoa_bl'].min():.1f} - {df_clinical['total_mjoa_bl'].max():.1f}")
+    for score in clinical_scores:
+        print(f"{score} range: {df_clinical[score].min():.2f} - {df_clinical[score].max():.2f}")
 
     return df_clinical
 
