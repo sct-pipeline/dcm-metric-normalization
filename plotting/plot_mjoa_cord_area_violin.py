@@ -379,7 +379,7 @@ def plot_violin_association_multi(df, output_dir, level, structure):
             ax.set_xticklabels(x_tick_labels)
             ax.set_xlabel(score_to_label[score], fontsize=LABELS_FONT_SIZE)
             ax.set_ylabel(metrics_to_labels[metric], fontsize=LABELS_FONT_SIZE)
-            ax.set_title(f'{metric_to_title[metric]} at C{level} vs {score_to_label[score]} (n={len(df_plot)})',
+            ax.set_title(f'{score_to_label[score]} vs Baseline {metric_to_title[metric]} at C{level} (n={len(df_plot)} subjects)',
                          fontsize=TITLE_FONT_SIZE)
             stats_text = f'Spearman r = {r:.2f}\np = {p_value:.3f}'
             ax.text(0.98, 0.98, stats_text, transform=ax.transAxes,
