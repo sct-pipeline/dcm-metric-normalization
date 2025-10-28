@@ -32,8 +32,24 @@ LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
 TITLE_FONT_SIZE = 16
 
+clinical_scores = ['total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth']
+
 score_to_label = {
-    'total_mjoa_bl': 'mJOA Score baseline'
+    'total_mjoa_bl': 'mJOA Score baseline',
+    'total_mjoa_6mth': 'mJOA Score 6 months',
+    'total_mjoa_12mth': 'mJOA Score 12 months'
+}
+
+metrics = ['MEAN(area)', 'MEAN(diameter_AP)', 'MEAN(diameter_RL)']
+metric_to_title = {
+    'MEAN(area)': 'Spinal Cord Area',
+    'MEAN(diameter_AP)': 'Diameter AP',
+    'MEAN(diameter_RL)': 'Diameter RL'
+}
+metrics_to_labels = {
+    'MEAN(area)': 'Spinal Cord Area [mm²]',
+    'MEAN(diameter_AP)': 'Diameter AP [mm]',
+    'MEAN(diameter_RL)': 'Diameter RL [mm]'
 }
 
 def get_parser():
@@ -71,18 +87,18 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
         sys.exit(f"Error reading Excel file: {e}")
 
     # Check required columns
-    required_cols = [subject_col, 'total_mjoa_bl']
+    required_cols = [subject_col] + clinical_scores
     missing_cols = [col for col in required_cols if col not in df_clinical.columns]
 
     if missing_cols:
         print(f"Missing required columns: {missing_cols}")
         sys.exit(f"Available columns: {list(df_clinical.columns)}")
 
-    # Remove rows with missing mJOA scores
-    df_clinical = df_clinical.dropna(subset=['total_mjoa_bl'])
+    # # Remove rows with missing mJOA scores
+    # df_clinical = df_clinical.dropna(subset=clinical_scores)
 
     # Keep only relevant columns
-    df_clinical = df_clinical[[subject_col, 'total_mjoa_bl']].copy()
+    df_clinical = df_clinical[required_cols].copy()
 
     # Rename subject column
     df_clinical = df_clinical.rename(columns={subject_col: 'participant_id'})
@@ -322,44 +338,48 @@ def plot_violin_association_multi(df, output_dir, level, structure):
         structure: Structure name (for title)
     """
     mpl.rcParams['font.family'] = 'Arial'
-    metrics = ['MEAN(area)', 'MEAN(diameter_AP)', 'MEAN(diameter_RL)']
-    metric_labels = ['Area [mm²]', 'Diameter AP [mm]', 'Diameter RL [mm]']
-    titles = [f'Spinal Cord Area at C{level}', f'Diameter AP at C{level}', f'Diameter RL at C{level}']
     os.makedirs(output_dir, exist_ok=True)
-    fig, axes = plt.subplots(3, 1, figsize=(12, 16))
-    for i, metric in enumerate(metrics):
-        if metric not in df.columns:
-            continue
-        ax = axes[i]
-        r, p_value = spearmanr(df['total_mjoa_bl'], df[metric])
-        sns.violinplot(data=df, x='total_mjoa_bl', y=metric, color='lightblue', alpha=0.4, scale="width", ax=ax)
-        sns.stripplot(data=df, x='total_mjoa_bl', y=metric, color='darkblue', alpha=0.4, size=4, jitter=True, ax=ax)
-        x_numeric = df['total_mjoa_bl']
-        y = df[metric]
-        z = np.polyfit(x_numeric, y, 1)
-        p = np.poly1d(z)
-        unique_mjoa = sorted(df['total_mjoa_bl'].unique())
-        x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
-        x_line_mjoa = np.interp(x_line_positions, range(len(unique_mjoa)), unique_mjoa)
-        y_line_smooth = p(x_line_mjoa)
-        ax.plot(x_line_positions, y_line_smooth, color='red', linewidth=2, alpha=0.8)
-        x_tick_labels = [f'{mjoa}\n(n={len(df[df["total_mjoa_bl"] == mjoa])})' for mjoa in unique_mjoa]
-        ax.set_xticklabels(x_tick_labels)
-        ax.set_xlabel(score_to_label['total_mjoa_bl'], fontsize=LABELS_FONT_SIZE)
-        ax.set_ylabel(metric_labels[i], fontsize=LABELS_FONT_SIZE)
-        ax.set_title(titles[i], fontsize=TITLE_FONT_SIZE)
-        stats_text = f'Spearman r = {r:.2f}\np = {p_value:.3f}'
-        ax.text(0.98, 0.98, stats_text, transform=ax.transAxes,
-                verticalalignment='top', horizontalalignment='right',
-                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
-                fontsize=12)
-        ax.tick_params(axis='x', labelsize=TICKS_FONT_SIZE)
-        ax.tick_params(axis='y', labelsize=TICKS_FONT_SIZE)
-        ax.grid(True, alpha=0.3)
-    plt.tight_layout()
-    figure_path = os.path.join(output_dir, f'mjoa_{structure}_C{level}_multi_violin.png')
-    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
-    print(f"Multi-metric violin plot saved to: {figure_path}")
+
+    for score in clinical_scores:
+        fig, axes = plt.subplots(3, 1, figsize=(12, 16))
+        for i, metric in enumerate(metrics):
+            if metric not in df.columns:
+                continue
+            # Create df_plot for current metric and remove rows with missing values
+            df_plot = df[['participant_id', score, metric]].dropna()
+            ax = axes[i]
+            r, p_value = spearmanr(df_plot[score], df_plot[metric])
+            sns.violinplot(data=df_plot, x=score, y=metric, color='lightblue', alpha=0.4, scale="width", ax=ax)
+            sns.stripplot(data=df_plot, x=score, y=metric, color='darkblue', alpha=0.4, size=4, jitter=True, ax=ax)
+            x_numeric = df_plot[score]
+            y = df_plot[metric]
+            z = np.polyfit(x_numeric, y, 1)
+            p = np.poly1d(z)
+            unique_mjoa = sorted(df_plot[score].unique())
+            x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
+            x_line_mjoa = np.interp(x_line_positions, range(len(unique_mjoa)), unique_mjoa)
+            y_line_smooth = p(x_line_mjoa)
+            ax.plot(x_line_positions, y_line_smooth, color='red', linewidth=2, alpha=0.8)
+            x_tick_labels = [f'{mjoa}\n(n={len(df_plot[df_plot[score] == mjoa])})' for mjoa in unique_mjoa]
+            ax.set_xticklabels(x_tick_labels)
+            ax.set_xlabel(score_to_label[score], fontsize=LABELS_FONT_SIZE)
+            ax.set_ylabel(metrics_to_labels[metric], fontsize=LABELS_FONT_SIZE)
+            ax.set_title(f'{metric_to_title[metric]} at C{level} vs {score_to_label[score]} (n={len(df_plot)})',
+                         fontsize=TITLE_FONT_SIZE)
+            stats_text = f'Spearman r = {r:.2f}\np = {p_value:.3f}'
+            ax.text(0.98, 0.98, stats_text, transform=ax.transAxes,
+                    verticalalignment='top', horizontalalignment='right',
+                    bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+                    fontsize=12)
+            ax.tick_params(axis='x', labelsize=TICKS_FONT_SIZE)
+            ax.tick_params(axis='y', labelsize=TICKS_FONT_SIZE)
+            ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        figure_path = os.path.join(output_dir, f'{score}_{structure}_C{level}_multi_violin.png')
+        plt.savefig(figure_path, dpi=300, bbox_inches='tight')
+        # Close figure
+        plt.close(fig)
+        print(f"3x1 violin plot ({score}) saved to: {figure_path}")
 
 
 def plot_scatter_csa_vs_mjoa(df, output_dir, level, structure):
