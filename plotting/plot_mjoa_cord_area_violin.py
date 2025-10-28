@@ -232,8 +232,7 @@ def merge_data(df_clinical, df_metrics, subject_col='participant_id'):
 
 def plot_violin_association(df, output_dir, level, structure):
     """
-    Create violin plot showing association between mJOA and spinal cord area
-
+    Create 1x1 boxplot (with stripplot, regression line, stats box) for area vs total_mjoa_bl
     Args:
         df: Merged dataframe with mJOA and cord area data
         output_dir: Output directory for the figure
@@ -241,103 +240,48 @@ def plot_violin_association(df, output_dir, level, structure):
         structure: Structure name (for title)
     """
     mpl.rcParams['font.family'] = 'Arial'
-
-    if structure == 'aSCOR':
-        metric_column = 'aSCOR'
-    else:
-        metric_column = 'MEAN(area)'
-
-    # Create output directory
     os.makedirs(output_dir, exist_ok=True)
 
-    # Calculate correlation
-    r, p_value = spearmanr(df['total_mjoa_bl'], df[metric_column])
-
-    # Calculate confidence interval for correlation using the Fisher transformation
-    n = len(df)
-    r_z = np.arctanh(r)     # hyperbolic tangent (Fisher's z-transform) to normalize the correlation coefficient
-    se = 1 / np.sqrt(n - 3)     # 3 DOFs are lost due to the statistical properties of the Pearson correlation coefficient (2 DOF lost for estimating the two sample means (one for each variable), 1 additional DOF lost for estimating the correlation coefficient itself)
-    ci_low = np.tanh(r_z - 1.96 * se)
-    ci_high = np.tanh(r_z + 1.96 * se)
-
-    # Create figure
-    plt.figure(figsize=(14, 6))
-
-    # Create violin plot using continuous mJOA values
-    ax = sns.violinplot(data=df, x='total_mjoa_bl', y=metric_column,
-                       color='lightblue', alpha=0.4, scale="width")
-
-    # Add scatter points
-    sns.stripplot(data=df, x='total_mjoa_bl', y=metric_column,
-                 color='darkblue', alpha=0.4, size=4, jitter=True)
-
-    # Add regression line
-    x_numeric = df['total_mjoa_bl']
-    y = df[metric_column]
-    z = np.polyfit(x_numeric, y, 1)
-    p = np.poly1d(z)
-
-    # Map regression line to violin plot x-axis positions
-    unique_mjoa = sorted(df['total_mjoa_bl'].unique())
-
-    # Plot regression line using the mapped positions
-    x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
-    x_line_mjoa = np.interp(x_line_positions, range(len(unique_mjoa)), unique_mjoa)
-    y_line_smooth = p(x_line_mjoa)
-
-    plt.plot(x_line_positions, y_line_smooth, color='red', linewidth=2, alpha=0.8)
-
-    # Create x-tick labels with subject counts
-    x_tick_labels = []
-    for mjoa_val in unique_mjoa:
-        n_subjects = len(df[df['total_mjoa_bl'] == mjoa_val])
-        x_tick_labels.append(f'{mjoa_val}\n(n={n_subjects})')
-
-    # Set custom x-tick labels
-    ax.set_xticklabels(x_tick_labels)
-
-    # Formatting
-    plt.xlabel('mJOA Score', fontsize=LABELS_FONT_SIZE)
-    plt.ylabel('Spinal Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
-    plt.title(f'Association between mJOA and Spinal Cord Area at C{level}', fontsize=TITLE_FONT_SIZE)
-
-    # Add statistics text box
-    if p_value < 0.001:
-        p_text = "p < 0.001"
-    elif p_value < 0.01:
-        p_text = f"p < 0.01"
-    elif p_value < 0.05:
-        p_text = f"p < 0.05"
-    else:
-        p_text = f"p = {p_value:.3f}"
-
-    # Format stats text similar to the inspiration image
-    stats_text = f'Spearman r = {r:.2f}\n{p_text}'
-
-    # Add text box with statistics in top right corner
-    plt.text(0.98, 0.98, stats_text, transform=ax.transAxes,
-             verticalalignment='top', horizontalalignment='right',
-             bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
-             fontsize=12)
-
-    plt.xticks(fontsize=TICKS_FONT_SIZE)
-    plt.yticks(fontsize=TICKS_FONT_SIZE)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-
-    # Save figure
-    figure_path = os.path.join(output_dir, f'total_mjoa_bl_{structure}_C{level}_area_association_violin.png')
-    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
-    print(f"Figure saved to: {figure_path}")
-
-    # plt.show()
-
-    # Print summary statistics
-    print(f"\nAssociation Results:")
-    print(f"Correlation coefficient: r = {r:.3f}")
-    print(f"95% Confidence interval: ({ci_low:.3f}, {ci_high:.3f})")
-    print(f"P-value: {p_value:.6f}")
-    print(f"Sample size: n = {n}")
+    metric = 'MEAN(area)'
+    for score in clinical_scores:
+        if metric not in df.columns:
+            print(f"Metric column '{metric}' not found in dataframe.")
+            return
+        df_plot = df[['participant_id', score, metric]].dropna()
+        fig, ax = plt.subplots(figsize=(12, 6))
+        r, p_value = spearmanr(df_plot[score], df_plot[metric])
+        sns.boxplot(data=df_plot, x=score, y=metric,
+                    color='lightblue', showcaps=False, medianprops={"color": "black", "linewidth": 3},
+                    ax=ax)
+        sns.stripplot(data=df_plot, x=score, y=metric, color='darkblue', alpha=0.4, size=4, jitter=True, ax=ax)
+        x_numeric = df_plot[score]
+        y = df_plot[metric]
+        z = np.polyfit(x_numeric, y, 1)
+        p = np.poly1d(z)
+        unique_mjoa = sorted(df_plot[score].unique())
+        x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
+        x_line_mjoa = np.interp(x_line_positions, range(len(unique_mjoa)), unique_mjoa)
+        y_line_smooth = p(x_line_mjoa)
+        ax.plot(x_line_positions, y_line_smooth, color='red', linewidth=2, alpha=0.8)
+        x_tick_labels = [f'{mjoa}\n(n={len(df_plot[df_plot[score] == mjoa])})' for mjoa in unique_mjoa]
+        ax.set_xticklabels(x_tick_labels)
+        ax.set_xlabel(score_to_label[score], fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel(metrics_to_labels[metric], fontsize=LABELS_FONT_SIZE)
+        ax.set_title(f'{score_to_label[score]} vs Baseline {metric_to_title[metric]} at C{level} (n={len(df_plot)} subjects)',
+                     fontsize=TITLE_FONT_SIZE)
+        stats_text = f'Spearman r = {r:.2f}\np = {p_value:.3f}'
+        ax.text(0.98, 0.98, stats_text, transform=ax.transAxes,
+                verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+                fontsize=12)
+        ax.tick_params(axis='x', labelsize=TICKS_FONT_SIZE)
+        ax.tick_params(axis='y', labelsize=TICKS_FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+        plt.tight_layout()
+        figure_path = os.path.join(output_dir, f'{score}_{structure}_C{level}_area_violin.png')
+        plt.savefig(figure_path, dpi=300, bbox_inches='tight')
+        plt.close(fig)
+        print(f"1x1 area boxplot ({score}) saved to: {figure_path}")
 
 
 def plot_violin_association_multi(df, output_dir, level, structure):
@@ -478,7 +422,8 @@ def main():
 
     # Multi-metric violin plot for spinal_cord or canal
     if structure in ['spinal_cord', 'canal']:
-        plot_violin_association_multi(df_merged, args.o, args.level, structure)
+        # plot_violin_association_multi(df_merged, args.o, args.level, structure)
+        plot_violin_association(df_merged, args.o, args.level, structure)
     else:
         plot_violin_association(df_merged, args.o, args.level, structure)
 
