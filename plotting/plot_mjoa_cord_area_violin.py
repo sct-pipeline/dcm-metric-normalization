@@ -125,7 +125,7 @@ def load_cord_metrics(metrics_file, level, structure):
         structure: Structure to filter (default: 3 for C3)
 
     Returns:
-        pandas.DataFrame: Cord area data at specified level
+        pandas.DataFrame: Cord metrics data at specified level
     """
     print(f"Loading cord metrics from: {metrics_file}")
 
@@ -135,14 +135,14 @@ def load_cord_metrics(metrics_file, level, structure):
         sys.exit(f"Error reading CSV file: {e}")
 
     if structure == 'aSCOR':
-        metric_column = 'aSCOR'
+        metric_columns = ['aSCOR']
         filename_column = 'Filename_sc'
     else:
-        metric_column = 'MEAN(area)'
+        metric_columns = ['MEAN(area)', 'MEAN(diameter_AP)', 'MEAN(diameter_RL)']
         filename_column = 'Filename'
 
     # Check required columns
-    required_cols = [filename_column, 'VertLevel', metric_column]
+    required_cols = [filename_column, 'VertLevel'] + metric_columns
     missing_cols = [col for col in required_cols if col not in df_metrics.columns]
 
     if missing_cols:
@@ -156,8 +156,8 @@ def load_cord_metrics(metrics_file, level, structure):
         print(f"No data found for VertLevel {level} (C{level})")
         sys.exit(f"Available VertLevels: {sorted(df_metrics['VertLevel'].unique())}")
 
-    # Remove rows with missing area values
-    df_level = df_level.dropna(subset=[metric_column])
+    # Remove rows with missing values in any metric column
+    df_level = df_level.dropna(subset=metric_columns)
 
     participant_ids = []
     for file_path in df_level[filename_column]:
@@ -166,10 +166,11 @@ def load_cord_metrics(metrics_file, level, structure):
     df_level.insert(0, 'participant_id', participant_ids)
 
     # Keep only relevant columns
-    df_level = df_level[['participant_id', metric_column]].copy()
+    df_level = df_level[['participant_id'] + metric_columns].copy()
 
-    print(f"Loaded C{level} cord area data for {len(df_level)} measurements")
-    print(f"Cord area range: {df_level[metric_column].min():.1f} - {df_level[metric_column].max():.1f} mm²")
+    print(f"Loaded C{level} cord metrics for {len(df_level)} measurements")
+    for col in metric_columns:
+        print(f"{col} range: {df_level[col].min():.2f} - {df_level[col].max():.2f}")
 
     return df_level
 
@@ -307,6 +308,110 @@ def plot_violin_association(df, output_dir, level, structure):
     print(f"Sample size: n = {n}")
 
 
+def plot_violin_association_multi(df, output_dir, level, structure):
+    """
+    Create 3x1 violin plots for area, diameter_AP, diameter_RL if structure is spinal_cord or canal
+    Args:
+        df: Merged dataframe with mJOA and cord metrics
+        output_dir: Output directory for the figure
+        level: Spinal level (for title)
+        structure: Structure name (for title)
+    """
+    mpl.rcParams['font.family'] = 'Arial'
+    metrics = ['MEAN(area)', 'MEAN(diameter_AP)', 'MEAN(diameter_RL)']
+    metric_labels = ['Area [mm²]', 'Diameter AP [mm]', 'Diameter RL [mm]']
+    titles = [f'Spinal Cord Area at C{level}', f'Diameter AP at C{level}', f'Diameter RL at C{level}']
+    os.makedirs(output_dir, exist_ok=True)
+    fig, axes = plt.subplots(3, 1, figsize=(12, 16))
+    for i, metric in enumerate(metrics):
+        if metric not in df.columns:
+            continue
+        ax = axes[i]
+        r, p_value = spearmanr(df['total_mjoa'], df[metric])
+        sns.violinplot(data=df, x='total_mjoa', y=metric, color='lightblue', alpha=0.4, scale="width", ax=ax)
+        sns.stripplot(data=df, x='total_mjoa', y=metric, color='darkblue', alpha=0.4, size=4, jitter=True, ax=ax)
+        x_numeric = df['total_mjoa']
+        y = df[metric]
+        z = np.polyfit(x_numeric, y, 1)
+        p = np.poly1d(z)
+        unique_mjoa = sorted(df['total_mjoa'].unique())
+        x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
+        x_line_mjoa = np.interp(x_line_positions, range(len(unique_mjoa)), unique_mjoa)
+        y_line_smooth = p(x_line_mjoa)
+        ax.plot(x_line_positions, y_line_smooth, color='red', linewidth=2, alpha=0.8)
+        x_tick_labels = [f'{mjoa}\n(n={len(df[df["total_mjoa"] == mjoa])})' for mjoa in unique_mjoa]
+        ax.set_xticklabels(x_tick_labels)
+        ax.set_xlabel('mJOA Score', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel(metric_labels[i], fontsize=LABELS_FONT_SIZE)
+        ax.set_title(titles[i], fontsize=TITLE_FONT_SIZE)
+        stats_text = f'Spearman r = {r:.2f}\np = {p_value:.3f}'
+        ax.text(0.98, 0.98, stats_text, transform=ax.transAxes,
+                verticalalignment='top', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+                fontsize=12)
+        ax.tick_params(axis='x', labelsize=TICKS_FONT_SIZE)
+        ax.tick_params(axis='y', labelsize=TICKS_FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    figure_path = os.path.join(output_dir, f'mjoa_{structure}_C{level}_multi_violin.png')
+    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
+    print(f"Multi-metric violin plot saved to: {figure_path}")
+
+
+def plot_scatter_csa_vs_mjoa(df, output_dir, level, structure):
+    """
+    Create scatter plot showing association between CSA at C2 and mJOA scores
+
+    Args:
+        df: Merged dataframe with mJOA and cord area data
+        output_dir: Output directory for the figure
+        level: Spinal level (for title)
+        structure: Structure name (for title)
+    """
+    mpl.rcParams['font.family'] = 'Arial'
+
+    if structure == 'aSCOR':
+        metric_column = 'aSCOR'
+    else:
+        metric_column = 'MEAN(area)'
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    x = df[metric_column]
+    y = df['total_mjoa']
+
+    plt.figure(figsize=(8, 6))
+    ax = sns.scatterplot(x=x, y=y, color='blue', alpha=0.6)
+
+    # Regression line
+    z = np.polyfit(x, y, 1)
+    p = np.poly1d(z)
+
+    x_vals = np.linspace(x.min(), x.max(), 100)
+    plt.plot(x_vals, p(x_vals), color='red', linewidth=2, label='Regression line')
+
+    # Correlation
+    r, p_value = spearmanr(x, y)
+
+    plt.xlabel(f'Spinal Cord Area at C{level} [mm²]', fontsize=LABELS_FONT_SIZE)
+    plt.ylabel('mJOA Score', fontsize=LABELS_FONT_SIZE)
+    plt.title(f'Scatter plot: CSA at C{level} vs. mJOA', fontsize=TITLE_FONT_SIZE)
+    plt.legend()
+
+    stats_text = f'Spearman r = {r:.2f}\np = {p_value:.3f}'
+    plt.text(0.98, 0.02, stats_text, transform=ax.transAxes,
+             verticalalignment='bottom', horizontalalignment='right',
+             bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+             fontsize=12)
+
+    plt.tight_layout()
+
+    figure_path = os.path.join(output_dir, f'scatter_csa_C{level}_vs_mjoa.png')
+    plt.savefig(figure_path, dpi=300, bbox_inches='tight')
+    print(f"Scatter plot saved to: {figure_path}")
+    print(f"Spearman correlation: r = {r:.3f}, p = {p_value:.3f}")
+
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -332,8 +437,15 @@ def main():
     # Merge data
     df_merged = merge_data(df_clinical, df_metrics)
 
-    # Create violin plot
-    plot_violin_association(df_merged, args.o, args.level, structure)
+    # Multi-metric violin plot for spinal_cord or canal
+    if structure in ['spinal_cord', 'canal']:
+        plot_violin_association_multi(df_merged, args.o, args.level, structure)
+    else:
+        plot_violin_association(df_merged, args.o, args.level, structure)
+
+    # # Add scatter plot for C2 CSA vs mJOA
+    # if args.level == 2:
+    #     plot_scatter_csa_vs_mjoa(df_merged, args.o, args.level, structure)
 
 
 if __name__ == "__main__":
