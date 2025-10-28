@@ -36,9 +36,9 @@ clinical_scores = ['total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth',
                    'nurick_bl', 'nurick_6mth', 'nurick_12mth']
 
 score_to_label = {
-    'total_mjoa_bl': 'mJOA Score baseline',
-    'total_mjoa_6mth': 'mJOA Score 6 months',
-    'total_mjoa_12mth': 'mJOA Score 12 months',
+    'total_mjoa_bl': 'mJOA baseline',
+    'total_mjoa_6mth': 'mJOA 6 months',
+    'total_mjoa_12mth': 'mJOA 12 months',
     'nurick_bl': 'Nurick baseline',
     'nurick_6mth': 'Nurick 6 months',
     'nurick_12mth': 'Nurick 12 months'
