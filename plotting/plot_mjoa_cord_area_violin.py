@@ -361,7 +361,10 @@ def plot_violin_association_multi(df, output_dir, level, structure):
             df_plot = df[['participant_id', score, metric]].dropna()
             ax = axes[i]
             r, p_value = spearmanr(df_plot[score], df_plot[metric])
-            sns.violinplot(data=df_plot, x=score, y=metric, color='lightblue', alpha=0.4, scale="width", ax=ax)
+            # sns.violinplot(data=df_plot, x=score, y=metric, color='lightblue', alpha=0.4, scale="width", ax=ax)
+            sns.boxplot(data=df_plot, x=score, y=metric,
+                        color='lightblue', showcaps=False, medianprops={"color": "black", "linewidth": 3},
+                        ax=ax)
             sns.stripplot(data=df_plot, x=score, y=metric, color='darkblue', alpha=0.4, size=4, jitter=True, ax=ax)
             x_numeric = df_plot[score]
             y = df_plot[metric]
