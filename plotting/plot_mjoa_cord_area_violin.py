@@ -32,8 +32,11 @@ LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
 TITLE_FONT_SIZE = 16
 
-clinical_scores = ['total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth',
-                   'nurick_bl', 'nurick_6mth', 'nurick_12mth']
+clinical_scores = [
+    'total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth',
+    'nurick_bl', 'nurick_6mth', 'nurick_12mth',
+    'motor_dysfunction_UE_bl', 'motor_dysfunction_LE_bl', 'sensory_dysfunction_LE_bl', 'sphincter_dysfunction_bl'
+]
 
 score_to_label = {
     'total_mjoa_bl': 'mJOA baseline',
@@ -41,7 +44,11 @@ score_to_label = {
     'total_mjoa_12mth': 'mJOA 12 months',
     'nurick_bl': 'Nurick baseline',
     'nurick_6mth': 'Nurick 6 months',
-    'nurick_12mth': 'Nurick 12 months'
+    'nurick_12mth': 'Nurick 12 months',
+    'motor_dysfunction_UE_bl': 'Motor Dysfunction UE baseline',
+    'motor_dysfunction_LE_bl': 'Motor Dysfunction LE baseline',
+    'sensory_dysfunction_LE_bl': 'Sensory Dysfunction LE baseline',
+    'sphincter_dysfunction_bl': 'Sphincter Dysfunction baseline'
 }
 
 metrics = ['MEAN(area)', 'MEAN(diameter_AP)', 'MEAN(diameter_RL)']
