@@ -32,11 +32,15 @@ LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
 TITLE_FONT_SIZE = 16
 
+score_to_label = {
+    'total_mjoa_bl': 'mJOA Score baseline'
+}
+
 def get_parser():
     parser = argparse.ArgumentParser(
         description="Plot violin plots showing association between spinal cord area at specified vert level and mJOA scores")
     parser.add_argument('-clinical', required=True, type=str,
-                        help="Excel file with clinical scores (must contain 'total_mjoa' column)")
+                        help="Excel file with clinical scores (must contain 'total_mjoa_bl' column)")
     parser.add_argument('-metrics', required=True, type=str,
                         help="CSV file with spinal cord metrics per level (must contain 'VertLevel' and 'MEAN(area)' columns)")
     parser.add_argument('-level', required=False, type=int,
@@ -67,7 +71,7 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
         sys.exit(f"Error reading Excel file: {e}")
 
     # Check required columns
-    required_cols = [subject_col, 'total_mjoa']
+    required_cols = [subject_col, 'total_mjoa_bl']
     missing_cols = [col for col in required_cols if col not in df_clinical.columns]
 
     if missing_cols:
@@ -75,10 +79,10 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
         sys.exit(f"Available columns: {list(df_clinical.columns)}")
 
     # Remove rows with missing mJOA scores
-    df_clinical = df_clinical.dropna(subset=['total_mjoa'])
+    df_clinical = df_clinical.dropna(subset=['total_mjoa_bl'])
 
     # Keep only relevant columns
-    df_clinical = df_clinical[[subject_col, 'total_mjoa']].copy()
+    df_clinical = df_clinical[[subject_col, 'total_mjoa_bl']].copy()
 
     # Rename subject column
     df_clinical = df_clinical.rename(columns={subject_col: 'participant_id'})
@@ -88,7 +92,7 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
         lambda x: f"sub-{int(x):03d}" if isinstance(x, (int, float)) and not pd.isna(x) else str(x))
 
     print(f"Loaded clinical data for {len(df_clinical)} subjects")
-    print(f"mJOA score range: {df_clinical['total_mjoa'].min():.1f} - {df_clinical['total_mjoa'].max():.1f}")
+    print(f"mJOA score range: {df_clinical['total_mjoa_bl'].min():.1f} - {df_clinical['total_mjoa_bl'].max():.1f}")
 
     return df_clinical
 
@@ -219,7 +223,7 @@ def plot_violin_association(df, output_dir, level, structure):
     os.makedirs(output_dir, exist_ok=True)
 
     # Calculate correlation
-    r, p_value = spearmanr(df['total_mjoa'], df[metric_column])
+    r, p_value = spearmanr(df['total_mjoa_bl'], df[metric_column])
 
     # Calculate confidence interval for correlation using the Fisher transformation
     n = len(df)
@@ -232,21 +236,21 @@ def plot_violin_association(df, output_dir, level, structure):
     plt.figure(figsize=(14, 6))
 
     # Create violin plot using continuous mJOA values
-    ax = sns.violinplot(data=df, x='total_mjoa', y=metric_column,
+    ax = sns.violinplot(data=df, x='total_mjoa_bl', y=metric_column,
                        color='lightblue', alpha=0.4, scale="width")
 
     # Add scatter points
-    sns.stripplot(data=df, x='total_mjoa', y=metric_column,
+    sns.stripplot(data=df, x='total_mjoa_bl', y=metric_column,
                  color='darkblue', alpha=0.4, size=4, jitter=True)
 
     # Add regression line
-    x_numeric = df['total_mjoa']
+    x_numeric = df['total_mjoa_bl']
     y = df[metric_column]
     z = np.polyfit(x_numeric, y, 1)
     p = np.poly1d(z)
 
     # Map regression line to violin plot x-axis positions
-    unique_mjoa = sorted(df['total_mjoa'].unique())
+    unique_mjoa = sorted(df['total_mjoa_bl'].unique())
 
     # Plot regression line using the mapped positions
     x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
@@ -258,7 +262,7 @@ def plot_violin_association(df, output_dir, level, structure):
     # Create x-tick labels with subject counts
     x_tick_labels = []
     for mjoa_val in unique_mjoa:
-        n_subjects = len(df[df['total_mjoa'] == mjoa_val])
+        n_subjects = len(df[df['total_mjoa_bl'] == mjoa_val])
         x_tick_labels.append(f'{mjoa_val}\n(n={n_subjects})')
 
     # Set custom x-tick labels
@@ -294,7 +298,7 @@ def plot_violin_association(df, output_dir, level, structure):
     plt.tight_layout()
 
     # Save figure
-    figure_path = os.path.join(output_dir, f'mjoa_{structure}_C{level}_area_association_violin.png')
+    figure_path = os.path.join(output_dir, f'total_mjoa_bl_{structure}_C{level}_area_association_violin.png')
     plt.savefig(figure_path, dpi=300, bbox_inches='tight')
     print(f"Figure saved to: {figure_path}")
 
@@ -327,21 +331,21 @@ def plot_violin_association_multi(df, output_dir, level, structure):
         if metric not in df.columns:
             continue
         ax = axes[i]
-        r, p_value = spearmanr(df['total_mjoa'], df[metric])
-        sns.violinplot(data=df, x='total_mjoa', y=metric, color='lightblue', alpha=0.4, scale="width", ax=ax)
-        sns.stripplot(data=df, x='total_mjoa', y=metric, color='darkblue', alpha=0.4, size=4, jitter=True, ax=ax)
-        x_numeric = df['total_mjoa']
+        r, p_value = spearmanr(df['total_mjoa_bl'], df[metric])
+        sns.violinplot(data=df, x='total_mjoa_bl', y=metric, color='lightblue', alpha=0.4, scale="width", ax=ax)
+        sns.stripplot(data=df, x='total_mjoa_bl', y=metric, color='darkblue', alpha=0.4, size=4, jitter=True, ax=ax)
+        x_numeric = df['total_mjoa_bl']
         y = df[metric]
         z = np.polyfit(x_numeric, y, 1)
         p = np.poly1d(z)
-        unique_mjoa = sorted(df['total_mjoa'].unique())
+        unique_mjoa = sorted(df['total_mjoa_bl'].unique())
         x_line_positions = np.linspace(0, len(unique_mjoa) - 1, 100)
         x_line_mjoa = np.interp(x_line_positions, range(len(unique_mjoa)), unique_mjoa)
         y_line_smooth = p(x_line_mjoa)
         ax.plot(x_line_positions, y_line_smooth, color='red', linewidth=2, alpha=0.8)
-        x_tick_labels = [f'{mjoa}\n(n={len(df[df["total_mjoa"] == mjoa])})' for mjoa in unique_mjoa]
+        x_tick_labels = [f'{mjoa}\n(n={len(df[df["total_mjoa_bl"] == mjoa])})' for mjoa in unique_mjoa]
         ax.set_xticklabels(x_tick_labels)
-        ax.set_xlabel('mJOA Score', fontsize=LABELS_FONT_SIZE)
+        ax.set_xlabel(score_to_label['total_mjoa_bl'], fontsize=LABELS_FONT_SIZE)
         ax.set_ylabel(metric_labels[i], fontsize=LABELS_FONT_SIZE)
         ax.set_title(titles[i], fontsize=TITLE_FONT_SIZE)
         stats_text = f'Spearman r = {r:.2f}\np = {p_value:.3f}'
@@ -378,7 +382,7 @@ def plot_scatter_csa_vs_mjoa(df, output_dir, level, structure):
     os.makedirs(output_dir, exist_ok=True)
 
     x = df[metric_column]
-    y = df['total_mjoa']
+    y = df['total_mjoa_bl']
 
     plt.figure(figsize=(8, 6))
     ax = sns.scatterplot(x=x, y=y, color='blue', alpha=0.6)
