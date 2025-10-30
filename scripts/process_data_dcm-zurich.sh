@@ -69,14 +69,14 @@ label_t2_sag_if_does_not_exist(){
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual disc labels: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual disc labels."
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found --> using manual disc labels" >> "${PATH_LOG}/T2w_disc_labels.log"
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual T2w sag disc labels."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found --> using manual T2w sag disc labels" >> "${PATH_LOG}/T2w_sag_disc_labels.log"
     rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
     # Generate labeled segmentation from manual disc labels
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Manual disc labels not found. Proceeding with automatic labeling."
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic labeling" >> "${PATH_LOG}/T2w_disc_labels.log"
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Manual T2w sag disc labels not found. Proceeding with automatic labeling."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic T2w sag labeling" >> "${PATH_LOG}/T2w_sag_disc_labels.log"
     # Generate labeled segmentation automatically (no manual disc labels provided)
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
@@ -227,12 +227,15 @@ else
     # Check if manual disc labels file already exists. If so, generate labeled segmentation from manual disc labels.
     echo "Looking for manual disc labels: ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz"
     if [[ -e ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ]]; then
-        echo "Found! Using manual disc labels."
+        echo "Found! Using manual T2w ax disc labels."
+        echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${file_t2_ax}_labels-manual.nii.gz found under derivatives/labels --> using manual T2w ax disc labels" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
         rsync -avzh ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ${file_t2_ax}_labels.nii.gz
 
         file_t2_ax_labels=${file_t2_ax}_labels
     # If manual disc labels file does not exist, use disc labels from sagittal image
     else
+        echo "Manual T2w ax disc labels not found. Using disc labels from sagittal image."
+        echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${file_t2_ax}_labels-manual.nii.gz NOT found --> using disc labels from sagittal image" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
         # Bring T2w sagittal image to T2w axial image to obtain warping field.
         # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
         # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
