@@ -88,7 +88,6 @@ label_t2_sag_if_does_not_exist(){
 # If it doesn't, perform automatic canal segmentation
 segment_canal_if_does_not_exist() {
   local file="$1"
-  local contrast="$2"
   # Update global variable with segmentation file name 
   FILESEG="${file}_label-canal_seg"
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
@@ -102,7 +101,7 @@ segment_canal_if_does_not_exist() {
     echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic canal segmentation."
     echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting canal automatically" >> "${PATH_LOG}/T2w_canal_segmentations.log"
     # Segment canal
-    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION} -largest 1
   fi
 }
 
@@ -277,7 +276,7 @@ else
     # -------------
     # Segment spinal canal if manual segmentation doesn't exists
     # -------------
-    segment_canal_if_does_not_exist ${file_t2_ax} 't2'
+    segment_canal_if_does_not_exist ${file_t2_ax}
     file_t2_ax_canal_seg=$FILESEG
 
     # -------------
