@@ -109,7 +109,7 @@ def get_parser():
     parser = argparse.ArgumentParser(
         description="Plot mean and std of morphometric metrics across subjects for multiple sessions")
     parser.add_argument('-i', required=True, type=str,
-                        help="CSV file with morphometric metrics in the PAM50 space across multiple subjects")
+                        help="CSV file with patients' morphometric metrics in the PAM50 space across multiple subjects")
     parser.add_argument('-o', required=True, type=str, default='figures',
                         help="Output directory name. The figure name will be based on the input CSV file name. "
                              "Default output directory: figures.")
@@ -124,7 +124,7 @@ def get_parser():
                         default='$SCT_DIR/data/PAM50_normalized_metrics/participants.tsv',
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
     parser.add_argument('-participants-file', required=False, type=str,
-                        help="Path to the participants.tsv file containing maximum_stenosis or myelopathy data for stratification.")
+                        help="Path to the patients' participants.tsv file containing maximum_stenosis or myelopathy data for stratification.")
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa' column)")
     parser.add_argument('-stratify', required=False, type=str,
@@ -627,11 +627,10 @@ def main():
     path_out = os.path.abspath(args.o)
     sessions_to_process = args.s
 
+    # Read CSV file with patients' morphometrics and optional stratification data (e.g., MCL, myelopathy)
     csv_file = os.path.abspath(args.i)
     if not os.path.isfile(csv_file):
         raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
-
-    # Read CSV file with optional MCL data
     subjects_df = read_csv_file(csv_file, args.participants_file, args.clinical_file, args.stratify)
 
     # # Print number of subjects for each slice
