@@ -38,7 +38,7 @@ echo "PATH_QC: ${PATH_QC}"
 # If it doesn't, perform automatic spinal cord segmentation
 segment_if_does_not_exist() {
   local file="$1"
-  local contrast="$2"
+  local contrast="$2"   # only for logging
   # Update global variable with segmentation file name
   FILESEG="${file}_label-SC_mask"
   # Getting the path for manual segmentation for each session
@@ -54,7 +54,7 @@ segment_if_does_not_exist() {
     echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic spinal cord segmentation."
     echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting spinal cord automatically" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
     # Segment spinal cord
-    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
 }
 
@@ -192,7 +192,7 @@ if [[ ! -e ${file_t2_sag}.nii.gz ]]; then
     exit 1
 else
     # Segment SC
-    segment_if_does_not_exist ${file_t2_sag} 't2'
+    segment_if_does_not_exist ${file_t2_sag} 'T2w_sag'
     file_t2_sag_seg=$FILESEG
     label_t2_sag_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
 
@@ -216,7 +216,7 @@ else
     # -------------
     # Segment SC (if SC segmentation file already exists under derivatives folder, it will be copied)
     # -------------
-    segment_if_does_not_exist ${file_t2_ax} 't2'
+    segment_if_does_not_exist ${file_t2_ax} 'T2w_ax'
     file_t2_ax_seg=$FILESEG
 
     # -------------
