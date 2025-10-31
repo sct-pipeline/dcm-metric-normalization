@@ -320,14 +320,7 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                         df_participants[['participant_id', 'myelopathy']],
                         on='participant_id', how='left'
                     )
-                    # Process myelopathy values: if not n/a, use 'yes', if n/a, use 'no'
-                    def process_myelopathy(value):
-                        if pd.isna(value) or str(value).lower() == 'n/a':
-                            return 'no'
-                        else:
-                            return 'yes'
-
-                    subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(process_myelopathy)
+                    subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(_process_myelopathy)
                 else:
                     sys.exit("Warning: 'myelopathy' column not found in participants file")
             elif stratify_type == 'therapeutic_decision':
@@ -393,6 +386,13 @@ def _create_age_group(age):
         return '50-65'
     else:
         return '>65'
+
+def _process_myelopathy(value):
+    """# Process myelopathy values: if not n/a, use 'yes', if n/a, use 'no'"""
+    if pd.isna(value) or str(value).lower() == 'n/a':
+        return 'no'
+    else:
+        return 'yes'
 
 # Stratify based on mJOA scores
 def _stratify_mjoa(score):
