@@ -76,10 +76,14 @@ AGE_GROUP_COLORS = {
     '>65': '#d62728'        # red
 }
 
-# male blue, female red
-SEX_COLORS = {
-    'M': '#1f77b4',
-    'F': '#d62728',
+SEX_COLORS_NORMATIVE = {
+    'M': 'blue',
+    'F': 'red',
+}
+
+SEX_COLORS_PATIENTS = {
+    'M': '#1f77b4',     # light blue
+    'F': '#ff7f0e',     # orange
 }
 
 SEX_TO_LEGEND = {
@@ -471,7 +475,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             for sex in sex_groups:
                 normative_sex_data = df_normative_data[df_normative_data['sex'] == sex]
                 sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=normative_sex_data, errorbar='sd',
-                             linewidth=2, color=SEX_COLORS[sex], linestyle='--',
+                             linewidth=2, color=SEX_COLORS_NORMATIVE[sex], linestyle='--',
                              label=f'Normative Data {SEX_TO_LEGEND[sex]} (n={len(normative_sex_data["participant_id"].unique())})')
         else:
             sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df_normative_data, errorbar='sd',
@@ -553,7 +557,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sex_n_subjects = len(sex_data['participant_id'].unique())
                     print(f"Sex group '{sex}': {sex_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=sex_data, errorbar='sd',
-                                linewidth=2, color=SEX_COLORS[sex],
+                                linewidth=2, color=SEX_COLORS_PATIENTS[sex],
                                  label=f"{SEX_TO_LEGEND[sex]} (n={sex_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
