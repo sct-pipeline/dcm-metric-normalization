@@ -2,8 +2,22 @@
 #
 # Process dcm-zurich dataset
 #
-# Usage:
-#     sct_run_batch -c <PATH_TO_REPO>/etc/config_process_data_<DATASET>.json
+# Usage to exclude specific subjects:
+#     sct_run_batch -c config_process_data_dcm-zurich.json -exclude-yml exclude_dcm-zurich.yml
+#
+# Example YAML exclude file (included in this repo) to exclude some subjects/sessions (note that YAML supports comments):
+#     t2_ax:
+#       - sub-042/ses-M0    # missing T2w ax image
+#       - sub-045/ses-M0    # missing T2w ax image
+#
+# Example JSON configuration file to process only session M0:
+#   {
+#     "path_data"   : "data/dcm-zurich",
+#     "path_output" : "results/dcm-zurich/dcm-zurich_2025-10-31",
+#     "script"      : "code/dcm-metric-normalization/scripts/process_data_dcm-zurich.sh",
+#     "jobs"        : 8,
+#     "include"     : "ses-M0"
+#   }
 #
 # The following global variables are retrieved from the caller sct_run_batch
 # but could be overwritten by uncommenting the lines below:
