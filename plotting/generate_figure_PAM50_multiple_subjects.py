@@ -82,6 +82,11 @@ SEX_COLORS = {
     'F': '#d62728',
 }
 
+SEX_TO_LEGEND = {
+    'M': 'Males',
+    'F': 'Females',
+}
+
 # Color mapping for Myelopathy stratification
 MYELOPATHY_COLORS = {
     'yes': '#d62728',      # red - has myelopathy
@@ -461,9 +466,17 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         ax = axs[metric_idx]
 
         # Plot normative data
-        sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df_normative_data, errorbar='sd',
-                     linewidth=2, color='black',
-                     label=f'normative data (n={len(df_normative_data["participant_id"].unique())})')
+        if stratify_type == 'sex':
+            sex_groups = ['M', 'F']  # Ensure legend order
+            for sex in sex_groups:
+                normative_sex_data = df_normative_data[df_normative_data['sex'] == sex]
+                sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=normative_sex_data, errorbar='sd',
+                             linewidth=2, color=SEX_COLORS[sex], linestyle='--',
+                             label=f'Normative Data {SEX_TO_LEGEND[sex]} (n={len(normative_sex_data["participant_id"].unique())})')
+        else:
+            sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df_normative_data, errorbar='sd',
+                         linewidth=2, color='black',
+                         label=f'Normative Data (n={len(df_normative_data["participant_id"].unique())})')
 
         if stratify_type == 'mcl':
             # Plot by MCL groups instead of sessions
@@ -541,7 +554,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     print(f"Sex group '{sex}': {sex_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=sex_data, errorbar='sd',
                                 linewidth=2, color=SEX_COLORS[sex],
-                                 label=f"Sex {sex} (n={sex_n_subjects})")
+                                 label=f"{SEX_TO_LEGEND[sex]} (n={sex_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
             for ses in sessions_to_process:
