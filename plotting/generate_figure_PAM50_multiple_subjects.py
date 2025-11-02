@@ -76,6 +76,12 @@ AGE_GROUP_COLORS = {
     '>65': '#d62728'        # red
 }
 
+# male blue, female red
+SEX_COLORS = {
+    'M': '#1f77b4',
+    'F': '#d62728',
+}
+
 # Color mapping for Myelopathy stratification
 MYELOPATHY_COLORS = {
     'yes': '#d62728',      # red - has myelopathy
@@ -124,17 +130,21 @@ def get_parser():
                         default='$SCT_DIR/data/PAM50_normalized_metrics/participants.tsv',
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
     parser.add_argument('-participants-file', required=False, type=str,
-                        help="Path to the patients' participants.tsv file containing maximum_stenosis or myelopathy data for stratification.")
+                        help="Path to the patients' participants.tsv file containing data for stratification, e.g.,:"
+                             "age, sex, maximum_stenosis, myelopathy.")
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa_bl' column)")
     parser.add_argument('-stratify', required=False, type=str,
-                        choices=['mcl', 'myelopathy', 'mjoa', 'therapeutic_decision', 'age', 'None'],
+                        choices=['mcl', 'myelopathy', 'mjoa', 'therapeutic_decision', 'age', 'sex', 'None'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; '-participants-file' is required, "
                              "'myelopathy' for myelopathy status; '-participants-file' is required, "
                              "'therapeutic_decision' (operative/conservative); -participants-file' is required, "
                              "'age' for age group stratification; '-participants-file' is required, "
+                             "'sex' for sex-based stratification; '-participants-file' is required, "
                              "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required. "
+                             "'None' for no stratification."
+                             "Default: None.",
                              )
 
     return parser
@@ -357,10 +367,10 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                 sys.exit("Warning: 'total_mjoa_bl' column not found in clinical file")
         else:
             sys.exit(f"Warning: Clinical file not found: {clinical_file}")
-    elif stratify_type == 'age':
+    elif stratify_type in ['age', 'sex']:
         if participants_file and os.path.isfile(participants_file):
             df_participants = pd.read_csv(participants_file, sep='\t')
-            if 'age' in df_participants.columns:
+            if stratify_type == 'age' and 'age' in df_participants.columns:
                 subjects_df = subjects_df.merge(
                     df_participants[['participant_id', 'age']],
                     on='participant_id', how='left'
@@ -368,8 +378,13 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                 subjects_df['age_group'] = subjects_df['age'].apply(_create_age_group)
                 # Exclude unknown age
                 subjects_df = subjects_df[subjects_df['age_group'] != 'unknown']
+            elif stratify_type == 'sex' and 'sex' in df_participants.columns:
+                subjects_df = subjects_df.merge(
+                    df_participants[['participant_id', 'sex']],
+                    on='participant_id', how='left'
+                )
             else:
-                sys.exit("Warning: 'age' column not found in participants file")
+                sys.exit(f"Warning: {stratify_type} column not found in participants file")
         else:
             sys.exit(f"Warning: Participants file not found: {participants_file}")
 
@@ -517,6 +532,16 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=age_data, errorbar='sd',
                                 linewidth=2, color=AGE_GROUP_COLORS[age],
                                 label=f"Age {age} (n={age_n_subjects})")
+        elif stratify_type == 'sex':
+            sex_groups = ['M', 'F']  # Ensure legend order
+            for sex in sex_groups:
+                sex_data = subjects_df[subjects_df['sex'] == sex]
+                if len(sex_data) > 0:
+                    sex_n_subjects = len(sex_data['participant_id'].unique())
+                    print(f"Sex group '{sex}': {sex_n_subjects} subjects") if metric == 'MEAN(area)' else None
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=sex_data, errorbar='sd',
+                                linewidth=2, color=SEX_COLORS[sex],
+                                 label=f"Sex {sex} (n={sex_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
             for ses in sessions_to_process:
