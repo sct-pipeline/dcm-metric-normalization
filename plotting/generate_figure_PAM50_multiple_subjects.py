@@ -689,7 +689,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     elif stratify_type == 'sex':
         plotted_subjects = subjects_df[subjects_df['sex'].isin(['M', 'F'])]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
-        stratification_info = f"(n={n_subjects_plot} subjects) stratified by sex"
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Sex"
     else:
         n_subjects_plot = len(subjects_df['participant_id'].unique())
         stratification_info = f"(n={n_subjects_plot} subjects)"
