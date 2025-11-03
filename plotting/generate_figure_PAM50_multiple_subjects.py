@@ -639,6 +639,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['age_group'].isin(['<50', '50-65', '>65'])]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by age group (<50, 50-65, >65)"
+    elif stratify_type == 'sex':
+        plotted_subjects = subjects_df[subjects_df['sex'].isin(['M', 'F'])]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by sex"
     else:
         n_subjects_plot = len(subjects_df['participant_id'].unique())
         stratification_info = f"(n={n_subjects_plot} subjects)"
