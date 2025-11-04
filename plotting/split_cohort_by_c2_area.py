@@ -167,13 +167,31 @@ def prepare_table(grouped_subjects_c2, path_out):
             'Characteristic': 'Subject count',
             group: len(group_df)
         })
-        # Sex distribution
+        # Sex distribution - combine into single line if two categories
         if 'sex' in group_df.columns:
-            for sex, count in group_df['sex'].value_counts().items():
-                table_rows.append({
-                    'Characteristic': f'Sex: {sex}',
-                    group: count
-                })
+            vc = group_df['sex'].value_counts(dropna=False)
+            if len(vc) == 2:
+                keys = list(vc.index)
+                # Prefer ordering F/M when present
+                if 'F' in keys and 'M' in keys:
+                    count_f = int(vc.get('F', 0))
+                    count_m = int(vc.get('M', 0))
+                    table_rows.append({
+                        'Characteristic': 'Sex (F/M)',
+                        group: f"{count_f}/{count_m}"
+                    })
+                else:
+                    k0, k1 = keys[0], keys[1]
+                    table_rows.append({
+                        'Characteristic': f"Sex ({k0}/{k1})",
+                        group: f"{int(vc.get(k0,0))}/{int(vc.get(k1,0))}"
+                    })
+            else:
+                for sex, count in vc.items():
+                    table_rows.append({
+                        'Characteristic': f'Sex: {sex}',
+                        group: count
+                    })
         # Age
         age_mean = group_df['age'].mean()
         age_std = group_df['age'].std()
@@ -193,37 +211,75 @@ def prepare_table(grouped_subjects_c2, path_out):
                 'Characteristic': f'Number of stenosis: {num_stenosis}',
                 group: count
             })
-        # Single vs multi-level stenosis
-        for svs, count in group_df['single_vs_multi_stenosis'].value_counts().items():
-            table_rows.append({
-                'Characteristic': f'{svs}',
-                group: count
-            })
+        # Single vs multi-level stenosis - combine into single line if two categories
+        if 'single_vs_multi_stenosis' in group_df.columns:
+            svs_vc = group_df['single_vs_multi_stenosis'].value_counts(dropna=False)
+            if len(svs_vc) == 2:
+                # Prefer ordering Single stenosis / Multi-level stenosis
+                single = int(svs_vc.get('Single stenosis', svs_vc.iloc[0] if len(svs_vc)>0 else 0))
+                multi = int(svs_vc.get('Multi-level stenosis', svs_vc.iloc[1] if len(svs_vc)>1 else 0))
+                # If keys are different, build generic ordering
+                if 'Single stenosis' in svs_vc.index and 'Multi-level stenosis' in svs_vc.index:
+                    table_rows.append({
+                        'Characteristic': 'Stenosis (single/multi)',
+                        group: f"{single}/{multi}"
+                    })
+                else:
+                    k0, k1 = list(svs_vc.index)
+                    table_rows.append({
+                        'Characteristic': f"Stenosis ({k0}/{k1})",
+                        group: f"{int(svs_vc.get(k0,0))}/{int(svs_vc.get(k1,0))}"
+                    })
+            else:
+                for svs, count in svs_vc.items():
+                    table_rows.append({
+                        'Characteristic': f'{svs}',
+                        group: count
+                    })
         # MCL
         for mcl, count in group_df['MCL'].value_counts().items():
             table_rows.append({
                 'Characteristic': f'MCL: {mcl}',
                 group: count
             })
-        # Myelopathy
-        for myelopathy, count in group_df['Myelopathy'].value_counts().items():
-            table_rows.append({
-                'Characteristic': f'Myelopathy: {myelopathy}',
-                group: count
-            })
-        # Therapeutic decision
-        for td, count in group_df['therapeutic_decision'].value_counts().items():
-            table_rows.append({
-                'Characteristic': f'Therapeutic decision: {td}',
-                group: count
-            })
-        # # mJOA severity
-        # if 'mJOA_severity_bl' in group_df.columns:
-        #     for sev, count in group_df['mJOA_severity_bl'].value_counts().items():
-        #         table_rows.append({
-        #             'Characteristic': f'mJOA severity bl: {sev}',
-        #             group: count
-        #         })
+        # Myelopathy - combine yes/no into single line when binary
+        if 'Myelopathy' in group_df.columns:
+            my_vc = group_df['Myelopathy'].value_counts(dropna=False)
+            if len(my_vc) == 2:
+                if 'yes' in my_vc.index and 'no' in my_vc.index:
+                    yes = int(my_vc.get('yes', 0))
+                    no = int(my_vc.get('no', 0))
+                    table_rows.append({
+                        'Characteristic': 'Myelopathy (yes/no)',
+                        group: f"{yes}/{no}"
+                    })
+                else:
+                    k0, k1 = list(my_vc.index)
+                    table_rows.append({
+                        'Characteristic': f"Myelopathy ({k0}/{k1})",
+                        group: f"{int(my_vc.get(k0,0))}/{int(my_vc.get(k1,0))}"
+                    })
+            else:
+                for myelopathy, count in my_vc.items():
+                    table_rows.append({
+                        'Characteristic': f'Myelopathy: {myelopathy}',
+                        group: count
+                    })
+        # Therapeutic decision - combine operative/conservative when binary
+        if 'therapeutic_decision' in group_df.columns:
+            td_vc = group_df['therapeutic_decision'].value_counts(dropna=False)
+            if len(td_vc) == 2:
+                k0, k1 = list(td_vc.index)
+                table_rows.append({
+                    'Characteristic': f'Therapeutic decision ({k0}/{k1})',
+                    group: f"{int(td_vc.get(k0,0))}/{int(td_vc.get(k1,0))}"
+                })
+            else:
+                for td, count in td_vc.items():
+                    table_rows.append({
+                        'Characteristic': f'Therapeutic decision: {td}',
+                        group: count
+                    })
         # mJOA score
         if 'total_mjoa_bl' in group_df.columns:
             mjoa_mean = group_df['total_mjoa_bl'].mean()
@@ -307,39 +363,37 @@ def prepare_table(grouped_subjects_c2, path_out):
 
     # Categorical tests: sex, Myelopathy, therapeutic_decision, single_vs_multi_stenosis, MCL
     df_all = grouped_subjects_c2.copy()
-    cat_cols = ['sex', 'Myelopathy', 'therapeutic_decision', 'single_vs_multi_stenosis', 'MCL']
-    cat_to_char = {
-        'sex': 'Sex: F',
-        'Myelopathy': 'Myelopathy: yes',
-        'therapeutic_decision': 'Therapeutic decision: operative',
-        'single_vs_multi_stenosis': 'Single stenosis',
-    }
+    cat_cols = ['sex', 'Myelopathy', 'therapeutic_decision', 'single_vs_multi_stenosis']
     for col in cat_cols:
         if col in df_all.columns:
             p_cat = categorical_pvalue(df_all, col)
             if p_cat is not None:
-                char_target = cat_to_char.get(col)
+                # Find corresponding row in table_rows by prefix matching characteristic
                 for row in table_rows:
-                    if row['Characteristic'] == char_target:
+                    if col == 'sex' and str(row['Characteristic']).startswith('Sex'):
+                        row['p-value'] = format_pvalue(p_cat, include_equal=False)
+                        break
+                    if col == 'Myelopathy' and str(row['Characteristic']).startswith('Myelopathy'):
+                        row['p-value'] = format_pvalue(p_cat, include_equal=False)
+                        break
+                    if col == 'single_vs_multi_stenosis' and (str(row['Characteristic']).startswith('Stenosis') or str(row['Characteristic']).startswith('Single stenosis')):
+                        row['p-value'] = format_pvalue(p_cat, include_equal=False)
+                        break
+                    if col == 'therapeutic_decision' and str(row['Characteristic']).startswith('Therapeutic decision'):
                         row['p-value'] = format_pvalue(p_cat, include_equal=False)
                         break
 
     # Define desired order for characteristics
     characteristic_order = [
         'Subject count',
-        'Sex: F', 'Sex: M',
+        'Sex (F/M)',
         'Age (mean ± SD)',
         'Age group: <50', 'Age group: 50-65', 'Age group: >65', 'Age group: unknown',
         'Number of stenosis: 1', 'Number of stenosis: 2', 'Number of stenosis: 3', 'Number of stenosis: 4',
-        'Single stenosis', 'Multi-level stenosis',
+        'Stenosis (single/multi)',
         'MCL: C2/C3', 'MCL: C3/C4', 'MCL: C4/C5', 'MCL: C5/C6', 'MCL: C6/C7', 'MCL: NA',
-        'Myelopathy: yes', 'Myelopathy: no',
-        'Therapeutic decision: operative', 'Therapeutic decision: conservative', 'Therapeutic decision: NA',
-        # 'mJOA severity bl: mJOA=18',
-        # 'mJOA severity bl: mild (15 ≤ mJOA ≤ 17)',
-        # 'mJOA severity bl: moderate (12 ≤ mJOA ≤ 14)',
-        # 'mJOA severity bl: severe (mJOA ≤ 11)'
-        # 'mJOA severity bl: unknown'
+        'Myelopathy (yes/no)',
+        'Therapeutic decision (operative/conservative)',
         'mJOA score bl (mean ± SD)',
         'mJOA score 6mth (mean ± SD)',
         'mJOA score 12mth (mean ± SD)',
@@ -420,4 +474,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
