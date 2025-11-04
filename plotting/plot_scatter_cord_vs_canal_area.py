@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-from scipy.stats import spearmanr
+from scipy.stats import spearmanr, normaltest, pearsonr
 
 LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
@@ -102,21 +102,34 @@ def plot_scatter_grid(df, output_dir):
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
     axes = axes.ravel()
     results = []
+    normality_results = []
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
         df_level = df[df['VertLevel'] == level]
         x = df_level['MEAN(area)_canal']
         y = df_level['MEAN(area)_cord']
-        # Spearman correlation only
-        r, p = spearmanr(x, y)
+        # Normality test
+        stat_x, p_x = normaltest(x)
+        stat_y, p_y = normaltest(y)
+        normality_results.append({
+            'level': LEVEL_TO_LABEL[level],
+            'canal_stat': stat_x, 'canal_p': p_x,
+            'cord_stat': stat_y, 'cord_p': p_y
+        })
+        # Spearman and Pearson correlation
+        r_spear, p_spear = spearmanr(x, y)
+        r_pear, p_pear = pearsonr(x, y)
         sns.scatterplot(x=x, y=y, ax=ax, color='blue', alpha=0.6)
         if len(x) > 1:
             z = np.polyfit(x, y, 1)
             pfit = np.poly1d(z)
             x_vals = np.linspace(x.min(), x.max(), 100)
             ax.plot(x_vals, pfit(x_vals), color='red', linewidth=2)
-        stats_text = (f"Spearman r={r:.2f}, p{format_pvalue(p)}\n"
-                      f"n={len(x)}")
+        stats_text = (f"Spearman r={r_spear:.2f}, p{format_pvalue(p_spear)}\n"
+                      f"Pearson r={r_pear:.2f}, p{format_pvalue(p_pear)}\n"
+                      f"n={len(x)}\n"
+                      f"Normality canal p{format_pvalue(p_x)}\n"
+                      f"Normality cord p{format_pvalue(p_y)}")
         ax.text(0.98, 0.02, stats_text, transform=ax.transAxes,
                 verticalalignment='bottom', horizontalalignment='right',
                 bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
@@ -128,8 +141,10 @@ def plot_scatter_grid(df, output_dir):
         ax.grid(True, alpha=0.3)
         results.append({
             'level': LEVEL_TO_LABEL[level],
-            'r': r,
-            'p': p,
+            'spearman_r': r_spear,
+            'spearman_p': p_spear,
+            'pearson_r': r_pear,
+            'pearson_p': p_pear,
             'n': len(x)
         })
     plt.tight_layout()
@@ -138,7 +153,11 @@ def plot_scatter_grid(df, output_dir):
     print(f"Figure saved: {fig_path}")
     print("\nCorrelation summary per vertebral level:")
     for res in results:
-        print(f"{res['level']}: Spearman r={res['r']:.2f} (p{format_pvalue(res['p'])}), n={res['n']}")
+        print(f"{res['level']}: Spearman r={res['spearman_r']:.2f} (p{format_pvalue(res['spearman_p'])}), "
+              f"Pearson r={res['pearson_r']:.2f} (p{format_pvalue(res['pearson_p'])}), n={res['n']}")
+    print("\nNormality test results (D'Agostino and Pearson):")
+    for norm_res in normality_results:
+        print(f"{norm_res['level']}: Canal p={format_pvalue(norm_res['canal_p'])}, Cord p={format_pvalue(norm_res['cord_p'])}")
 
 def plot_scatter_grid_by_sex(df, output_dir):
     os.makedirs(output_dir, exist_ok=True)
