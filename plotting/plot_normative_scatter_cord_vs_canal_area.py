@@ -103,6 +103,12 @@ def plot_scatter_grid(df, output_dir):
     axes = axes.ravel()
     results = []
     normality_results = []
+
+    # Compute unique subject counts per sex for the master title
+    total_n = df['participant_id'].nunique()
+    suptitle = f"Spinal cord vs spinal canal area per level (n={total_n})"
+    fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
+
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
         df_level = df[df['VertLevel'] == level]
@@ -127,7 +133,6 @@ def plot_scatter_grid(df, output_dir):
             ax.plot(x_vals, pfit(x_vals), color='red', linewidth=2)
         stats_text = (f"Spearman r={r_spear:.2f}, p{format_pvalue(p_spear)}\n"
                       f"Pearson r={r_pear:.2f}, p{format_pvalue(p_pear)}\n"
-                      f"n={len(x)}\n"
                       f"Normality canal p{format_pvalue(p_x)}\n"
                       f"Normality cord p{format_pvalue(p_y)}")
         ax.text(0.98, 0.02, stats_text, transform=ax.transAxes,
@@ -165,6 +170,14 @@ def plot_scatter_grid_by_sex(df, output_dir):
     axes = axes.ravel()
     results = []
     sex_colors = {'M': 'blue', 'F': 'red'}
+
+    # Compute unique subject counts per sex for the master title
+    total_n = df['participant_id'].nunique()
+    n_m = df[df['sex'] == 'M']['participant_id'].nunique()
+    n_f = df[df['sex'] == 'F']['participant_id'].nunique()
+    suptitle = f"Spinal cord vs spinal canal area per level (n={total_n}; M={n_m}, F={n_f})"
+    fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
+
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
         df_level = df[df['VertLevel'] == level]
