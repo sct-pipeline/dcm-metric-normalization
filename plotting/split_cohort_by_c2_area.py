@@ -147,9 +147,21 @@ def prepare_table(grouped_subjects_c2, path_out):
     table_rows = []
     # Collect age data for statistical test
     age_data = {}
+    mjoa_bl_data = {}
+    mjoa_6mth_data = {}
+    mjoa_12mth_data = {}
+
     for group in grouped_subjects_c2['normative_mean_c2'].unique():
         group_df = grouped_subjects_c2[grouped_subjects_c2['normative_mean_c2'] == group]
         age_data[group] = group_df['age'].dropna().values
+        # collect mJOA data if present
+        if 'total_mjoa_bl' in group_df.columns:
+            mjoa_bl_data[group] = group_df['total_mjoa_bl'].dropna().values
+        if 'total_mjoa_6mth' in group_df.columns:
+            mjoa_6mth_data[group] = group_df['total_mjoa_6mth'].dropna().values
+        if 'total_mjoa_12mth' in group_df.columns:
+            mjoa_12mth_data[group] = group_df['total_mjoa_12mth'].dropna().values
+
         # Subject count
         table_rows.append({
             'Characteristic': 'Subject count',
@@ -236,14 +248,82 @@ def prepare_table(grouped_subjects_c2, path_out):
                 'Characteristic': 'mJOA score 12mth (mean ± SD)',
                 group: f"{mjoa_12mth_mean:.2f} ± {mjoa_12mth_std:.2f}"
             })
+
+    # Helper: categorical p-value using chi2 or Fisher's exact for 2x2
+    def categorical_pvalue(df, col):
+        ct = pd.crosstab(df['normative_mean_c2'], df[col])
+        # require at least two groups and two categories
+        if ct.shape[0] < 2 or ct.shape[1] < 2:
+            return None
+        try:
+            chi2, p, dof, expected = scipy.stats.chi2_contingency(ct.values)
+        except Exception:
+            return None
+        # if 2x2 and any expected < 5, use Fisher exact
+        if ct.shape == (2, 2) and (expected < 5).any():
+            try:
+                # Fisher expects table as [[a,b],[c,d]]
+                oddsratio, p_f = scipy.stats.fisher_exact(ct.values)
+                return p_f
+            except Exception:
+                return p
+        return p
+
     # Statistical test for age between groups
     group_names = list(age_data.keys())
     if len(group_names) == 2:
-        stat, p_value = scipy.stats.ttest_ind(age_data[group_names[0]], age_data[group_names[1]], nan_policy='omit')
+        stat, p_value = scipy.stats.ttest_ind(age_data[group_names[0]], age_data[group_names[1]], nan_policy='omit', equal_var=False)
         # Add p-value to the age row
         for row in table_rows:
             if row['Characteristic'] == 'Age (mean ± SD)':
                 row['p-value'] = format_pvalue(p_value, include_equal=False)
+
+    # mJOA baseline test
+    if mjoa_bl_data and len(list(mjoa_bl_data.keys())) == 2:
+        g0, g1 = list(mjoa_bl_data.keys())
+        if len(mjoa_bl_data[g0]) > 0 and len(mjoa_bl_data[g1]) > 0:
+            stat, p_mjoa = scipy.stats.ttest_ind(mjoa_bl_data[g0], mjoa_bl_data[g1], nan_policy='omit', equal_var=False)
+            for row in table_rows:
+                if row['Characteristic'] == 'mJOA score bl (mean ± SD)':
+                    row['p-value'] = format_pvalue(p_mjoa, include_equal=False)
+
+    # mJOA 6mth
+    if mjoa_6mth_data and len(list(mjoa_6mth_data.keys())) == 2:
+        g0, g1 = list(mjoa_6mth_data.keys())
+        if len(mjoa_6mth_data[g0]) > 0 and len(mjoa_6mth_data[g1]) > 0:
+            stat, p_mjoa6 = scipy.stats.ttest_ind(mjoa_6mth_data[g0], mjoa_6mth_data[g1], nan_policy='omit', equal_var=False)
+            for row in table_rows:
+                if row['Characteristic'] == 'mJOA score 6mth (mean ± SD)':
+                    row['p-value'] = format_pvalue(p_mjoa6, include_equal=False)
+
+    # mJOA 12mth
+    if mjoa_12mth_data and len(list(mjoa_12mth_data.keys())) == 2:
+        g0, g1 = list(mjoa_12mth_data.keys())
+        if len(mjoa_12mth_data[g0]) > 0 and len(mjoa_12mth_data[g1]) > 0:
+            stat, p_mjoa12 = scipy.stats.ttest_ind(mjoa_12mth_data[g0], mjoa_12mth_data[g1], nan_policy='omit', equal_var=False)
+            for row in table_rows:
+                if row['Characteristic'] == 'mJOA score 12mth (mean ± SD)':
+                    row['p-value'] = format_pvalue(p_mjoa12, include_equal=False)
+
+    # Categorical tests: sex, Myelopathy, therapeutic_decision, single_vs_multi_stenosis, MCL
+    df_all = grouped_subjects_c2.copy()
+    cat_cols = ['sex', 'Myelopathy', 'therapeutic_decision', 'single_vs_multi_stenosis', 'MCL']
+    cat_to_char = {
+        'sex': 'Sex: F',
+        'Myelopathy': 'Myelopathy: yes',
+        'therapeutic_decision': 'Therapeutic decision: operative',
+        'single_vs_multi_stenosis': 'Single stenosis',
+    }
+    for col in cat_cols:
+        if col in df_all.columns:
+            p_cat = categorical_pvalue(df_all, col)
+            if p_cat is not None:
+                char_target = cat_to_char.get(col)
+                for row in table_rows:
+                    if row['Characteristic'] == char_target:
+                        row['p-value'] = format_pvalue(p_cat, include_equal=False)
+                        break
+
     # Define desired order for characteristics
     characteristic_order = [
         'Subject count',
@@ -340,3 +420,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
