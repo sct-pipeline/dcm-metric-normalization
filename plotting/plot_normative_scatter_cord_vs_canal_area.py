@@ -3,7 +3,7 @@
 Plot scatter plots between spinal cord area and canal area (normative data) for each vertebral level (C2–C7), and report correlation statistics.
 
 Usage:
-    python plot_scatter_cord_vs_canal_area.py \
+    python plot_normative_scatter_cord_vs_canal_area.py \
         -path-HC <path_to_normative_data_folder> \
         -participants-file-pam50 <path_to_participants_tsv_file> \
         -o <output_directory>
