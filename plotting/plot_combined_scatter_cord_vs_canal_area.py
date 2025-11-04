@@ -19,6 +19,10 @@ from plot_patient_scatter_cord_vs_canal_area import load_patient_df
 VERTEBRAL_LEVELS = [2, 3, 4, 5, 6, 7]
 LEVEL_TO_LABEL = {2: 'C2', 3: 'C3', 4: 'C4', 5: 'C5', 6: 'C6', 7: 'C7'}
 
+LABELS_FONT_SIZE = 14
+TICKS_FONT_SIZE = 12
+TITLE_FONT_SIZE = 16
+
 SEX_COLORS_NORMATIVE = {
     'M': 'blue',
     'F': 'red',
@@ -71,7 +75,7 @@ def plot_combined_persex(df, output_dir):
 
     total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
     suptitle = f"Spinal cord vs spinal canal area per level (n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
-    fig.suptitle(suptitle, fontsize=16)
+    fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
@@ -93,8 +97,9 @@ def plot_combined_persex(df, output_dir):
                 sns.scatterplot(x=x, y=y, ax=ax, color=color, marker=marker, s=60, edgecolor='w', alpha=0.8)
 
         ax.set_title(LEVEL_TO_LABEL[level])
-        ax.set_xlabel('Canal Area [mm²]')
-        ax.set_ylabel('Cord Area [mm²]')
+        ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
         ax.grid(True, alpha=0.3)
 
         # build custom legend: cohort-specific sex colors and cohort markers
@@ -118,7 +123,7 @@ def plot_combined(df, output_dir):
 
     total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
     suptitle = f"Spinal cord vs spinal canal area per level (n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
-    fig.suptitle(suptitle, fontsize=16)
+    fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
@@ -130,8 +135,9 @@ def plot_combined(df, output_dir):
             sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, label=f"{cohort.capitalize()} (n={df_c['participant_id'].nunique()})")
 
         ax.set_title(LEVEL_TO_LABEL[level])
-        ax.set_xlabel('Canal Area [mm²]')
-        ax.set_ylabel('Cord Area [mm²]')
+        ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
         ax.grid(True, alpha=0.3)
         ax.legend()
 
