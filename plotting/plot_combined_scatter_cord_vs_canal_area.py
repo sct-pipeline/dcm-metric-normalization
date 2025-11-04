@@ -103,11 +103,19 @@ def plot_combined_persex(df, output_dir):
         ax.grid(True, alpha=0.3)
 
         # build custom legend: cohort-specific sex colors and cohort markers
-        handles = [Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor=SEX_COLORS_NORMATIVE['M'], markersize=8, label='Normative Male'),
-                   Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor=SEX_COLORS_NORMATIVE['F'], markersize=8, label='Normative Female'),
-                   Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['M'], markersize=8, label='Patients Male'),
-                   Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['F'], markersize=8, label='Patients Female')]
-        ax.legend(handles=handles, title='Group', loc='upper left')
+        # compute per-cohort, per-sex participant counts for this level
+        counts = {}
+        for cohort in cohort_markers:
+            df_cohort = df_level[df_level['cohort'] == cohort]
+            for sex_key in ['M', 'F']:
+                counts[(cohort, sex_key)] = int(df_cohort[df_cohort['sex'] == sex_key]['participant_id'].nunique())
+
+        handles = [
+            Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor=SEX_COLORS_NORMATIVE['M'], markersize=8, label=f"Normative Male (n={counts.get(('normative','M'),0)})"),
+            Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor=SEX_COLORS_NORMATIVE['F'], markersize=8, label=f"Normative Female (n={counts.get(('normative','F'),0)})"),
+            Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['M'], markersize=8, label=f"Patients Male (n={counts.get(('patients','M'),0)})"),
+            Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['F'], markersize=8, label=f"Patients Female (n={counts.get(('patients','F'),0)})")]
+        ax.legend(handles=handles, loc='upper left')
 
     plt.tight_layout()
     out_fig = os.path.join(output_dir, 'combined_scatter_by_sex.png')
