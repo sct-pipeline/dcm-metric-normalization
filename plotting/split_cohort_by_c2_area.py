@@ -268,17 +268,37 @@ def prepare_table(grouped_subjects_c2, path_out):
         # Therapeutic decision - combine operative/conservative when binary
         if 'therapeutic_decision' in group_df.columns:
             td_vc = group_df['therapeutic_decision'].value_counts(dropna=False)
-            if len(td_vc) == 2:
-                k0, k1 = list(td_vc.index)
+            # Separate NA from real choices (NA is stored as string 'NA')
+            non_na_items = {k: int(v) for k, v in td_vc.items() if k != 'NA'}
+            na_count = int(td_vc.get('NA', 0))
+            if len(non_na_items) == 2:
+                k0, k1 = list(non_na_items.keys())
                 table_rows.append({
                     'Characteristic': f'Therapeutic decision ({k0}/{k1})',
-                    group: f"{int(td_vc.get(k0,0))}/{int(td_vc.get(k1,0))}"
+                    group: f"{non_na_items[k0]}/{non_na_items[k1]}"
                 })
+                if na_count > 0:
+                    table_rows.append({
+                        'Characteristic': 'Therapeutic decision: NA',
+                        group: na_count
+                    })
+            elif len(non_na_items) == 1:
+                k = list(non_na_items.keys())[0]
+                table_rows.append({
+                    'Characteristic': f'Therapeutic decision: {k}',
+                    group: non_na_items[k]
+                })
+                if na_count > 0:
+                    table_rows.append({
+                        'Characteristic': 'Therapeutic decision: NA',
+                        group: na_count
+                    })
             else:
+                # Either only NA present or more than two categories -> list all as separate rows
                 for td, count in td_vc.items():
                     table_rows.append({
                         'Characteristic': f'Therapeutic decision: {td}',
-                        group: count
+                        group: int(count)
                     })
         # mJOA score
         if 'total_mjoa_bl' in group_df.columns:
