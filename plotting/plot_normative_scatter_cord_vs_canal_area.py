@@ -81,7 +81,7 @@ def plot_scatter_grid(df, output_dir):
 
     # Compute unique subject counts per sex for the master title
     total_n = df['participant_id'].nunique()
-    suptitle = f"Spinal cord vs spinal canal area per level (n={total_n})"
+    suptitle = f"Normative spinal cord vs spinal canal area per level (n={total_n})"
     fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
@@ -150,7 +150,7 @@ def plot_scatter_grid_by_sex(df, output_dir):
     total_n = df['participant_id'].nunique()
     n_m = df[df['sex'] == 'M']['participant_id'].nunique()
     n_f = df[df['sex'] == 'F']['participant_id'].nunique()
-    suptitle = f"Spinal cord vs spinal canal area per level (n={total_n}; M={n_m}, F={n_f})"
+    suptitle = f"Normative spinal cord vs spinal canal area per level (n={total_n}; M={n_m}, F={n_f})"
     fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
