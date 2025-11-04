@@ -19,6 +19,15 @@ from plot_patient_scatter_cord_vs_canal_area import load_patient_df
 VERTEBRAL_LEVELS = [2, 3, 4, 5, 6, 7]
 LEVEL_TO_LABEL = {2: 'C2', 3: 'C3', 4: 'C4', 5: 'C5', 6: 'C6', 7: 'C7'}
 
+SEX_COLORS_NORMATIVE = {
+    'M': 'blue',
+    'F': 'red',
+}
+
+SEX_COLORS_PATIENTS = {
+    'M': '#1f77b4',     # light blue
+    'F': '#ff7f0e',     # orange
+}
 
 def load_perlevel_df(cord_csv, canal_csv, cohort_label, participants_file=None):
     cord_df = pd.read_csv(cord_csv)
@@ -58,8 +67,6 @@ def plot_combined_persex(df, output_dir):
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
     axes = axes.ravel()
 
-    # Colors for sex, markers for cohort
-    sex_colors = {'M': 'blue', 'F': 'red', 'U': 'gray'}
     cohort_markers = {'normative': 'o', 'patients': 'X'}
 
     total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
@@ -72,12 +79,15 @@ def plot_combined_persex(df, output_dir):
         for cohort, marker in cohort_markers.items():
             df_cohort = df_level[df_level['cohort'] == cohort]
             # plot sexes together within the cohort
-            for sex_key, color in sex_colors.items():
+            for sex_key in ['M', 'F']:
                 mask = df_cohort['sex'] == sex_key
 
                 df_plot = df_cohort[mask]
                 if df_plot.empty:
                     continue
+
+                color = SEX_COLORS_NORMATIVE[sex_key] if cohort == 'normative' else SEX_COLORS_PATIENTS[sex_key]
+
                 x = df_plot['MEAN(area)_canal']
                 y = df_plot['MEAN(area)_cord']
                 sns.scatterplot(x=x, y=y, ax=ax, color=color, marker=marker, s=60, edgecolor='w', alpha=0.8)
@@ -87,21 +97,17 @@ def plot_combined_persex(df, output_dir):
         ax.set_ylabel('Cord Area [mm²]')
         ax.grid(True, alpha=0.3)
 
-        # build custom legend: sexes (colors) and cohorts (markers)
-        sex_handles = [Line2D([0], [0], marker='o', color='w', markerfacecolor=sex_colors['M'], markersize=8, label='Male'),
-                       Line2D([0], [0], marker='o', color='w', markerfacecolor=sex_colors['F'], markersize=8, label='Female')]
-        cohort_handles = [Line2D([0], [0], marker=cohort_markers['normative'], color='black', label='Normative', linestyle=''),
-                          Line2D([0], [0], marker=cohort_markers['patients'], color='black', label='Patients', linestyle='')]
-        # place legends
-        leg1 = ax.legend(handles=sex_handles, title='Sex', loc='upper left')
-        ax.add_artist(leg1)
-        ax.legend(handles=cohort_handles, title='Cohort', loc='upper right')
+        # build custom legend: cohort-specific sex colors and cohort markers
+        handles = [Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor=SEX_COLORS_NORMATIVE['M'], markersize=8, label='Normative Male'),
+                   Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor=SEX_COLORS_NORMATIVE['F'], markersize=8, label='Normative Female'),
+                   Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['M'], markersize=8, label='Patients Male'),
+                   Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['F'], markersize=8, label='Patients Female')]
+        ax.legend(handles=handles, title='Group', loc='upper left')
 
     plt.tight_layout()
     out_fig = os.path.join(output_dir, 'combined_scatter_by_sex.png')
     plt.savefig(out_fig, dpi=300, bbox_inches='tight')
     print(f"Figure saved: {out_fig}")
-
 
 def plot_combined(df, output_dir):
     os.makedirs(output_dir, exist_ok=True)
