@@ -18,7 +18,6 @@
 import os
 import sys
 import argparse
-import re
 
 import numpy as np
 import pandas as pd
@@ -26,6 +25,8 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 from scipy.stats import spearmanr
+
+from utils import fetch_participant_and_session
 
 # Font sizes for plots
 LABELS_FONT_SIZE = 14
@@ -124,28 +125,6 @@ def load_clinical_data(clinical_file, subject_col='record_id'):
 
     return df_clinical
 
-
-def fetch_participant_and_session(filename_path):
-    """
-    Get participant_id, session_ide and filename from the input BIDS-compatible filename or file path
-    The function works both on absolute file path as well as filename
-    :param filename_path: input nifti filename (e.g., sub-001_ses-01_T1w.nii.gz) or file path
-    (e.g., /home/user/MRI/bids/derivatives/labels/sub-001/ses-01/anat/sub-001_ses-01_T1w.nii.gz
-    :return: participant_id, session_id (e.g., sub-001, ses-01)
-    """
-
-    _, filename = os.path.split(filename_path)              # Get just the filename (i.e., remove the path)
-    participant_tmp = re.search('sub-(.*?)[_/]', filename_path)
-    participant_id = participant_tmp.group(0)[:-1] if participant_tmp else ""    # [:-1] removes the last underscore or slash
-
-    session_tmp = re.search('ses-(.*?)[_/]', filename_path)     # [_/] means either underscore or slash
-    session_id = session_tmp.group(0)[:-1] if session_tmp else ""    # [:-1] removes the last underscore or slash
-    # REGEX explanation
-    # \d - digit
-    # \d? - no or one occurrence of digit
-    # *? - match the previous element as few times as possible (zero or more times)
-
-    return participant_id, session_id
 
 def load_cord_metrics(metrics_file, level, structure):
     """
