@@ -175,8 +175,8 @@ def main():
     parser = argparse.ArgumentParser(description="Plot scatter plots between patient cord and canal area per vertebral level.")
     parser.add_argument('--cord-csv', required=True, help='CSV file with cord metrics per level (e.g. T2w_ax_cord_metrics_perlevel.csv)')
     parser.add_argument('--canal-csv', required=True, help='CSV file with canal metrics per level (e.g. T2w_ax_canal_metrics_perlevel.csv)')
-    parser.add_argument('-o', '--out-dir', required=True, help='Output directory for figures')
     parser.add_argument('-participants-file', required=False, help='Participants TSV file with sex information (tab-separated)')
+    parser.add_argument('-o', '--out-dir', required=True, help='Output directory for figures')
     args = parser.parse_args()
 
     df = load_patient_df(os.path.expandvars(args.cord_csv), os.path.expandvars(args.canal_csv), os.path.expandvars(args.participants_file) if args.participants_file else None)
