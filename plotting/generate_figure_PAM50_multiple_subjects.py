@@ -142,10 +142,13 @@ def get_parser():
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa_bl' column)")
     parser.add_argument('-stratify', required=False, type=str,
-                        choices=['mcl', 'stenosis', 'myelopathy', 'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
+                        choices=['mcl', 'stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'myelopathy',
+                                 'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; '-participants-file' is required, "
                              "'stenosis' for the highest stenosis level; '-participants-file' is required, "
+                             "'num_of_stenosis' for number of stenosis levels; '-participants-file' is required, "
+                             "'single_vs_multi_stenosis' for single vs. multi-level stenosis; '-participants-file' is required, "
                              "'myelopathy' for myelopathy status; '-participants-file' is required, "
                              "'therapeutic_decision' (operative/conservative); -participants-file' is required, "
                              "'age' for age group stratification; '-participants-file' is required, "
@@ -312,7 +315,7 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
     subjects_df.insert(1, 'session_id', session_ids)
 
     # Add stratification data if requested
-    if stratify_type in ['mcl', 'stenosis' ,'myelopathy', 'therapeutic_decision']:
+    if stratify_type in ['mcl', 'stenosis' , 'num_of_stenosis', 'single_vs_multi_stenosis', 'myelopathy', 'therapeutic_decision']:
         if participants_file and os.path.isfile(participants_file):
             df_participants = pd.read_csv(participants_file, sep='\t')
 
@@ -353,6 +356,23 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                     subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C6/C7']
                 else:
                     sys.exit("Warning: 'stenosis' column not found in participants file")
+
+            elif stratify_type in ['num_of_stenosis', 'single_vs_multi_stenosis']:
+                if 'stenosis' in df_participants.columns:
+                    # Merge stenosis data
+                    subjects_df = subjects_df.merge(
+                        df_participants[['participant_id', 'stenosis']],
+                        on='participant_id', how='left'
+                    )
+                    subjects_df['stenosis'] = subjects_df['stenosis'].fillna('NA')
+                    # Exclude subjects with stenosis == 'NA'
+                    subjects_df = subjects_df[subjects_df['stenosis'] != 'NA']
+                    # Stenosis is a str of different stenosis levels, e.g., 'C3/C4, C5/C6', convert it to list
+                    subjects_df['stenosis_levels'] = subjects_df['stenosis'].apply(lambda x: [level.strip() for level in x.split(',')])
+                    # Add a new column, 'num_of_stenosis' with the number of stenosis levels per subject
+                    subjects_df['num_of_stenosis'] = subjects_df['stenosis_levels'].apply(len)
+                    # Add a new column, 'single_vs_multi_stenosis' with 'single' or 'multi' values
+                    subjects_df['single_vs_multi_stenosis'] = subjects_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else 'Multi-level stenosis')
 
             elif stratify_type == 'myelopathy':
                 if 'myelopathy' in df_participants.columns:
@@ -536,6 +556,26 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=stenosis_data, errorbar='sd',
                                 linewidth=2, color=MCL_COLORS[level],
                                 label=f"Highest Stenosis at {level} (n={stenosis_n_subjects})")
+        elif stratify_type == 'num_of_stenosis':
+            # Plot by Number of Stenosis groups instead of sessions
+            num_stenosis_groups = sorted(subjects_df['num_of_stenosis'].unique())
+            for num_stenosis in num_stenosis_groups:
+                num_stenosis_data = subjects_df[subjects_df['num_of_stenosis'] == num_stenosis]
+                if len(num_stenosis_data) > 0:
+                    num_stenosis_n_subjects = len(num_stenosis_data['participant_id'].unique())
+                    print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
+                                linewidth=2, label=f"Number of Stenosis = {num_stenosis} (n={num_stenosis_n_subjects})")
+        elif stratify_type in 'single_vs_multi_stenosis':
+            # Plot by Number of Stenosis groups instead of sessions
+            num_stenosis_groups = ['Single stenosis', 'Multi-level stenosis']
+            for num_stenosis in num_stenosis_groups:
+                num_stenosis_data = subjects_df[subjects_df['single_vs_multi_stenosis'] == num_stenosis]
+                if len(num_stenosis_data) > 0:
+                    num_stenosis_n_subjects = len(num_stenosis_data['participant_id'].unique())
+                    print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
+                                linewidth=2, label=f"{num_stenosis} (n={num_stenosis_n_subjects})")
         elif stratify_type == 'myelopathy':
             # Plot by Myelopathy groups instead of sessions
             myelopathy_groups = subjects_df['Myelopathy'].unique()
@@ -622,7 +662,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                                 label=f"{ses} (n={ses_n_subjects})")
 
         # Keep the legend only for one plot to avoid duplication
-        plot_to_keep_legend = 2 if stratify_type == 'stenosis' else 0
+        plot_to_keep_legend = 2 if 'stenosis' in stratify_type else 0
         if metric_idx == plot_to_keep_legend:
             axs[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
         else:
@@ -678,6 +718,14 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['highest_stenosis'].isin(MCL_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by Highest Stenosis Level"
+    elif stratify_type == 'num_of_stenosis':
+        plotted_subjects = subjects_df[subjects_df['num_of_stenosis'].notna()]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Number of Compressions"
+    elif stratify_type == 'single_vs_multi_stenosis':
+        plotted_subjects = subjects_df[subjects_df['single_vs_multi_stenosis'].isin(['Single stenosis', 'Multi-level stenosis'])]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Single vs. Multi-level Stenosis"
     elif stratify_type == 'myelopathy':
         plotted_subjects = subjects_df[subjects_df['Myelopathy'].isin(MYELOPATHY_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)

@@ -81,7 +81,7 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None):
 
         # Merge MCL, myelopathy, therapeutic_decision, age columns
         subjects_df = subjects_df.merge(
-            df_participants[['participant_id', 'maximum_stenosis', 'myelopathy', 'therapeutic_decision', 'age', 'sex']],
+            df_participants[['participant_id', 'maximum_stenosis', 'stenosis', 'myelopathy', 'therapeutic_decision', 'age', 'sex']],
             on='participant_id', how='left'
         )
 
@@ -96,6 +96,16 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None):
         subjects_df['therapeutic_decision'] = subjects_df['therapeutic_decision'].fillna('NA')
         # # Exclude subjects with MCL == 'NA'
         # subjects_df = subjects_df[subjects_df['therapeutic_decision'] != 'NA']
+
+        subjects_df['stenosis'] = subjects_df['stenosis'].fillna('NA')
+        # # Exclude subjects with stenosis == 'NA'
+        # subjects_df = subjects_df[subjects_df['stenosis'] != 'NA']
+        # Stenosis is a str of different stenosis levels, e.g., 'C3/C4, C5/C6', convert it to list
+        subjects_df['stenosis_levels'] = subjects_df['stenosis'].apply(lambda x: [level.strip() for level in x.split(',')])
+        # Add a new column, 'num_of_stenosis' with the number of stenosis levels per subject
+        subjects_df['num_of_stenosis'] = subjects_df['stenosis_levels'].apply(len)
+        # Add a new column, 'single_vs_multi_stenosis' with 'single' or 'multi' values
+        subjects_df['single_vs_multi_stenosis'] = subjects_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else 'Multi-level stenosis')
 
         # Clean up myelopathy values
         # Process myelopathy values: if not n/a, use 'yes', if n/a, use 'no'
@@ -161,6 +171,18 @@ def prepare_table(grouped_subjects_c2, path_out):
                 'Characteristic': f'Age group: {age_group}',
                 group: count
             })
+        # Number of stenosis
+        for num_stenosis, count in group_df['num_of_stenosis'].value_counts().items():
+            table_rows.append({
+                'Characteristic': f'Number of stenosis: {num_stenosis}',
+                group: count
+            })
+        # Single vs multi-level stenosis
+        for svs, count in group_df['single_vs_multi_stenosis'].value_counts().items():
+            table_rows.append({
+                'Characteristic': f'{svs}',
+                group: count
+            })
         # MCL
         for mcl, count in group_df['MCL'].value_counts().items():
             table_rows.append({
@@ -216,6 +238,8 @@ def prepare_table(grouped_subjects_c2, path_out):
         'Sex: F', 'Sex: M',
         'Age (mean ± SD)',
         'Age group: <50', 'Age group: 50-65', 'Age group: >65', 'Age group: unknown',
+        'Number of stenosis: 1', 'Number of stenosis: 2', 'Number of stenosis: 3', 'Number of stenosis: 4',
+        'Single stenosis', 'Multi-level stenosis',
         'MCL: C2/C3', 'MCL: C3/C4', 'MCL: C4/C5', 'MCL: C5/C6', 'MCL: C6/C7', 'MCL: NA',
         'Myelopathy: yes', 'Myelopathy: no',
         'Therapeutic decision: operative', 'Therapeutic decision: conservative', 'Therapeutic decision: NA',
@@ -265,6 +289,8 @@ def main():
         'age': 'first',
         'age_group': 'first',
         'MCL': 'first',
+        'num_of_stenosis': 'first',
+        'single_vs_multi_stenosis': 'first',
         'Myelopathy': 'first',
         'therapeutic_decision': 'first',
         'total_mjoa_bl': 'first',
