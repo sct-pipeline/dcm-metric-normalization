@@ -1,3 +1,4 @@
 t2_ax:
+- sub-004/ses-M0    # poor canal seg due to strong flow void artifacts; but cord seg might be usable
 - sub-042/ses-M0    # missing T2w ax image
 - sub-045/ses-M0    # missing T2w ax image

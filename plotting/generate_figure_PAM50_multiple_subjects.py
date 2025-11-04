@@ -735,14 +735,8 @@ def main():
     subjects_df = subjects_df[subjects_df['VertLevel'] >= 2]
     subjects_df = subjects_df[subjects_df['VertLevel'] <= 7]
 
-    # Exclude subjects -- canal correction needed
+    # Exclude sub-004 --> poor canal seg due to strong flow void artifacts
     subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-004']
-    subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-008']
-    subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-014']
-    subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-032']
-    subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-111']
-    subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-127']
-    subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-136']
 
     # Get number of unique subjects
     n_subjects = len(subjects_df['participant_id'].unique())
