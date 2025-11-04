@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+from matplotlib.lines import Line2D
 
 from utils import fetch_participant_and_session
 from plot_normative_scatter_cord_vs_canal_area import load_normative_df
@@ -52,6 +53,56 @@ def load_perlevel_df(cord_csv, canal_csv, cohort_label, participants_file=None):
     return grouped
 
 
+def plot_combined_persex(df, output_dir):
+    os.makedirs(output_dir, exist_ok=True)
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    axes = axes.ravel()
+
+    # Colors for sex, markers for cohort
+    sex_colors = {'M': 'blue', 'F': 'red', 'U': 'gray'}
+    cohort_markers = {'normative': 'o', 'patients': 'X'}
+
+    total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
+    suptitle = f"Spinal cord vs spinal canal area per level (n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
+    fig.suptitle(suptitle, fontsize=16)
+
+    for i, level in enumerate(VERTEBRAL_LEVELS):
+        ax = axes[i]
+        df_level = df[df['VertLevel'] == level]
+        for cohort, marker in cohort_markers.items():
+            df_cohort = df_level[df_level['cohort'] == cohort]
+            # plot sexes together within the cohort
+            for sex_key, color in sex_colors.items():
+                mask = df_cohort['sex'] == sex_key
+
+                df_plot = df_cohort[mask]
+                if df_plot.empty:
+                    continue
+                x = df_plot['MEAN(area)_canal']
+                y = df_plot['MEAN(area)_cord']
+                sns.scatterplot(x=x, y=y, ax=ax, color=color, marker=marker, s=60, edgecolor='w', alpha=0.8)
+
+        ax.set_title(LEVEL_TO_LABEL[level])
+        ax.set_xlabel('Canal Area [mm²]')
+        ax.set_ylabel('Cord Area [mm²]')
+        ax.grid(True, alpha=0.3)
+
+        # build custom legend: sexes (colors) and cohorts (markers)
+        sex_handles = [Line2D([0], [0], marker='o', color='w', markerfacecolor=sex_colors['M'], markersize=8, label='Male'),
+                       Line2D([0], [0], marker='o', color='w', markerfacecolor=sex_colors['F'], markersize=8, label='Female')]
+        cohort_handles = [Line2D([0], [0], marker=cohort_markers['normative'], color='black', label='Normative', linestyle=''),
+                          Line2D([0], [0], marker=cohort_markers['patients'], color='black', label='Patients', linestyle='')]
+        # place legends
+        leg1 = ax.legend(handles=sex_handles, title='Sex', loc='upper left')
+        ax.add_artist(leg1)
+        ax.legend(handles=cohort_handles, title='Cohort', loc='upper right')
+
+    plt.tight_layout()
+    out_fig = os.path.join(output_dir, 'combined_scatter_by_sex.png')
+    plt.savefig(out_fig, dpi=300, bbox_inches='tight')
+    print(f"Figure saved: {out_fig}")
+
+
 def plot_combined(df, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
@@ -60,7 +111,7 @@ def plot_combined(df, output_dir):
     palette = {'normative': 'gray', 'patients': 'black'}
 
     total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
-    suptitle = f"Combined spinal cord vs spinal canal area per level (n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
+    suptitle = f"Spinal cord vs spinal canal area per level (n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
     fig.suptitle(suptitle, fontsize=16)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
@@ -84,49 +135,6 @@ def plot_combined(df, output_dir):
     print(f"Figure saved: {out_fig}")
 
 
-def plot_combined_by_sex(df, output_dir):
-    if 'sex' not in df.columns or df['sex'].isna().all():
-        print('No sex information available; skipping sex-stratified plots.')
-        return
-
-    os.makedirs(output_dir, exist_ok=True)
-    sexes = ['M', 'F']
-    cohort_palette = {'normative': 'gray', 'patients': 'black'}
-
-    for sex in sexes:
-        fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-        axes = axes.ravel()
-        df_sex = df[df['sex'] == sex]
-        if df_sex.empty:
-            print(f'No subjects for sex={sex}; skipping.')
-            plt.close(fig)
-            continue
-
-        total_counts = df_sex.groupby('cohort')['participant_id'].nunique().to_dict()
-        suptitle = f"Combined spinal cord vs spinal canal area per level (sex={sex}; n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
-        fig.suptitle(suptitle, fontsize=16)
-
-        for i, level in enumerate(VERTEBRAL_LEVELS):
-            ax = axes[i]
-            df_level = df_sex[df_sex['VertLevel'] == level]
-            for cohort, color in cohort_palette.items():
-                df_c = df_level[df_level['cohort'] == cohort]
-                x = df_c['MEAN(area)_canal']
-                y = df_c['MEAN(area)_cord']
-                sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, label=f"{cohort.capitalize()} (n={df_c['participant_id'].nunique()})")
-
-            ax.set_title(LEVEL_TO_LABEL[level])
-            ax.set_xlabel('Canal Area [mm²]')
-            ax.set_ylabel('Cord Area [mm²]')
-            ax.grid(True, alpha=0.3)
-            ax.legend()
-
-        plt.tight_layout()
-        out_fig = os.path.join(output_dir, f'combined_scatter_by_sex_{sex}.png')
-        plt.savefig(out_fig, dpi=300, bbox_inches='tight')
-        print(f"Figure saved: {out_fig}")
-
-
 def main():
     parser = argparse.ArgumentParser(description='Combine normative and patient per-level cord/canal CSVs and plot together.')
     parser.add_argument('-path-HC', required=False, type=str,
@@ -147,7 +155,7 @@ def main():
     combined = pd.concat([norm_df.assign(cohort='normative'), pat_df.assign(cohort='patients')], ignore_index=True)
 
     plot_combined(combined, os.path.expandvars(args.out_dir))
-    plot_combined_by_sex(combined, os.path.expandvars(args.out_dir))
+    plot_combined_persex(combined, os.path.expandvars(args.out_dir))
 
 
 if __name__ == '__main__':
