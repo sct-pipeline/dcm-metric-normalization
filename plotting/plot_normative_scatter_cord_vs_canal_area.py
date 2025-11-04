@@ -100,12 +100,12 @@ def plot_scatter_grid(df, output_dir):
         # Spearman and Pearson correlation
         r_spear, p_spear = spearmanr(x, y)
         r_pear, p_pear = pearsonr(x, y)
-        sns.scatterplot(x=x, y=y, ax=ax, color='blue', alpha=0.6)
+        sns.scatterplot(x=x, y=y, ax=ax, color='black', alpha=0.6)
         if len(x) > 1:
             z = np.polyfit(x, y, 1)
             pfit = np.poly1d(z)
             x_vals = np.linspace(x.min(), x.max(), 100)
-            ax.plot(x_vals, pfit(x_vals), color='red', linewidth=2)
+            ax.plot(x_vals, pfit(x_vals), color='black', linewidth=2)
         stats_text = (f"Spearman r={r_spear:.2f}, p{format_pvalue(p_spear)}\n"
                       f"Pearson r={r_pear:.2f}, p{format_pvalue(p_pear)}\n"
                       f"Normality canal p{format_pvalue(p_x)}\n"
