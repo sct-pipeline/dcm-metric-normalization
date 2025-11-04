@@ -6,8 +6,9 @@ import os
 import sys
 import argparse
 import pandas as pd
+import scipy.stats
 
-from utils import load_normative_df_c2, _categorize_c2_area
+from utils import load_normative_df_c2, _categorize_c2_area, format_pvalue
 from generate_figure_PAM50_multiple_subjects import fetch_participant_and_session, MCL_COLORS, _process_myelopathy, _stratify_mjoa, _create_age_group
 
 
@@ -144,8 +145,11 @@ def prepare_table(grouped_subjects_c2, path_out):
     Subjects are grouped based on normative_mean_c2 column
     """
     table_rows = []
+    # Collect age data for statistical test
+    age_data = {}
     for group in grouped_subjects_c2['normative_mean_c2'].unique():
         group_df = grouped_subjects_c2[grouped_subjects_c2['normative_mean_c2'] == group]
+        age_data[group] = group_df['age'].dropna().values
         # Subject count
         table_rows.append({
             'Characteristic': 'Subject count',
@@ -232,6 +236,14 @@ def prepare_table(grouped_subjects_c2, path_out):
                 'Characteristic': 'mJOA score 12mth (mean ± SD)',
                 group: f"{mjoa_12mth_mean:.2f} ± {mjoa_12mth_std:.2f}"
             })
+    # Statistical test for age between groups
+    group_names = list(age_data.keys())
+    if len(group_names) == 2:
+        stat, p_value = scipy.stats.ttest_ind(age_data[group_names[0]], age_data[group_names[1]], nan_policy='omit')
+        # Add p-value to the age row
+        for row in table_rows:
+            if row['Characteristic'] == 'Age (mean ± SD)':
+                row['p-value'] = format_pvalue(p_value, include_equal=False)
     # Define desired order for characteristics
     characteristic_order = [
         'Subject count',
@@ -254,8 +266,19 @@ def prepare_table(grouped_subjects_c2, path_out):
     ]
     # Convert to DataFrame
     table_df = pd.DataFrame(table_rows)
+    # Ensure p-value column exists if any row has it
+    if any('p-value' in row for row in table_rows):
+        if 'p-value' not in table_df.columns:
+            table_df['p-value'] = [row.get('p-value', '-') for row in table_rows]
+        else:
+            table_df['p-value'] = table_df['p-value'].fillna('-')
+    else:
+        table_df['p-value'] = '-'
     # Pivot to wide format
-    table_pub = table_df.pivot_table(index='Characteristic', values=grouped_subjects_c2['normative_mean_c2'].unique(), aggfunc='first').reset_index()
+    value_columns = list(grouped_subjects_c2['normative_mean_c2'].unique())
+    if 'p-value' in table_df.columns:
+        value_columns.append('p-value')
+    table_pub = table_df.pivot_table(index='Characteristic', values=value_columns, aggfunc='first').reset_index()
     # Order rows
     table_pub['order'] = table_pub['Characteristic'].apply(lambda x: characteristic_order.index(x) if x in characteristic_order else 999)
     table_pub = table_pub.sort_values('order').drop('order', axis=1)
