@@ -30,17 +30,10 @@ import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
+from utils import METRICS_DTYPE, load_normative_df_c2, _categorize_c2_area
+
 LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
-
-METRICS_DTYPE = {
-    'MEAN(diameter_AP)': 'float64',
-    'MEAN(area)': 'float64',
-    'MEAN(diameter_RL)': 'float64',
-    'MEAN(eccentricity)': 'float64',
-    'MEAN(solidity)': 'float64',
-    'aSCOR': 'float64'
-}
 
 METRIC_TO_AXIS = {
     'MEAN(diameter_AP)': 'AP Diameter [mm]',
@@ -97,9 +90,14 @@ MYELOPATHY_COLORS = {
     'no': '#2ca02c',       # green - no myelopathy
 }
 
+NORMATIVE_C2_COLORS = {
+    'Below normative mean C2 cord area': '#d62728',      # red
+    'Above normative mean C2 cord area': '#2ca02c',      # green
+}
+
 THERAPEUTIC_DECISION_COLORS = {
     'operative': '#d62728',         # red
-    'conservative': '#2ca02c',      # green - no myelopathy
+    'conservative': '#2ca02c',      # green
 }
 
 MJOA_COLORS = {
@@ -144,7 +142,7 @@ def get_parser():
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa_bl' column)")
     parser.add_argument('-stratify', required=False, type=str,
-                        choices=['mcl', 'stenosis', 'myelopathy', 'mjoa', 'therapeutic_decision', 'age', 'sex', 'None'],
+                        choices=['mcl', 'stenosis', 'myelopathy', 'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; '-participants-file' is required, "
                              "'stenosis' for the highest stenosis level; '-participants-file' is required, "
@@ -153,6 +151,7 @@ def get_parser():
                              "'age' for age group stratification; '-participants-file' is required, "
                              "'sex' for sex-based stratification; '-participants-file' is required, "
                              "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required. "
+                             "'normative_mean_c2' for stratification based on normative mean C2 cord area; "
                              "'None' for no stratification."
                              "Default: None.",
                              )
@@ -601,6 +600,16 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=sex_data, errorbar='sd',
                                 linewidth=2, color=SEX_COLORS_PATIENTS[sex],
                                  label=f"{SEX_TO_LEGEND[sex]} (n={sex_n_subjects})")
+        elif stratify_type == 'normative_mean_c2':
+            c2_groups = subjects_df['normative_mean_c2'].unique()
+            for c2_group in c2_groups:
+                c2_data = subjects_df[subjects_df['normative_mean_c2'] == c2_group]
+                if len(c2_data) > 0:
+                    c2_n_subjects = len(c2_data['participant_id'].unique())
+                    print(f"Normative mean C2 group '{c2_group}': {c2_n_subjects} subjects") if metric == 'MEAN(area)' else None
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=c2_data, errorbar='sd',
+                                linewidth=2, color=NORMATIVE_C2_COLORS[c2_group],
+                                label=f"{c2_group} (n={c2_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
             for ses in sessions_to_process:
@@ -690,6 +699,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['sex'].isin(['M', 'F'])]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by Sex"
+    elif stratify_type == 'normative_mean_c2':
+        plotted_subjects = subjects_df[subjects_df['normative_mean_c2'].isin(NORMATIVE_C2_COLORS.keys())]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Normative Mean C2 Cord Area"
     else:
         n_subjects_plot = len(subjects_df['participant_id'].unique())
         stratification_info = f"(n={n_subjects_plot} subjects)"
@@ -751,7 +764,57 @@ def main():
         structure = 'aSCOR'
     df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv_pam50, structure)
 
+    if args.stratify == 'normative_mean_c2':
+        # Check if 'participants.tsv' contains the 'normative_mean_c2' column
+        # If so, read it directly; otherwise, compute it
+        if args.participants_file and os.path.isfile(args.participants_file):
+            df_participants = pd.read_csv(args.participants_file, sep='\t')
+        else:
+            sys.exit(f"Warning: Participants file not found: {args.participants_file}")
+
+        if 'normative_mean_c2' in df_participants.columns:
+            print("Using existing 'normative_mean_c2' column from participants.tsv")
+            # Merge normative_mean_c2 data
+            subjects_df = subjects_df.merge(
+                df_participants[['participant_id', 'normative_mean_c2']],
+                on='participant_id', how='left'
+            )
+        else:
+            # -------------
+            # Load normative cord area for VertLevel C2
+            # -------------
+            # Get normative data at C2 only (mean across slices for each subject)
+            normative_data_c2_grouped = load_normative_df_c2(path_HC, path_participants_tsv_pam50)
+            # Compute mean C2 across subjects
+            mean_c2_cord_normative = normative_data_c2_grouped['MEAN(area)'].mean()
+
+            # -------------
+            # Compute mean C2 for each subject from subjects_df using df.groupby
+            # -------------
+            subjects_df_c2 = subjects_df[subjects_df['VertLevel'] == 2]
+            grouped_subjects_c2 = subjects_df_c2.groupby('participant_id').agg({
+                'MEAN(area)': 'mean'
+            }).reset_index()
+            # Add a new column to grouped_subjects_c2 indicating whether the subject's mean C2 cord area is below or above normative mean
+            grouped_subjects_c2['normative_mean_c2'] = grouped_subjects_c2['MEAN(area)'].apply(lambda x: _categorize_c2_area(x, mean_c2_cord_normative))
+
+            # Save the 'normative_mean_c2' column to the participants.tsv file for future use
+            df_participants = df_participants.merge(
+                grouped_subjects_c2[['participant_id', 'normative_mean_c2']],
+                on='participant_id', how='left'
+            )
+            df_participants.to_csv(args.participants_file, sep='\t', index=False)
+            print(f"'normative_mean_c2' column added to participants file: {args.participants_file}")
+
+            # Now, add this information back to the main subjects_df
+            subjects_df = subjects_df.merge(
+                grouped_subjects_c2[['participant_id', 'normative_mean_c2']],
+                on='participant_id', how='left'
+            )
+
+    # -------------
     # Plotting
+    # -------------
     os.makedirs(path_out, exist_ok=True)
     # Use basename from args.i to create figure name
     figure_basename = os.path.basename(args.i).replace('.csv', '')
