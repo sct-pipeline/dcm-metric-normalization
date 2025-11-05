@@ -96,6 +96,15 @@ def plot_combined_persex(df, output_dir):
                 y = df_plot['MEAN(area)_cord']
                 sns.scatterplot(x=x, y=y, ax=ax, color=color, marker=marker, s=60, edgecolor='w', alpha=0.8)
 
+                # add linear fit (linear regression) for this cohort+sex if enough variation
+                x_vals = x.dropna().values
+                y_vals = y.dropna().values
+                if x_vals.size >= 2 and (x_vals.max() - x_vals.min()) > 0:
+                    z = np.polyfit(x_vals, y_vals, 1)
+                    pfit = np.poly1d(z)
+                    xs = np.linspace(x_vals.min(), x_vals.max(), 100)
+                    ax.plot(xs, pfit(xs), color=color, linewidth=2)
+
         ax.set_title(LEVEL_TO_LABEL[level])
         ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
@@ -141,6 +150,15 @@ def plot_combined(df, output_dir):
             x = df_c['MEAN(area)_canal']
             y = df_c['MEAN(area)_cord']
             sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, label=f"{cohort.capitalize()} (n={df_c['participant_id'].nunique()})")
+
+            # add linear fit (linear regression) per cohort for this level
+            x_vals = x.dropna().values
+            y_vals = y.dropna().values
+            if x_vals.size >= 2 and (x_vals.max() - x_vals.min()) > 0:
+                z = np.polyfit(x_vals, y_vals, 1)
+                pfit = np.poly1d(z)
+                xs = np.linspace(x_vals.min(), x_vals.max(), 100)
+                ax.plot(xs, pfit(xs), color=color, linewidth=2)
 
         ax.set_title(LEVEL_TO_LABEL[level])
         ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
