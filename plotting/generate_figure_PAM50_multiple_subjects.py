@@ -142,11 +142,11 @@ def get_parser():
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa_bl' column)")
     parser.add_argument('-stratify', required=False, type=str,
-                        choices=['mcl', 'stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'myelopathy',
+                        choices=['mcl', 'highest_stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'num_of_stenosis_including_C2C3', 'myelopathy',
                                  'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; '-participants-file' is required, "
-                             "'stenosis' for the highest stenosis level; '-participants-file' is required, "
+                             "'highest_stenosis' for the highest stenosis level; '-participants-file' is required, "
                              "'num_of_stenosis' for number of stenosis levels; '-participants-file' is required, "
                              "'single_vs_multi_stenosis' for single vs. multi-level stenosis; '-participants-file' is required, "
                              "'myelopathy' for myelopathy status; '-participants-file' is required, "
@@ -335,7 +335,7 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
                 else:
                     sys.exit("Warning: 'maximum_stenosis' column not found in participants file")
 
-            elif stratify_type == 'stenosis':
+            elif stratify_type == 'highest_stenosis':
                 if 'stenosis' in df_participants.columns:
                     # Merge stenosis data
                     subjects_df = subjects_df.merge(
@@ -545,7 +545,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mcl_data, errorbar='sd',
                                 linewidth=2, color=MCL_COLORS[mcl],
                                 label=f"MCL {mcl} (n={mcl_n_subjects})")
-        elif stratify_type == 'stenosis':
+        elif stratify_type == 'highest_stenosis':
             # Plot by Stenosis groups instead of sessions
             stenosis_levels = ['C2/C3', 'C3/C4', 'C4/C5', 'C5/C6', 'C6/C7']     # Ensure legend order
             for level in stenosis_levels:
@@ -714,7 +714,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['MCL'].isin(MCL_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by MCL (maximum compression level)"
-    elif stratify_type == 'stenosis':
+    elif stratify_type == 'highest_stenosis':
         plotted_subjects = subjects_df[subjects_df['highest_stenosis'].isin(MCL_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by Highest Stenosis Level"
