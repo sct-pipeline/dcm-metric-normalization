@@ -15,6 +15,7 @@ from matplotlib.lines import Line2D
 from utils import fetch_participant_and_session
 from plot_normative_scatter_cord_vs_canal_area import load_normative_df
 from plot_patient_scatter_cord_vs_canal_area import load_patient_df
+from generate_figure_PAM50_multiple_subjects import NORMATIVE_C2_COLORS, SEX_COLORS_PATIENTS, SEX_COLORS_NORMATIVE
 
 VERTEBRAL_LEVELS = [2, 3, 4, 5, 6, 7]
 LEVEL_TO_LABEL = {2: 'C2', 3: 'C3', 4: 'C4', 5: 'C5', 6: 'C6', 7: 'C7'}
@@ -22,16 +23,6 @@ LEVEL_TO_LABEL = {2: 'C2', 3: 'C3', 4: 'C4', 5: 'C5', 6: 'C6', 7: 'C7'}
 LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
 TITLE_FONT_SIZE = 16
-
-SEX_COLORS_NORMATIVE = {
-    'M': 'blue',
-    'F': 'red',
-}
-
-SEX_COLORS_PATIENTS = {
-    'M': '#1f77b4',     # light blue
-    'F': '#ff7f0e',     # orange
-}
 
 cohort_markers = {'normative': 'o', 'patients': 'X'}
 
@@ -173,6 +164,85 @@ def plot_combined(df, output_dir):
     plt.savefig(out_fig, dpi=300, bbox_inches='tight')
     print(f"Figure saved: {out_fig}")
 
+def plot_combined_by_normative_c2_area(df, output_dir):
+    """
+    Plot combined scatter plots split by normative C2 cord area groups for patients.
+    """
+    os.makedirs(output_dir, exist_ok=True)
+    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
+    axes = axes.ravel()
+
+    total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
+    suptitle = f"Spinal cord vs spinal canal area per level (n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
+    fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
+
+    for i, level in enumerate(VERTEBRAL_LEVELS):
+        ax = axes[i]
+        df_level = df[df['VertLevel'] == level]
+        for cohort, marker in cohort_markers.items():
+            df_cohort = df_level[df_level['cohort'] == cohort]
+
+            # No split for normative cohort
+            if cohort == 'normative':
+                x = df_cohort['MEAN(area)_canal']
+                y = df_cohort['MEAN(area)_cord']
+                sns.scatterplot(x=x, y=y, ax=ax, color='gray', marker=marker, s=60, edgecolor='w', alpha=0.8)
+                # add linear fit (linear regression) per cohort for this level
+                x_vals = x.dropna().values
+                y_vals = y.dropna().values
+                if x_vals.size >= 2 and (x_vals.max() - x_vals.min()) > 0:
+                    z = np.polyfit(x_vals, y_vals, 1)
+                    pfit = np.poly1d(z)
+                    xs = np.linspace(x_vals.min(), x_vals.max(), 100)
+                    ax.plot(xs, pfit(xs), color='gray', linewidth=2)
+            elif cohort == 'patients':
+                for group_key in ['Below normative mean C2 cord area', 'Above normative mean C2 cord area']:
+                    mask = df_cohort['normative_mean_c2'] == group_key
+                    df_plot = df_cohort[mask]
+                    x = df_plot['MEAN(area)_canal']
+                    y = df_plot['MEAN(area)_cord']
+                    sns.scatterplot(x=x, y=y, ax=ax, color=NORMATIVE_C2_COLORS[group_key], marker=marker,
+                                    s=60, edgecolor='w', alpha=0.8)
+
+                    # add linear fit (linear regression) for this cohort+sex if enough variation
+                    x_vals = x.dropna().values
+                    y_vals = y.dropna().values
+                    if x_vals.size >= 2 and (x_vals.max() - x_vals.min()) > 0:
+                        z = np.polyfit(x_vals, y_vals, 1)
+                        pfit = np.poly1d(z)
+                        xs = np.linspace(x_vals.min(), x_vals.max(), 100)
+                        ax.plot(xs, pfit(xs), color=NORMATIVE_C2_COLORS[group_key], linewidth=2)
+
+        ax.set_title(LEVEL_TO_LABEL[level])
+        ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+
+        # build custom legend: cohort-specific sex colors and cohort markers
+        # compute per-cohort, per-sex participant counts for this level
+        counts = {}
+        for cohort in cohort_markers:
+            df_cohort = df_level[df_level['cohort'] == cohort]
+            if cohort == 'patients':
+                for group_key in ['Below normative mean C2 cord area', 'Above normative mean C2 cord area']:
+                    counts[(cohort, group_key)] = int(df_cohort[df_cohort['normative_mean_c2'] == group_key]['participant_id'].nunique())
+            elif cohort == 'normative':
+                # No split for normative cohort, just count total
+                counts[(cohort, 'all')] = int(df_cohort['participant_id'].nunique())
+
+        handles = [
+            Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor='gray', markersize=8, label=f"Normative (n={counts.get(('normative','all'),0)})"),
+            Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=NORMATIVE_C2_COLORS['Below normative mean C2 cord area'], markersize=8, label=f"Patients Below normative mean C2 cord area (n={counts.get(('patients','Below normative mean C2 cord area'),0)})"),
+            Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=NORMATIVE_C2_COLORS['Above normative mean C2 cord area'], markersize=8, label=f"Patients Above normative mean C2 cord area (n={counts.get(('patients','Above normative mean C2 cord area'),0)})")
+        ]
+        ax.legend(handles=handles)
+
+    plt.tight_layout()
+    out_fig = os.path.join(output_dir, 'combined_scatter_by_normative_mean_c2.png')
+    plt.savefig(out_fig, dpi=300, bbox_inches='tight')
+    print(f"Figure saved: {out_fig}")
+
 
 def main():
     parser = argparse.ArgumentParser(description='Combine normative and patient per-level cord/canal CSVs and plot together.')
@@ -195,6 +265,7 @@ def main():
 
     plot_combined(combined, os.path.expandvars(args.out_dir))
     plot_combined_persex(combined, os.path.expandvars(args.out_dir))
+    plot_combined_by_normative_c2_area(combined, os.path.expandvars(args.out_dir))
 
 
 if __name__ == '__main__':

@@ -58,6 +58,14 @@ def load_patient_df(cord_csv, canal_csv, participants_file=None):
             # If no sex column, add NaNs to keep downstream logic simple
             grouped['sex'] = np.nan
 
+        if 'normative_mean_c2' in df_participants.columns:
+            print("Using existing 'normative_mean_c2' column from participants.tsv")
+            # Merge normative_mean_c2 data
+            grouped = grouped.merge(df_participants[['participant_id', 'normative_mean_c2']], on='participant_id', how='left')
+        else:
+            # If no normative_mean_c2 column, add NaNs to keep downstream logic simple
+            grouped['normative_mean_c2'] = np.nan
+
     return grouped
 
 
