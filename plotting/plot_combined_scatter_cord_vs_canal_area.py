@@ -33,6 +33,8 @@ SEX_COLORS_PATIENTS = {
     'F': '#ff7f0e',     # orange
 }
 
+cohort_markers = {'normative': 'o', 'patients': 'X'}
+
 def load_perlevel_df(cord_csv, canal_csv, cohort_label, participants_file=None):
     cord_df = pd.read_csv(cord_csv)
     canal_df = pd.read_csv(canal_csv)
@@ -70,8 +72,6 @@ def plot_combined_persex(df, output_dir):
     os.makedirs(output_dir, exist_ok=True)
     fig, axes = plt.subplots(2, 3, figsize=(18, 10))
     axes = axes.ravel()
-
-    cohort_markers = {'normative': 'o', 'patients': 'X'}
 
     total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
     suptitle = f"Spinal cord vs spinal canal area per level (n_normative={total_counts.get('normative',0)}, n_patients={total_counts.get('patients',0)})"
@@ -149,7 +149,8 @@ def plot_combined(df, output_dir):
             df_c = df_level[df_level['cohort'] == cohort]
             x = df_c['MEAN(area)_canal']
             y = df_c['MEAN(area)_cord']
-            sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, label=f"{cohort.capitalize()} (n={df_c['participant_id'].nunique()})")
+            sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, marker=cohort_markers[cohort],
+                            label=f"{cohort.capitalize()} (n={df_c['participant_id'].nunique()})")
 
             # add linear fit (linear regression) per cohort for this level
             x_vals = x.dropna().values
