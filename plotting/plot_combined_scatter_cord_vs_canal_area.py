@@ -124,7 +124,7 @@ def plot_combined_persex(df, output_dir):
             Line2D([0], [0], marker=cohort_markers['normative'], color='w', markerfacecolor=SEX_COLORS_NORMATIVE['F'], markersize=8, label=f"Normative Female (n={counts.get(('normative','F'),0)})"),
             Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['M'], markersize=8, label=f"Patients Male (n={counts.get(('patients','M'),0)})"),
             Line2D([0], [0], marker=cohort_markers['patients'], color='w', markerfacecolor=SEX_COLORS_PATIENTS['F'], markersize=8, label=f"Patients Female (n={counts.get(('patients','F'),0)})")]
-        ax.legend(handles=handles, loc='upper left')
+        ax.legend(handles=handles)
 
     plt.tight_layout()
     out_fig = os.path.join(output_dir, 'combined_scatter_by_sex.png')
