@@ -566,7 +566,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
                                 linewidth=2, label=f"Number of Stenosis = {num_stenosis} (n={num_stenosis_n_subjects})")
-        elif stratify_type in 'single_vs_multi_stenosis':
+        elif stratify_type == 'single_vs_multi_stenosis':
             # Plot by Number of Stenosis groups instead of sessions
             num_stenosis_groups = ['Single stenosis', 'Multi-level stenosis']
             for num_stenosis in num_stenosis_groups:
@@ -662,7 +662,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                                 label=f"{ses} (n={ses_n_subjects})")
 
         # Keep the legend only for one plot to avoid duplication
-        plot_to_keep_legend = 2 if 'stenosis' in stratify_type else 0
+        plot_to_keep_legend = 2 if (stratify_type and 'stenosis' in stratify_type) else 0
         if metric_idx == plot_to_keep_legend:
             axs[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
         else:
