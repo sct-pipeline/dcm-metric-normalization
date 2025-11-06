@@ -141,7 +141,7 @@ def get_parser():
                              "age, sex, maximum_stenosis, myelopathy.")
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa_bl' column)")
-    parser.add_argument('-stratify', required=False, type=str,
+    parser.add_argument('-stratify', required=False, type=str, default=None,
                         choices=['mcl', 'highest_stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'num_of_stenosis_including_C2C3', 'myelopathy',
                                  'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
                         help="Stratification method:"
