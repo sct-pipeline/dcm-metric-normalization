@@ -757,7 +757,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
 
     # No title for aSCOR
     if 'aSCOR' in figure_path:
-        plt.suptitle(f"", fontsize=LABELS_FONT_SIZE, fontweight='bold', y=0.92)
+        plt.suptitle(f"aSCOR in the PAM50 space\n{stratification_info}",
+                     fontsize=LABELS_FONT_SIZE-2, fontweight='bold', y=0.97)
     else:
         plt.suptitle(f"{structure} in the PAM50 space {stratification_info}",
                      fontsize=LABELS_FONT_SIZE, fontweight='bold', y=0.92)
