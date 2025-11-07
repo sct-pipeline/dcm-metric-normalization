@@ -482,6 +482,89 @@ def _get_highest_stenosis(levels):
             return level
     return 'NA'
 
+def _build_age_group_compression_table(subjects_df, output_csv_path):
+    """Create publication-ready table summarizing compression stats per age group and save to CSV.
+    Columns include:
+        age_group, n_subjects_total, n_subjects_with_stenosis_data,
+        single_stenosis_count, multi_level_stenosis_count,
+        count_num_of_stenosis_1..4, highest_stenosis_C2_C3 .. C6_C7
+    If stenosis data missing for all subjects in an age group, counts are 0 and a note column is added.
+    """
+    age_groups = ['<50', '50-65', '>65']
+    stenosis_levels_order = ['C2/C3', 'C3/C4', 'C4/C5', 'C5/C6', 'C6/C7']
+    rows = []
+    # Work at subject level (collapse duplicates)
+    subj_df = subjects_df[['participant_id', 'age_group']].drop_duplicates()
+    # Bring stenosis-related columns if they exist (merge unique per subject)
+    for col in ['stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'highest_stenosis', 'stenosis_levels']:
+        if col in subjects_df.columns:
+            subj_df = subj_df.merge(subjects_df[['participant_id', col]].drop_duplicates('participant_id'), on='participant_id', how='left')
+    # Derive missing columns if possible
+    if 'stenosis_levels' not in subj_df.columns and 'stenosis' in subj_df.columns:
+        subj_df['stenosis_levels'] = subj_df['stenosis'].apply(lambda x: [lvl.strip() for lvl in str(x).split(',')] if pd.notna(x) and x != 'NA' else [])
+    if 'num_of_stenosis' not in subj_df.columns and 'stenosis_levels' in subj_df.columns:
+        subj_df['num_of_stenosis'] = subj_df['stenosis_levels'].apply(len)
+    if 'single_vs_multi_stenosis' not in subj_df.columns and 'num_of_stenosis' in subj_df.columns:
+        subj_df['single_vs_multi_stenosis'] = subj_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else ('Multi-level stenosis' if x > 1 else 'Unknown'))
+    if 'highest_stenosis' not in subj_df.columns and 'stenosis_levels' in subj_df.columns and '_get_highest_stenosis' in globals():
+        subj_df['highest_stenosis'] = subj_df['stenosis_levels'].apply(_get_highest_stenosis)
+
+    for age in age_groups:
+        age_subj = subj_df[subj_df['age_group'] == age]
+        total_n = len(age_subj)
+        # Determine which subjects have valid stenosis data
+        if 'num_of_stenosis' in age_subj.columns:
+            valid_mask = age_subj['num_of_stenosis'].notna() & (age_subj['num_of_stenosis'] > 0)
+        else:
+            valid_mask = pd.Series([False]*len(age_subj), index=age_subj.index)
+        with_data = int(valid_mask.sum())
+        row = {
+            'age_group': age,
+            'n_subjects_total': total_n,
+            'n_subjects_with_stenosis_data': with_data,
+        }
+        if with_data == 0:
+            # Populate zeros
+            row.update({
+                'single_stenosis_count': 0,
+                'multi_level_stenosis_count': 0
+            })
+            for k in range(1,5):
+                row[f'count_num_of_stenosis_{k}'] = 0
+            for lvl in stenosis_levels_order:
+                row[f'highest_stenosis_{lvl}'] = 0
+            row['note'] = 'No stenosis data'
+        else:
+            valid_df = age_subj.loc[valid_mask]
+            # Distribution of number of stenosis levels (1..4)
+            num_counts = valid_df['num_of_stenosis'].value_counts().to_dict()
+            for k in range(1,5):
+                row[f'count_num_of_stenosis_{k}'] = int(num_counts.get(k, 0))
+            # Single vs multi
+            if 'single_vs_multi_stenosis' in valid_df.columns:
+                sm_counts = valid_df['single_vs_multi_stenosis'].value_counts().to_dict()
+                row['single_stenosis_count'] = int(sm_counts.get('Single stenosis', 0))
+                row['multi_level_stenosis_count'] = int(sm_counts.get('Multi-level stenosis', 0))
+            else:
+                row['single_stenosis_count'] = 0
+                row['multi_level_stenosis_count'] = 0
+            # Highest stenosis distribution
+            if 'highest_stenosis' in valid_df.columns:
+                highest_counts = valid_df['highest_stenosis'].value_counts().to_dict()
+                for lvl in stenosis_levels_order:
+                    lvl_clean = lvl.replace('/', '_')
+                    row[f'highest_stenosis_{lvl_clean}'] = int(highest_counts.get(lvl, 0))
+            else:
+                for lvl in stenosis_levels_order:
+                    lvl_clean = lvl.replace('/', '_')
+                    row[f'highest_stenosis_{lvl_clean}'] = 0
+        rows.append(row)
+
+    table_df = pd.DataFrame(rows)
+    table_df.to_csv(output_csv_path, index=False)
+    print(f"Age group compression summary table saved: {output_csv_path}")
+    return table_df
+
 def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
     """
     Create figure with mean and std of morphometric metrics across subjects, separately for multiple sessions
@@ -625,53 +708,6 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                 if len(age_data) > 0:
                     age_n_subjects = len(age_data['participant_id'].unique())
                     print(f"Age group '{age}': {age_n_subjects} subjects") if metric == 'MEAN(area)' else None
-
-                    # Additional detailed compression stats (print only once per metric set to avoid repetition across metrics)
-                    if metric == 'MEAN(area)' and metric_idx == 0:
-                        # Work on per-subject unique rows to summarize compression features
-                        per_subj = age_data[['participant_id']].drop_duplicates().copy()
-                        # Bring existing stenosis-related columns if present
-                        possible_cols = ['stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'highest_stenosis', 'stenosis_levels']
-                        for col in possible_cols:
-                            if col in age_data.columns:
-                                per_subj = per_subj.merge(age_data[['participant_id', col]].drop_duplicates('participant_id'), on='participant_id', how='left')
-                        # If stenosis levels not pre-parsed but 'stenosis' string exists, parse
-                        if 'stenosis' in per_subj.columns and 'stenosis_levels' not in per_subj.columns:
-                            per_subj['stenosis_levels'] = per_subj['stenosis'].apply(lambda x: [lvl.strip() for lvl in str(x).split(',')] if pd.notna(x) and x != 'NA' else [])
-                        # Derive number of stenosis levels if missing
-                        if 'num_of_stenosis' not in per_subj.columns:
-                            if 'stenosis_levels' in per_subj.columns:
-                                per_subj['num_of_stenosis'] = per_subj['stenosis_levels'].apply(len)
-                        # Derive single vs multi if missing
-                        if 'single_vs_multi_stenosis' not in per_subj.columns and 'num_of_stenosis' in per_subj.columns:
-                            per_subj['single_vs_multi_stenosis'] = per_subj['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else ('Multi-level stenosis' if x > 1 else 'Unknown'))
-                        # Derive highest_stenosis if missing
-                        if 'highest_stenosis' not in per_subj.columns and 'stenosis_levels' in per_subj.columns:
-                            if '_get_highest_stenosis' in globals():
-                                per_subj['highest_stenosis'] = per_subj['stenosis_levels'].apply(_get_highest_stenosis)
-                            else:
-                                per_subj['highest_stenosis'] = 'NA'
-                        # Prepare summaries (exclude subjects without stenosis info)
-                        valid_mask = per_subj['num_of_stenosis'].notna() if 'num_of_stenosis' in per_subj.columns else pd.Series([False]*len(per_subj))
-                        comp_summary = {}
-                        if valid_mask.any():
-                            # Distribution of number of compressions
-                            comp_counts = per_subj.loc[valid_mask, 'num_of_stenosis'].value_counts().sort_index().to_dict()
-                            comp_summary['num_of_compressions_distribution'] = comp_counts
-                            # Single vs multi
-                            if 'single_vs_multi_stenosis' in per_subj.columns:
-                                single_multi_counts = per_subj.loc[valid_mask, 'single_vs_multi_stenosis'].value_counts().to_dict()
-                                comp_summary['single_vs_multi'] = single_multi_counts
-                            # Highest compression level distribution
-                            if 'highest_stenosis' in per_subj.columns:
-                                highest_counts = per_subj.loc[valid_mask & per_subj['highest_stenosis'].notna(), 'highest_stenosis'].value_counts().to_dict()
-                                comp_summary['highest_stenosis_levels'] = highest_counts
-                            # Maximum number of compressions observed
-                            comp_summary['max_num_of_compressions'] = int(per_subj.loc[valid_mask, 'num_of_stenosis'].max())
-                        else:
-                            comp_summary['info'] = 'No stenosis data available for this age group'
-                        print(f"Age group '{age}' compression summary: {comp_summary}")
-
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=age_data, errorbar='sd',
                                 linewidth=2, color=AGE_GROUP_COLORS[age],
                                 label=f"Age {age} (n={age_n_subjects})")
@@ -914,6 +950,12 @@ def main():
     figure_basename = os.path.basename(args.i).replace('.csv', '')
     figure_path = os.path.join(path_out, figure_basename)
     create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, args.stratify)
+
+    # Save age group compression table if age stratification selected
+    if args.stratify == 'age':
+        age_table_csv = os.path.join(path_out, f"{figure_basename}_age_group_compression_summary.csv")
+        _build_age_group_compression_table(subjects_df, age_table_csv)
+
 
 
 if __name__ == '__main__':
