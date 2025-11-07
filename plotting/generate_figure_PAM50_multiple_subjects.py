@@ -314,130 +314,128 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
     subjects_df.insert(0, 'participant_id', participant_ids)
     subjects_df.insert(1, 'session_id', session_ids)
 
-    # Add stratification data if requested
-    if stratify_type in ['mcl', 'stenosis' , 'num_of_stenosis', 'single_vs_multi_stenosis', 'myelopathy', 'therapeutic_decision']:
-        if participants_file and os.path.isfile(participants_file):
-            df_participants = pd.read_csv(participants_file, sep='\t')
+    if participants_file and os.path.isfile(participants_file):
+        df_participants = pd.read_csv(participants_file, sep='\t')
 
-            if stratify_type == 'mcl':
-                if 'maximum_stenosis' in df_participants.columns:
-                    # Merge MCL data
-                    subjects_df = subjects_df.merge(
-                        df_participants[['participant_id', 'maximum_stenosis']],
-                        on='participant_id', how='left'
-                    )
-                    # Clean up maximum_stenosis values and map to standard format
-                    subjects_df['MCL'] = subjects_df['maximum_stenosis'].fillna('NA')
-                    # Standardize MCL values
-                    subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
-                    # Exclude subjects with MCL == 'NA'
-                    subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
-                else:
-                    sys.exit("Warning: 'maximum_stenosis' column not found in participants file")
-
-            elif stratify_type == 'highest_stenosis':
-                if 'stenosis' in df_participants.columns:
-                    # Merge stenosis data
-                    subjects_df = subjects_df.merge(
-                        df_participants[['participant_id', 'stenosis']],
-                        on='participant_id', how='left'
-                    )
-                    subjects_df['stenosis'] = subjects_df['stenosis'].fillna('NA')
-                    # Exclude subjects with stenosis == 'NA'
-                    subjects_df = subjects_df[subjects_df['stenosis'] != 'NA']
-                    # Stenosis is a str of different stenosis levels, e.g., 'C3/C4, C5/C6', convert it to list
-                    subjects_df['stenosis_levels'] = subjects_df['stenosis'].apply(lambda x: [level.strip() for level in x.split(',')])
-                    # Add a new column, 'highest_stenosis' with the highest stenosis level per subject
-                    subjects_df['highest_stenosis'] = subjects_df['stenosis_levels'].apply(_get_highest_stenosis)
-                    # Print subjects with 'C6/C7'
-                    c67_subjects = subjects_df[subjects_df['highest_stenosis'] == 'C6/C7']['participant_id'].unique()
-                    print(f"Subjects with highest stenosis at C6/C7: {c67_subjects}") if len(c67_subjects) > 0 else None
-                    # Now, exclude 'C6/C7' -- only 3 subjects and C2 cord is noisy
-                    subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C6/C7']
-                else:
-                    sys.exit("Warning: 'stenosis' column not found in participants file")
-
-            elif stratify_type in ['num_of_stenosis', 'single_vs_multi_stenosis']:
-                if 'stenosis' in df_participants.columns:
-                    # Merge stenosis data
-                    subjects_df = subjects_df.merge(
-                        df_participants[['participant_id', 'stenosis']],
-                        on='participant_id', how='left'
-                    )
-                    subjects_df['stenosis'] = subjects_df['stenosis'].fillna('NA')
-                    # Exclude subjects with stenosis == 'NA'
-                    subjects_df = subjects_df[subjects_df['stenosis'] != 'NA']
-                    # Stenosis is a str of different stenosis levels, e.g., 'C3/C4, C5/C6', convert it to list
-                    subjects_df['stenosis_levels'] = subjects_df['stenosis'].apply(lambda x: [level.strip() for level in x.split(',')])
-                    # Add a new column, 'num_of_stenosis' with the number of stenosis levels per subject
-                    subjects_df['num_of_stenosis'] = subjects_df['stenosis_levels'].apply(len)
-                    # Add a new column, 'single_vs_multi_stenosis' with 'single' or 'multi' values
-                    subjects_df['single_vs_multi_stenosis'] = subjects_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else 'Multi-level stenosis')
-
-            elif stratify_type == 'myelopathy':
-                if 'myelopathy' in df_participants.columns:
-                    # Merge myelopathy data
-                    subjects_df = subjects_df.merge(
-                        df_participants[['participant_id', 'myelopathy']],
-                        on='participant_id', how='left'
-                    )
-                    subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(_process_myelopathy)
-                else:
-                    sys.exit("Warning: 'myelopathy' column not found in participants file")
-            elif stratify_type == 'therapeutic_decision':
-                if 'therapeutic_decision' in df_participants.columns:
-                    # Merge therapeutic decision data
-                    subjects_df = subjects_df.merge(
-                        df_participants[['participant_id', 'therapeutic_decision']],
-                        on='participant_id', how='left'
-                    )
-                    subjects_df['therapeutic_decision'] = subjects_df['therapeutic_decision'].fillna('NA')
-                    # Exclude subjects with MCL == 'NA'
-                    subjects_df = subjects_df[subjects_df['therapeutic_decision'] != 'NA']
-                else:
-                    sys.exit("Warning: 'therapeutic_decision' column not found in participants file")
+        if 'maximum_stenosis' in df_participants.columns:
+            # Merge MCL data
+            subjects_df = subjects_df.merge(
+                df_participants[['participant_id', 'maximum_stenosis']],
+                on='participant_id', how='left'
+            )
+            # Clean up maximum_stenosis values and map to standard format
+            subjects_df['MCL'] = subjects_df['maximum_stenosis'].fillna('NA')
+            # Standardize MCL values
+            subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
+            # Exclude subjects with MCL == 'NA'
+            subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
         else:
-            sys.exit(f"Warning: Participants file not found: {participants_file}")
-    elif stratify_type == 'mjoa':
-        if clinical_file and os.path.isfile(clinical_file):
-            df_clinical = pd.read_excel(clinical_file, usecols=['record_id', 'total_mjoa_bl'])
-            # Format record_id to match participant_id format (e.g., `1` to `sub-001`)
-            df_clinical['participant_id'] = df_clinical['record_id'].apply(lambda x: f'sub-{int(x):03d}')
-            # Drop record_id column
-            df_clinical = df_clinical.drop(columns=['record_id'])
-            # Stratify mJOA
-            df_clinical['mJOA_severity'] = df_clinical['total_mjoa_bl'].apply(_stratify_mjoa)
+            sys.exit("Warning: 'maximum_stenosis' column not found in participants file")
 
-            if 'total_mjoa_bl' in df_clinical.columns:
-                # Merge mJOA data
-                subjects_df = subjects_df.merge(
-                    df_clinical[['participant_id', 'mJOA_severity']],
-                    on='participant_id', how='left'
-                )
-            else:
-                sys.exit("Warning: 'total_mjoa_bl' column not found in clinical file")
+        if 'stenosis' in df_participants.columns:
+            # Merge stenosis data
+            subjects_df = subjects_df.merge(
+                df_participants[['participant_id', 'stenosis']],
+                on='participant_id', how='left'
+            )
+            subjects_df['stenosis'] = subjects_df['stenosis'].fillna('NA')
+            # Exclude subjects with stenosis == 'NA'
+            subjects_df = subjects_df[subjects_df['stenosis'] != 'NA']
+            # Stenosis is a str of different stenosis levels, e.g., 'C3/C4, C5/C6', convert it to list
+            subjects_df['stenosis_levels'] = subjects_df['stenosis'].apply(lambda x: [level.strip() for level in x.split(',')])
+            # Add a new column, 'highest_stenosis' with the highest stenosis level per subject
+            subjects_df['highest_stenosis'] = subjects_df['stenosis_levels'].apply(_get_highest_stenosis)
+            # Print subjects with 'C6/C7'
+            c67_subjects = subjects_df[subjects_df['highest_stenosis'] == 'C6/C7']['participant_id'].unique()
+            print(f"Subjects with highest stenosis at C6/C7: {c67_subjects}") if len(c67_subjects) > 0 else None
+            # Now, exclude 'C6/C7' -- only 3 subjects and C2 cord is noisy
+            subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C6/C7']
+
+            # Add a new column, 'num_of_stenosis' with the number of stenosis levels per subject
+            subjects_df['num_of_stenosis'] = subjects_df['stenosis_levels'].apply(len)
+            # Print 'stenosis' column for unique subjects with 4 compressions
+            four_stenosis_subjects = subjects_df[subjects_df['num_of_stenosis'] == 4][['participant_id', 'stenosis']].drop_duplicates(subset=['participant_id'])
+            print(f"Subjects with 4 stenosis levels:\n{four_stenosis_subjects.to_string(index=False)}")
+            # Add a new column, 'single_vs_multi_stenosis' with 'single' or 'multi' values
+            subjects_df['single_vs_multi_stenosis'] = subjects_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else 'Multi-level stenosis')
+            # Add a new column to further stratify subjects with 4 compressions to see how many of them have C2/C3 compression
+            subjects_df['num_of_stenosis_including_C2C3'] = subjects_df['num_of_stenosis']
+            # subjects_df['num_of_stenosis_including_C2C3'] = subjects_df.apply(
+            #     lambda row: '4 including C2/C3' if row['num_of_stenosis'] == 4 and 'C2/C3' in row['stenosis_levels'] else
+            #                 ('4' if row['num_of_stenosis'] == 4 else str(row['num_of_stenosis'])),
+            #     axis=1
+            # )
+            subjects_df['num_of_stenosis_including_C2C3'] = subjects_df.apply(
+                lambda row: '4 including C2/C3 or C3/C4' if row['num_of_stenosis'] == 4 and any(level in row['stenosis_levels'] for level in ['C2/C3', 'C3/C4']) else
+                ('4' if row['num_of_stenosis'] == 4 else str(row['num_of_stenosis'])),
+                axis=1
+            )
         else:
-            sys.exit(f"Warning: Clinical file not found: {clinical_file}")
-    elif stratify_type in ['age', 'sex']:
-        if participants_file and os.path.isfile(participants_file):
-            df_participants = pd.read_csv(participants_file, sep='\t')
-            if stratify_type == 'age' and 'age' in df_participants.columns:
-                subjects_df = subjects_df.merge(
-                    df_participants[['participant_id', 'age']],
-                    on='participant_id', how='left'
-                )
-                subjects_df['age_group'] = subjects_df['age'].apply(_create_age_group)
-                # Exclude unknown age
-                subjects_df = subjects_df[subjects_df['age_group'] != 'unknown']
-            elif stratify_type == 'sex' and 'sex' in df_participants.columns:
-                subjects_df = subjects_df.merge(
-                    df_participants[['participant_id', 'sex']],
-                    on='participant_id', how='left'
-                )
-            else:
-                sys.exit(f"Warning: {stratify_type} column not found in participants file")
+            sys.exit("Warning: 'stenosis' column not found in participants file")
+
+        if 'myelopathy' in df_participants.columns:
+            # Merge myelopathy data
+            subjects_df = subjects_df.merge(
+                df_participants[['participant_id', 'myelopathy']],
+                on='participant_id', how='left'
+            )
+            subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(_process_myelopathy)
         else:
-            sys.exit(f"Warning: Participants file not found: {participants_file}")
+            sys.exit("Warning: 'myelopathy' column not found in participants file")
+
+        if 'therapeutic_decision' in df_participants.columns:
+            # Merge therapeutic decision data
+            subjects_df = subjects_df.merge(
+                df_participants[['participant_id', 'therapeutic_decision']],
+                on='participant_id', how='left'
+            )
+            subjects_df['therapeutic_decision'] = subjects_df['therapeutic_decision'].fillna('NA')
+            # Exclude subjects with MCL == 'NA'
+            subjects_df = subjects_df[subjects_df['therapeutic_decision'] != 'NA']
+        else:
+            sys.exit("Warning: 'therapeutic_decision' column not found in participants file")
+
+        if 'age' in df_participants.columns:
+            subjects_df = subjects_df.merge(
+                df_participants[['participant_id', 'age']],
+                on='participant_id', how='left'
+            )
+            subjects_df['age_group'] = subjects_df['age'].apply(_create_age_group)
+            # Exclude unknown age
+            subjects_df = subjects_df[subjects_df['age_group'] != 'unknown']
+        else:
+            sys.exit(f"Warning: {stratify_type} column not found in participants file")
+
+        if 'sex' in df_participants.columns:
+            subjects_df = subjects_df.merge(
+                df_participants[['participant_id', 'sex']],
+                on='participant_id', how='left'
+            )
+        else:
+            sys.exit(f"Warning: {stratify_type} column not found in participants file")
+
+    else:
+        sys.exit(f"Warning: Participants file not found: {participants_file}")
+
+    if clinical_file and os.path.isfile(clinical_file):
+        df_clinical = pd.read_excel(clinical_file, usecols=['record_id', 'total_mjoa_bl'])
+        # Format record_id to match participant_id format (e.g., `1` to `sub-001`)
+        df_clinical['participant_id'] = df_clinical['record_id'].apply(lambda x: f'sub-{int(x):03d}')
+        # Drop record_id column
+        df_clinical = df_clinical.drop(columns=['record_id'])
+        # Stratify mJOA
+        df_clinical['mJOA_severity'] = df_clinical['total_mjoa_bl'].apply(_stratify_mjoa)
+
+        if 'total_mjoa_bl' in df_clinical.columns:
+            # Merge mJOA data
+            subjects_df = subjects_df.merge(
+                df_clinical[['participant_id', 'mJOA_severity']],
+                on='participant_id', how='left'
+            )
+        else:
+            sys.exit("Warning: 'total_mjoa_bl' column not found in clinical file")
+    else:
+        sys.exit(f"Warning: Clinical file not found: {clinical_file}")
 
     return subjects_df
 
