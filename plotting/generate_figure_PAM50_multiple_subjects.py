@@ -486,8 +486,8 @@ def _build_age_group_compression_table(subjects_df, output_csv_path):
     """Create publication-ready table summarizing compression stats per age group and save to CSV.
     Columns include:
         age_group, n_subjects_total, n_subjects_with_stenosis_data,
-        single_stenosis_count, multi_level_stenosis_count,
-        count_num_of_stenosis_1..4, highest_stenosis_C2_C3 .. C6_C7
+        single_stenosis_count, Multi-level stenosis count:,
+        count_num_of_stenosis_1..4, Highest stenosis C2_C3 .. C6_C7
     If stenosis data missing for all subjects in an age group, counts are 0 and a note column is added.
     """
     age_groups = ['<50', '50-65', '>65']
@@ -519,45 +519,43 @@ def _build_age_group_compression_table(subjects_df, output_csv_path):
             valid_mask = pd.Series([False]*len(age_subj), index=age_subj.index)
         with_data = int(valid_mask.sum())
         row = {
-            'age_group': age,
-            'n_subjects_total': total_n,
+            'Age group': age,
+            'Total number of subjects': total_n,
             'n_subjects_with_stenosis_data': with_data,
         }
         if with_data == 0:
             # Populate zeros
             row.update({
-                'single_stenosis_count': 0,
-                'multi_level_stenosis_count': 0
+                'Single stenosis count': 0,
+                'Multi-level stenosis count': 0
             })
             for k in range(1,5):
-                row[f'count_num_of_stenosis_{k}'] = 0
+                row[f'Num of stenosis: {k}'] = 0
             for lvl in stenosis_levels_order:
-                row[f'highest_stenosis_{lvl}'] = 0
+                row[f'Highest stenosis:  {lvl}'] = 0
             row['note'] = 'No stenosis data'
         else:
             valid_df = age_subj.loc[valid_mask]
             # Distribution of number of stenosis levels (1..4)
             num_counts = valid_df['num_of_stenosis'].value_counts().to_dict()
             for k in range(1,5):
-                row[f'count_num_of_stenosis_{k}'] = int(num_counts.get(k, 0))
+                row[f'Num of stenosis: {k}'] = int(num_counts.get(k, 0))
             # Single vs multi
             if 'single_vs_multi_stenosis' in valid_df.columns:
                 sm_counts = valid_df['single_vs_multi_stenosis'].value_counts().to_dict()
-                row['single_stenosis_count'] = int(sm_counts.get('Single stenosis', 0))
-                row['multi_level_stenosis_count'] = int(sm_counts.get('Multi-level stenosis', 0))
+                row['Single stenosis count'] = int(sm_counts.get('Single stenosis', 0))
+                row['Multi-level stenosis count'] = int(sm_counts.get('Multi-level stenosis', 0))
             else:
-                row['single_stenosis_count'] = 0
-                row['multi_level_stenosis_count'] = 0
+                row['Single stenosis count'] = 0
+                row['Multi-level stenosis count'] = 0
             # Highest stenosis distribution
             if 'highest_stenosis' in valid_df.columns:
                 highest_counts = valid_df['highest_stenosis'].value_counts().to_dict()
                 for lvl in stenosis_levels_order:
-                    lvl_clean = lvl.replace('/', '_')
-                    row[f'highest_stenosis_{lvl_clean}'] = int(highest_counts.get(lvl, 0))
+                    row[f'Highest stenosis: {lvl}'] = int(highest_counts.get(lvl, 0))
             else:
                 for lvl in stenosis_levels_order:
-                    lvl_clean = lvl.replace('/', '_')
-                    row[f'highest_stenosis_{lvl_clean}'] = 0
+                    row[f'Highest stenosis: {lvl}'] = 0
         rows.append(row)
 
     table_df = pd.DataFrame(rows)
@@ -571,9 +569,10 @@ def _save_age_group_compression_table_formatted(table_df, output_csv_path):
     resembling the provided screenshot (separate header for each block and blank lines between blocks).
     Blocks:
       1) age_group | n_subjects_total
-      2) age_group | count_num_of_stenosis_1..4
-      3) age_group | single_stenosis_count | multi_level_stenosis_count
-      4) age_group | highest_stenosis_C2/C3 .. highest_stenosis_C6/C7
+      2) age_group | Num of stenosis: 1..4 (+ corresponding _pct columns)
+      3) age_group | Single stenosis count: | multi_level_stenosis_count (+ corresponding _pct columns)
+      4) age_group | Highest stenosis C2/C3 .. Highest stenosis C6/C7 (+ corresponding _pct columns)
+    Percentages are computed out of n_subjects_with_stenosis_data per age group.
     """
     age_groups = ['<50', '50-65', '>65']
 
@@ -581,52 +580,76 @@ def _save_age_group_compression_table_formatted(table_df, output_csv_path):
     def _order(df, cols):
         out = df.copy()
         out = out[cols]
-        out['age_group'] = pd.Categorical(out['age_group'], categories=age_groups, ordered=True)
-        out = out.sort_values('age_group')
+        out['Age group'] = pd.Categorical(out['Age group'], categories=age_groups, ordered=True)
+        out = out.sort_values('Age group')
         # Reindex to guarantee all groups exist
-        idx = pd.Index(age_groups, name='age_group')
-        out = out.set_index('age_group').reindex(idx).reset_index()
-        # Fill NaN with 0 for counts (except age_group)
-        for c in out.columns:
-            if c != 'age_group':
-                out[c] = out[c].fillna(0).astype(int)
+        idx = pd.Index(age_groups, name='Age group')
+        out = out.set_index('Age group').reindex(idx).reset_index()
         return out
 
-    # Block 1: total subjects
-    cols_block1 = [c for c in ['age_group', 'n_subjects_total'] if c in table_df.columns]
+    # Helper to compute percentage columns relative to n_subjects_with_stenosis_data
+    denom = _order(table_df, ['Age group', 'n_subjects_with_stenosis_data'])
+    denom = denom.rename(columns={'n_subjects_with_stenosis_data': '_den'})
+
+    def _add_pct(block, count_cols):
+        b = block.merge(denom, on='Age group', how='left')
+        for c in count_cols:
+            d = b['_den'].replace({0: np.nan})
+            pct = (b[c] / d) * 100.0
+            pct = pct.fillna(0).round(1)
+            b[c + '_pct'] = pct
+        b = b.drop(columns=['_den'])
+        # Interleave counts and pct columns
+        cols = ['Age group']
+        for c in count_cols:
+            cols += [c, c + '_pct']
+        return b[cols]
+
+    # Helper to combine count and pct into single cell like "14 (38.9%)"
+    def _combine_counts_with_pct(block_df, count_cols):
+        out = block_df.copy()
+        for c in count_cols:
+            out[c] = out.apply(lambda r: f"{int(r[c])} ({r[c + '_pct']:.1f}%)", axis=1)
+            out = out.drop(columns=[c + '_pct'])
+        # Keep columns ordered
+        return out[['Age group'] + count_cols]
+
+    # Block 1: total subjects (keep simple to match screenshot)
+    cols_block1 = [c for c in ['Age group', 'Total number of subjects'] if c in table_df.columns]
     block1 = _order(table_df, cols_block1)
 
     # Block 2: distribution by number of stenosis levels (1..4)
-    for_needed = ['count_num_of_stenosis_1', 'count_num_of_stenosis_2', 'count_num_of_stenosis_3', 'count_num_of_stenosis_4']
-    for c in for_needed:
+    needed2 = ['Num of stenosis: 1', 'Num of stenosis: 2', 'Num of stenosis: 3', 'Num of stenosis: 4']
+    for c in needed2:
         if c not in table_df.columns:
             table_df[c] = 0
-    cols_block2 = ['age_group'] + for_needed
-    block2 = _order(table_df, cols_block2)
+    block2_counts = _order(table_df, ['Age group'] + needed2)
+    block2 = _add_pct(block2_counts, needed2)
+    block2 = _combine_counts_with_pct(block2, needed2)
 
     # Block 3: single vs multi
-    for_needed = ['single_stenosis_count', 'multi_level_stenosis_count']
-    for c in for_needed:
+    needed3 = ['Single stenosis count', 'Multi-level stenosis count']
+    for c in needed3:
         if c not in table_df.columns:
             table_df[c] = 0
-    cols_block3 = ['age_group'] + for_needed
-    block3 = _order(table_df, cols_block3)
+    block3_counts = _order(table_df, ['Age group'] + needed3)
+    block3 = _add_pct(block3_counts, needed3)
+    block3 = _combine_counts_with_pct(block3, needed3)
 
-    # Block 4: highest stenosis level distribution (rename headers to include slashes)
-    level_cols_internal = ['highest_stenosis_C2_C3', 'highest_stenosis_C3_C4', 'highest_stenosis_C4_C5', 'highest_stenosis_C5_C6', 'highest_stenosis_C6_C7']
-    for c in level_cols_internal:
+    # Block 4: highest stenosis level distribution (add slashes and pct)
+    internal4 = ['Highest stenosis: C2/C3', 'Highest stenosis: C3/C4', 'Highest stenosis: C4/C5', 'Highest stenosis: C5/C6', 'Highest stenosis: C6/C7']
+    for c in internal4:
         if c not in table_df.columns:
             table_df[c] = 0
-    cols_block4 = ['age_group'] + level_cols_internal
-    block4 = _order(table_df, cols_block4)
-    # Rename to add slashes for readability
-    rename_map = {
-        'highest_stenosis_C2_C3': 'highest_stenosis_C2/C3',
-        'highest_stenosis_C3_C4': 'highest_stenosis_C3/C4',
-        'highest_stenosis_C4_C5': 'highest_stenosis_C4/C5',
-        'highest_stenosis_C5_C6': 'highest_stenosis_C5/C6',
-        'highest_stenosis_C6_C7': 'highest_stenosis_C6/C7',
-    }
+    block4_counts = _order(table_df, ['Age group'] + internal4)
+    block4 = _add_pct(block4_counts, internal4)
+    block4 = _combine_counts_with_pct(block4, internal4)
+
+    # Rename to add slashes for readability (only combined columns now)
+    rename_map = {}
+    for c in internal4:
+        with_slash = c.replace('_C', '_C').replace('C2_C3', 'C2/C3').replace('C3_C4', 'C3/C4').replace('C4_C5', 'C4/C5').replace('C5_C6', 'C5/C6').replace('C6_C7', 'C6/C7')
+        rename_map[c] = with_slash
     block4 = block4.rename(columns=rename_map)
 
     # Write multi-block CSV with blank lines between blocks
@@ -638,7 +661,7 @@ def _save_age_group_compression_table_formatted(table_df, output_csv_path):
         block3.to_csv(f, index=False)
         f.write('\n\n')
         block4.to_csv(f, index=False)
-    print(f"Publication-ready age group table saved: {output_csv_path}")
+    print(f"Publication-ready age group table (with percentages) saved: {output_csv_path}")
 
 def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
     """
