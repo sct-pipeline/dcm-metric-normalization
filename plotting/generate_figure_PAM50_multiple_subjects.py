@@ -625,6 +625,53 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                 if len(age_data) > 0:
                     age_n_subjects = len(age_data['participant_id'].unique())
                     print(f"Age group '{age}': {age_n_subjects} subjects") if metric == 'MEAN(area)' else None
+
+                    # Additional detailed compression stats (print only once per metric set to avoid repetition across metrics)
+                    if metric == 'MEAN(area)' and metric_idx == 0:
+                        # Work on per-subject unique rows to summarize compression features
+                        per_subj = age_data[['participant_id']].drop_duplicates().copy()
+                        # Bring existing stenosis-related columns if present
+                        possible_cols = ['stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'highest_stenosis', 'stenosis_levels']
+                        for col in possible_cols:
+                            if col in age_data.columns:
+                                per_subj = per_subj.merge(age_data[['participant_id', col]].drop_duplicates('participant_id'), on='participant_id', how='left')
+                        # If stenosis levels not pre-parsed but 'stenosis' string exists, parse
+                        if 'stenosis' in per_subj.columns and 'stenosis_levels' not in per_subj.columns:
+                            per_subj['stenosis_levels'] = per_subj['stenosis'].apply(lambda x: [lvl.strip() for lvl in str(x).split(',')] if pd.notna(x) and x != 'NA' else [])
+                        # Derive number of stenosis levels if missing
+                        if 'num_of_stenosis' not in per_subj.columns:
+                            if 'stenosis_levels' in per_subj.columns:
+                                per_subj['num_of_stenosis'] = per_subj['stenosis_levels'].apply(len)
+                        # Derive single vs multi if missing
+                        if 'single_vs_multi_stenosis' not in per_subj.columns and 'num_of_stenosis' in per_subj.columns:
+                            per_subj['single_vs_multi_stenosis'] = per_subj['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else ('Multi-level stenosis' if x > 1 else 'Unknown'))
+                        # Derive highest_stenosis if missing
+                        if 'highest_stenosis' not in per_subj.columns and 'stenosis_levels' in per_subj.columns:
+                            if '_get_highest_stenosis' in globals():
+                                per_subj['highest_stenosis'] = per_subj['stenosis_levels'].apply(_get_highest_stenosis)
+                            else:
+                                per_subj['highest_stenosis'] = 'NA'
+                        # Prepare summaries (exclude subjects without stenosis info)
+                        valid_mask = per_subj['num_of_stenosis'].notna() if 'num_of_stenosis' in per_subj.columns else pd.Series([False]*len(per_subj))
+                        comp_summary = {}
+                        if valid_mask.any():
+                            # Distribution of number of compressions
+                            comp_counts = per_subj.loc[valid_mask, 'num_of_stenosis'].value_counts().sort_index().to_dict()
+                            comp_summary['num_of_compressions_distribution'] = comp_counts
+                            # Single vs multi
+                            if 'single_vs_multi_stenosis' in per_subj.columns:
+                                single_multi_counts = per_subj.loc[valid_mask, 'single_vs_multi_stenosis'].value_counts().to_dict()
+                                comp_summary['single_vs_multi'] = single_multi_counts
+                            # Highest compression level distribution
+                            if 'highest_stenosis' in per_subj.columns:
+                                highest_counts = per_subj.loc[valid_mask & per_subj['highest_stenosis'].notna(), 'highest_stenosis'].value_counts().to_dict()
+                                comp_summary['highest_stenosis_levels'] = highest_counts
+                            # Maximum number of compressions observed
+                            comp_summary['max_num_of_compressions'] = int(per_subj.loc[valid_mask, 'num_of_stenosis'].max())
+                        else:
+                            comp_summary['info'] = 'No stenosis data available for this age group'
+                        print(f"Age group '{age}' compression summary: {comp_summary}")
+
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=age_data, errorbar='sd',
                                 linewidth=2, color=AGE_GROUP_COLORS[age],
                                 label=f"Age {age} (n={age_n_subjects})")
