@@ -565,6 +565,81 @@ def _build_age_group_compression_table(subjects_df, output_csv_path):
     print(f"Age group compression summary table saved: {output_csv_path}")
     return table_df
 
+
+def _save_age_group_compression_table_formatted(table_df, output_csv_path):
+    """Save the age-group compression summary into a publication-ready multi-block CSV
+    resembling the provided screenshot (separate header for each block and blank lines between blocks).
+    Blocks:
+      1) age_group | n_subjects_total
+      2) age_group | count_num_of_stenosis_1..4
+      3) age_group | single_stenosis_count | multi_level_stenosis_count
+      4) age_group | highest_stenosis_C2/C3 .. highest_stenosis_C6/C7
+    """
+    age_groups = ['<50', '50-65', '>65']
+
+    # Ensure age_group ordering and fill missing rows
+    def _order(df, cols):
+        out = df.copy()
+        out = out[cols]
+        out['age_group'] = pd.Categorical(out['age_group'], categories=age_groups, ordered=True)
+        out = out.sort_values('age_group')
+        # Reindex to guarantee all groups exist
+        idx = pd.Index(age_groups, name='age_group')
+        out = out.set_index('age_group').reindex(idx).reset_index()
+        # Fill NaN with 0 for counts (except age_group)
+        for c in out.columns:
+            if c != 'age_group':
+                out[c] = out[c].fillna(0).astype(int)
+        return out
+
+    # Block 1: total subjects
+    cols_block1 = [c for c in ['age_group', 'n_subjects_total'] if c in table_df.columns]
+    block1 = _order(table_df, cols_block1)
+
+    # Block 2: distribution by number of stenosis levels (1..4)
+    for_needed = ['count_num_of_stenosis_1', 'count_num_of_stenosis_2', 'count_num_of_stenosis_3', 'count_num_of_stenosis_4']
+    for c in for_needed:
+        if c not in table_df.columns:
+            table_df[c] = 0
+    cols_block2 = ['age_group'] + for_needed
+    block2 = _order(table_df, cols_block2)
+
+    # Block 3: single vs multi
+    for_needed = ['single_stenosis_count', 'multi_level_stenosis_count']
+    for c in for_needed:
+        if c not in table_df.columns:
+            table_df[c] = 0
+    cols_block3 = ['age_group'] + for_needed
+    block3 = _order(table_df, cols_block3)
+
+    # Block 4: highest stenosis level distribution (rename headers to include slashes)
+    level_cols_internal = ['highest_stenosis_C2_C3', 'highest_stenosis_C3_C4', 'highest_stenosis_C4_C5', 'highest_stenosis_C5_C6', 'highest_stenosis_C6_C7']
+    for c in level_cols_internal:
+        if c not in table_df.columns:
+            table_df[c] = 0
+    cols_block4 = ['age_group'] + level_cols_internal
+    block4 = _order(table_df, cols_block4)
+    # Rename to add slashes for readability
+    rename_map = {
+        'highest_stenosis_C2_C3': 'highest_stenosis_C2/C3',
+        'highest_stenosis_C3_C4': 'highest_stenosis_C3/C4',
+        'highest_stenosis_C4_C5': 'highest_stenosis_C4/C5',
+        'highest_stenosis_C5_C6': 'highest_stenosis_C5/C6',
+        'highest_stenosis_C6_C7': 'highest_stenosis_C6/C7',
+    }
+    block4 = block4.rename(columns=rename_map)
+
+    # Write multi-block CSV with blank lines between blocks
+    with open(output_csv_path, 'w', newline='') as f:
+        block1.to_csv(f, index=False)
+        f.write('\n\n')
+        block2.to_csv(f, index=False)
+        f.write('\n\n')
+        block3.to_csv(f, index=False)
+        f.write('\n\n')
+        block4.to_csv(f, index=False)
+    print(f"Publication-ready age group table saved: {output_csv_path}")
+
 def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
     """
     Create figure with mean and std of morphometric metrics across subjects, separately for multiple sessions
@@ -954,7 +1029,9 @@ def main():
     # Save age group compression table if age stratification selected
     if args.stratify == 'age':
         age_table_csv = os.path.join(path_out, f"{figure_basename}_age_group_compression_summary.csv")
-        _build_age_group_compression_table(subjects_df, age_table_csv)
+        table_df = _build_age_group_compression_table(subjects_df, age_table_csv)
+        formatted_csv = os.path.join(path_out, f"{figure_basename}_age_group_compression_summary_formatted.csv")
+        _save_age_group_compression_table_formatted(table_df, formatted_csv)
 
 
 
