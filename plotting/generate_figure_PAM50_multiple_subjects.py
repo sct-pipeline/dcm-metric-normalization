@@ -917,7 +917,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         valid_mjoa = [k for k in MJOA_COLORS.keys() if k not in ['unknown', 'severe (mJOA ≤ 11)']]
         plotted_subjects = subjects_df[subjects_df['mJOA_severity'].isin(valid_mjoa)]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
-        stratification_info = f"(n={n_subjects_plot} subjects) stratified by mJOA severity (dropping 'severe' and 'unknown' mJOA)"
+        # stratification_info = f"(n={n_subjects_plot} subjects) stratified by mJOA severity (dropping 'severe' and 'unknown' mJOA)"
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by mJOA severity"
     elif stratify_type == 'age':
         plotted_subjects = subjects_df[subjects_df['age_group'].isin(['<50', '50-65', '>65'])]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
