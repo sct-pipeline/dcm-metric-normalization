@@ -418,22 +418,19 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
         sys.exit(f"Warning: Participants file not found: {participants_file}")
 
     if clinical_file and os.path.isfile(clinical_file):
-        df_clinical = pd.read_excel(clinical_file, usecols=['record_id', 'total_mjoa_bl'])
+        df_clinical = pd.read_excel(clinical_file, usecols=['record_id', 'total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth'])
         # Format record_id to match participant_id format (e.g., `1` to `sub-001`)
         df_clinical['participant_id'] = df_clinical['record_id'].apply(lambda x: f'sub-{int(x):03d}')
         # Drop record_id column
         df_clinical = df_clinical.drop(columns=['record_id'])
         # Stratify mJOA
-        df_clinical['mJOA_severity'] = df_clinical['total_mjoa_bl'].apply(_stratify_mjoa)
+        df_clinical['mJOA_severity_bl'] = df_clinical['total_mjoa_bl'].apply(_stratify_mjoa)
 
-        if 'total_mjoa_bl' in df_clinical.columns:
-            # Merge mJOA data
-            subjects_df = subjects_df.merge(
-                df_clinical[['participant_id', 'mJOA_severity']],
-                on='participant_id', how='left'
-            )
-        else:
-            sys.exit("Warning: 'total_mjoa_bl' column not found in clinical file")
+        # Merge mJOA data
+        subjects_df = subjects_df.merge(
+            df_clinical[['participant_id', 'total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth', 'mJOA_severity_bl']],
+            on='participant_id', how='left'
+        )
     else:
         sys.exit(f"Warning: Clinical file not found: {clinical_file}")
 
@@ -903,14 +900,14 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
 
         elif stratify_type == 'mjoa':
             # Plot by mJOA severity groups instead of sessions
-            mjoa_groups = subjects_df['mJOA_severity'].unique()
+            mjoa_groups = subjects_df['mJOA_severity_bl'].unique()
             # Filter out 'unknown' and 'severe' groups, and only keep those in MJOA_COLORS
             mjoa_groups = sorted([mjoa for mjoa in mjoa_groups
                                   if mjoa in MJOA_COLORS
                                   and mjoa not in ['unknown', 'severe (mJOA ≤ 11)']])
 
             for mjoa in mjoa_groups:
-                mjoa_data = subjects_df[subjects_df['mJOA_severity'] == mjoa]
+                mjoa_data = subjects_df[subjects_df['mJOA_severity_bl'] == mjoa]
                 if len(mjoa_data) > 0:
                     mjoa_n_subjects = len(mjoa_data['participant_id'].unique()) if metric == 'MEAN(area)' else None
                     print(f"mJOA severity group '{mjoa}': {mjoa_n_subjects} subjects") if metric == 'MEAN(area)' else None
@@ -1034,7 +1031,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by Therapeutic Decision"
     elif stratify_type == 'mjoa':
         valid_mjoa = [k for k in MJOA_COLORS.keys() if k not in ['unknown', 'severe (mJOA ≤ 11)']]
-        plotted_subjects = subjects_df[subjects_df['mJOA_severity'].isin(valid_mjoa)]['participant_id'].unique()
+        plotted_subjects = subjects_df[subjects_df['mJOA_severity_bl'].isin(valid_mjoa)]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         # stratification_info = f"(n={n_subjects_plot} subjects) stratified by mJOA severity (dropping 'severe' and 'unknown' mJOA)"
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by mJOA severity"
