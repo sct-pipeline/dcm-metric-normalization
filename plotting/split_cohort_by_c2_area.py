@@ -168,8 +168,8 @@ def _test_symbol(test_name):
     Map test name to symbol used in table
     """
     mapping = {
-        'chi2': '*',
-        'fisher_exact': '*',
+        'chi2': '#',
+        'fisher_exact': '#',
         't-test': '\u2020',
         'mannwhitney': '§'
     }
@@ -470,7 +470,7 @@ def prepare_table(grouped_subjects_c2, path_out):
     # Append footnotes describing which tests were used (do not repeat per-variable)
     footnotes = []
     if 'chi2' in tests_used or 'fisher_exact' in tests_used:
-        note = "*Determined with the x2 test"
+        note = "#Determined with the x2 test"
         if 'fisher_exact' in tests_used:
             note += " (Fisher exact test used for 2x2 tables with expected count < 5)"
         note += "."
