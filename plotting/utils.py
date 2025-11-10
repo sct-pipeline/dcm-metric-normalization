@@ -42,7 +42,10 @@ def load_normative_df_c2(normative_dir, participants_file=None):
 def _categorize_c2_area(area, mean_c2_cord_normative):
     """
     Categorize C2 cord area as 'Below normative mean C2' or 'Above normative mean C2'. based on normative mean cord area.
+    Returns None for missing data.
     """
+    if pd.isna(area) or pd.isna(mean_c2_cord_normative):
+        return None
     if area < mean_c2_cord_normative:
         return 'Below normative mean C2 cord area'
     else:
