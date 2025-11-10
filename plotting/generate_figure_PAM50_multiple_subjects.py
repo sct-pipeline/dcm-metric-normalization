@@ -663,6 +663,125 @@ def _save_age_group_compression_table_formatted(table_df, output_csv_path):
         block4.to_csv(f, index=False)
     print(f"Publication-ready age group table (with percentages) saved: {output_csv_path}")
 
+def _build_myelopathy_compression_table(subjects_df, output_csv_path):
+    """Create publication-ready table summarizing compression stats per myelopathy group (yes/no) and save to CSV.
+    Columns mirror age-group table but grouped by Myelopathy ('yes','no')."""
+    groups = ['yes', 'no']  # keep order
+    stenosis_levels_order = ['C2/C3', 'C3/C4', 'C4/C5', 'C5/C6', 'C6/C7']
+    rows = []
+    # Collapse to unique subject rows with relevant columns
+    subj_df = subjects_df[['participant_id', 'Myelopathy']].drop_duplicates()
+    for col in ['stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'highest_stenosis', 'stenosis_levels']:
+        if col in subjects_df.columns:
+            subj_df = subj_df.merge(subjects_df[['participant_id', col]].drop_duplicates('participant_id'), on='participant_id', how='left')
+    if 'stenosis_levels' not in subj_df.columns and 'stenosis' in subj_df.columns:
+        subj_df['stenosis_levels'] = subj_df['stenosis'].apply(lambda x: [lvl.strip() for lvl in str(x).split(',')] if pd.notna(x) and x != 'NA' else [])
+    if 'num_of_stenosis' not in subj_df.columns and 'stenosis_levels' in subj_df.columns:
+        subj_df['num_of_stenosis'] = subj_df['stenosis_levels'].apply(len)
+    if 'single_vs_multi_stenosis' not in subj_df.columns and 'num_of_stenosis' in subj_df.columns:
+        subj_df['single_vs_multi_stenosis'] = subj_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else ('Multi-level stenosis' if x > 1 else 'Unknown'))
+    if 'highest_stenosis' not in subj_df.columns and 'stenosis_levels' in subj_df.columns:
+        subj_df['highest_stenosis'] = subj_df['stenosis_levels'].apply(_get_highest_stenosis)
+
+    for grp in groups:
+        g_df = subj_df[subj_df['Myelopathy'] == grp]
+        total_n = len(g_df)
+        if 'num_of_stenosis' in g_df.columns:
+            valid_mask = g_df['num_of_stenosis'].notna() & (g_df['num_of_stenosis'] > 0)
+        else:
+            valid_mask = pd.Series([False]*len(g_df), index=g_df.index)
+        with_data = int(valid_mask.sum())
+        row = {
+            'Myelopathy': grp,
+            'Total number of subjects': total_n,
+            'n_subjects_with_stenosis_data': with_data,
+        }
+        if with_data == 0:
+            row.update({'Single stenosis count': 0, 'Multi-level stenosis count': 0})
+            for k in range(1,5):
+                row[f'Num of stenosis: {k}'] = 0
+            for lvl in stenosis_levels_order:
+                row[f'Highest stenosis: {lvl}'] = 0
+            row['note'] = 'No stenosis data'
+        else:
+            valid_df = g_df.loc[valid_mask]
+            num_counts = valid_df['num_of_stenosis'].value_counts().to_dict()
+            for k in range(1,5):
+                row[f'Num of stenosis: {k}'] = int(num_counts.get(k, 0))
+            if 'single_vs_multi_stenosis' in valid_df.columns:
+                sm_counts = valid_df['single_vs_multi_stenosis'].value_counts().to_dict()
+                row['Single stenosis count'] = int(sm_counts.get('Single stenosis', 0))
+                row['Multi-level stenosis count'] = int(sm_counts.get('Multi-level stenosis', 0))
+            else:
+                row['Single stenosis count'] = 0
+                row['Multi-level stenosis count'] = 0
+            if 'highest_stenosis' in valid_df.columns:
+                highest_counts = valid_df['highest_stenosis'].value_counts().to_dict()
+                for lvl in stenosis_levels_order:
+                    row[f'Highest stenosis: {lvl}'] = int(highest_counts.get(lvl, 0))
+            else:
+                for lvl in stenosis_levels_order:
+                    row[f'Highest stenosis: {lvl}'] = 0
+        rows.append(row)
+    out_df = pd.DataFrame(rows)
+    out_df.to_csv(output_csv_path, index=False)
+    print(f"Myelopathy compression summary table saved: {output_csv_path}")
+    return out_df
+
+
+def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
+    """Formatted multi-block CSV for myelopathy compression summary (counts with percentages in single cells)."""
+    groups = ['yes', 'no']
+    def _order(df, cols):
+        out = df.copy()[cols]
+        out['Myelopathy'] = pd.Categorical(out['Myelopathy'], categories=groups, ordered=True)
+        out = out.sort_values('Myelopathy')
+        idx = pd.Index(groups, name='Myelopathy')
+        out = out.set_index('Myelopathy').reindex(idx).reset_index()
+        return out
+    denom = _order(table_df, ['Myelopathy', 'n_subjects_with_stenosis_data']).rename(columns={'n_subjects_with_stenosis_data': '_den'})
+    def _add_pct(block, count_cols):
+        b = block.merge(denom, on='Myelopathy', how='left')
+        for c in count_cols:
+            d = b['_den'].replace({0: np.nan})
+            pct = (b[c] / d) * 100.0
+            pct = pct.fillna(0).round(1)
+            b[c + '_pct'] = pct
+        b = b.drop(columns=['_den'])
+        cols = ['Myelopathy']
+        for c in count_cols:
+            cols += [c, c + '_pct']
+        return b[cols]
+    def _combine(block_df, count_cols):
+        out = block_df.copy()
+        for c in count_cols:
+            out[c] = out.apply(lambda r: f"{int(r[c])} ({r[c + '_pct']:.1f}%)", axis=1)
+            out = out.drop(columns=[c + '_pct'])
+        return out[['Myelopathy'] + count_cols]
+    # Block1
+    block1 = _order(table_df, ['Myelopathy', 'Total number of subjects'])
+    # Block2 num of stenosis
+    needed2 = ['Num of stenosis: 1', 'Num of stenosis: 2', 'Num of stenosis: 3', 'Num of stenosis: 4']
+    for c in needed2:
+        if c not in table_df.columns: table_df[c] = 0
+    block2 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + needed2), needed2), needed2)
+    # Block3 single vs multi
+    needed3 = ['Single stenosis count', 'Multi-level stenosis count']
+    for c in needed3:
+        if c not in table_df.columns: table_df[c] = 0
+    block3 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + needed3), needed3), needed3)
+    # Block4 highest stenosis
+    internal4 = ['Highest stenosis: C2/C3', 'Highest stenosis: C3/C4', 'Highest stenosis: C4/C5', 'Highest stenosis: C5/C6', 'Highest stenosis: C6/C7']
+    for c in internal4:
+        if c not in table_df.columns: table_df[c] = 0
+    block4 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal4), internal4), internal4)
+    with open(output_csv_path, 'w', newline='') as f:
+        block1.to_csv(f, index=False)
+        f.write('\n\n'); block2.to_csv(f, index=False)
+        f.write('\n\n'); block3.to_csv(f, index=False)
+        f.write('\n\n'); block4.to_csv(f, index=False)
+    print(f"Publication-ready myelopathy table (with percentages) saved: {output_csv_path}")
+
 def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
     """
     Create figure with mean and std of morphometric metrics across subjects, separately for multiple sessions
@@ -1056,6 +1175,12 @@ def main():
         table_df = _build_age_group_compression_table(subjects_df, age_table_csv)
         formatted_csv = os.path.join(path_out, f"{figure_basename}_age_group_compression_summary_formatted.csv")
         _save_age_group_compression_table_formatted(table_df, formatted_csv)
+    # Save myelopathy compression table if myelopathy stratification selected
+    if args.stratify == 'myelopathy':
+        myelo_table_csv = os.path.join(path_out, f"{figure_basename}_myelopathy_compression_summary.csv")
+        myelo_df = _build_myelopathy_compression_table(subjects_df, myelo_table_csv)
+        myelo_formatted_csv = os.path.join(path_out, f"{figure_basename}_myelopathy_compression_summary_formatted.csv")
+        _save_myelopathy_compression_table_formatted(myelo_df, myelo_formatted_csv)
 
 
 
