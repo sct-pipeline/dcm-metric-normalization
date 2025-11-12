@@ -271,7 +271,7 @@ else
     # Generate QC report to assess labeled segmentation
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
     # Intervertebral discs labeling and vertebrae segmentation and generate QC report
-    sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    #sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 
     # -------------
     # Compute spinal cord morphometrics
