@@ -54,9 +54,9 @@ segment_if_does_not_exist() {
   local file="$1"
   local contrast="$2"   # only for logging
   # Update global variable with segmentation file name
-  FILESEG="${file}_label-SC_mask"
+  FILESEG="${file}_label-SC_seg"
   # Getting the path for manual segmentation for each session
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
