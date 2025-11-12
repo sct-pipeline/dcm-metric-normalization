@@ -2,6 +2,18 @@
 Create trajectory plots for longitudinal clinical scores.
 Generates one figure per score (e.g., mJOA, Nurick), connecting each
 participant across sessions and overlaying mean ± SD per session.
+
+Example usage single stratification:
+python plotting/plot_clinical_trajectories.py \
+    -clinical-file data/clinical_scores.xlsx \
+    -o figures/clinical_trajectories \
+    --stratify-by therapeutic_decision
+
+Example usage dual stratification:
+python plotting/plot_clinical_trajectories.py \
+    -clinical-file data/clinical_scores.xlsx \
+    -o figures/clinical_trajectories \
+    --stratify-by therapeutic_decision,normative_mean_c2
 """
 
 import os
@@ -30,6 +42,30 @@ SCORES = {
         'columns': ['nurick_bl', 'nurick_6mth', 'nurick_12mth'],
         'y_label': 'Nurick grade'
     },
+    'Pinprick total': {
+        'columns': ['pinprick_total_bl', 'pinprick_total_6mth', 'pinprick_total_12mth'],
+        'y_label': 'Pinprick total score'
+    },
+    'Pinprick cervical': {
+        'columns': ['pp_cervical_tot_bl', 'pp_cervical_tot_6mth', 'pp_cervical_tot_12mth'],
+        'y_label': 'Pinprick cervical score'
+    },
+    'Pinprick below cervical': {
+        'columns': ['pp_below_cervical_tot_bl', 'pp_below_cervical_tot_6mth', 'pp_below_cervical_tot_12mth'],
+        'y_label': 'Pinprick below cervical score'
+    },
+    'Lightouch total': {
+        'columns': ['lighttouch_total_bl', 'lighttouch_total_6mth', 'lighttouch_total_12mth'],
+        'y_label': 'Light touch total score'
+    },
+    'Lightouch cervical': {
+        'columns': ['lt_cervical_tot_bl', 'lt_cervical_tot_6mth', 'lt_cervical_tot_12mth'],
+        'y_label': 'Light touch cervical score'
+    },
+    'Lightouch below cervical': {
+        'columns': ['lt_below_cervical_tot_bl', 'lt_below_cervical_tot_6mth', 'lt_below_cervical_tot_12mth'],
+        'y_label': 'Light touch below cervical score'
+    },
 }
 
 # Session labels to display (same length and order as each score's columns)
@@ -41,6 +77,21 @@ STRATIFICATION_TO_TITLE = {
     'therapeutic_decision': 'therapeutic decision'
 }
 
+# Allow per-score y-axis limits; extend/edit as needed
+SCORE_TO_YLIM = {
+    'mJOA': (11, 18.5),
+    'Nurick': (0, 5),
+    'Pinprick total': (60, 115),
+    'Pinprick cervical': (18, 30),
+    'Pinprick below cervical': (50, 90),
+    'Lightouch total': (70, 115),
+    'Lightouch cervical': (18, 30),
+    'Lightouch below cervical': (50, 90),
+}
+
+
+def _get_ylim_for_score(score_name: str):
+    return SCORE_TO_YLIM.get(score_name)
 
 
 def _palette_for_strata(strata_values, stratify_by):
@@ -81,6 +132,88 @@ def _palette_for_strata(strata_values, stratify_by):
     return colors
 
 
+def _markers_for_strata(strata_values, stratify_by):
+    """Return a dict mapping each stratum value to a marker style.
+    Use sensible defaults for common strata; fallback to a cycle of markers.
+    """
+    # Prefer explicit mapping for known keys
+    if stratify_by == 'normative_mean_c2':
+        base = {
+            'Above normative mean C2 cord area': 'o',
+            'Below normative mean C2 cord area': 's',
+        }
+    elif stratify_by == 'therapeutic_decision':
+        base = {
+            'operative': 'o',
+            'conservative': 's',
+        }
+    elif stratify_by == 'myelopathy':
+        base = {
+            'yes': 'o',
+            'no': 's',
+        }
+    else:
+        base = {}
+
+    cycle = ['o', 's', '^', 'D', 'v', 'P', 'X', '*']
+    markers = {}
+    idx = 0
+    for v in strata_values:
+        if v in base:
+            markers[v] = base[v]
+        else:
+            markers[v] = cycle[idx % len(cycle)]
+            idx += 1
+    return markers
+
+
+def _linestyles_for_strata(strata_values, stratify_by):
+    """Return a dict mapping each stratum value to a line style (e.g., '-', '--')."""
+    if stratify_by == 'normative_mean_c2':
+        base = {
+            'Above normative mean C2 cord area': '-',
+            'Below normative mean C2 cord area': '--',
+        }
+    elif stratify_by == 'therapeutic_decision':
+        base = {
+            'operative': '-',
+            'conservative': '--',
+        }
+    elif stratify_by == 'myelopathy':
+        base = {
+            'yes': '-',
+            'no': '--',
+        }
+    else:
+        base = {}
+    cycle = ['-', '--', ':', '-.']
+    styles = {}
+    idx = 0
+    for v in strata_values:
+        if v in base:
+            styles[v] = base[v]
+        else:
+            styles[v] = cycle[idx % len(cycle)]
+            idx += 1
+    return styles
+
+
+def _parse_stratify_arg(val: str | None):
+    """Parse --stratify-by argument into a list of 0, 1, or 2 keys.
+    Accepts comma-separated string (e.g., 'therapeutic_decision,normative_mean_c2').
+    Caps the number of keys at 2.
+    """
+    if not val:
+        return []
+    if isinstance(val, str):
+        parts = [p.strip() for p in val.split(',') if p.strip()]
+    else:
+        # Shouldn't happen with argparse here, but keep safe
+        parts = list(val)
+    # Keep max two
+    return parts[:2]
+
+
 def get_parser():
     p = argparse.ArgumentParser(description='Plot longitudinal clinical score trajectories (one figure per score).')
     p.add_argument('-clinical-file', required=True, type=str,
@@ -91,9 +224,10 @@ def get_parser():
                    help='Subject ID column in the clinical Excel (default: record_id)')
     p.add_argument('--scores', dest='scores', nargs='*', default=list(SCORES.keys()),
                    help='Subset of scores to plot (default: all known)')
-    # Stratification option: if provided, one stratified overlay figure will be saved with filename including the column name
+    # Stratification option: can provide one or two columns separated by comma
     p.add_argument('--stratify-by', type=str, default=None,
-                   help='Column to stratify by (e.g., myelopathy, normative_mean_c2). If not in clinical Excel, provide --participants-file.')
+                   help='Column(s) to stratify by. Provide one or two, comma-separated (e.g., "therapeutic_decision,normative_mean_c2"). '
+                        'If not in clinical Excel, provide --participants-file.')
     p.add_argument('--participants-file', type=str, default=None,
                    help='Path to participants.tsv to fetch stratification columns like myelopathy or normative_mean_c2 (tab-separated).')
     return p
@@ -120,7 +254,7 @@ def load_clinical_excel(path_xlsx: str, subject_col: str) -> pd.DataFrame:
     return df
 
 
-def build_long_df_for_score(df: pd.DataFrame, score_name: str, columns: list[str], session_labels: list[str], stratify_by: str | None = None) -> pd.DataFrame:
+def build_long_df_for_score(df: pd.DataFrame, score_name: str, columns: list[str], session_labels: list[str], stratify_by: list[str] | str | None = None) -> pd.DataFrame:
     # Require that all expected session columns exist; otherwise skip this score
     if not all(c in df.columns for c in columns):
         return pd.DataFrame(columns=['participant_id', 'session_numeric', 'session_label', 'score'])
@@ -130,9 +264,14 @@ def build_long_df_for_score(df: pd.DataFrame, score_name: str, columns: list[str
     for c in columns:
         df_num[c] = pd.to_numeric(df_num[c], errors='coerce')
 
+    # Normalize stratify_by to a list of 0-2 keys
+    keys = _parse_stratify_arg(stratify_by) if isinstance(stratify_by, str) or stratify_by is None else list(stratify_by)
+    keys = keys[:2]
+
     drop_subset = columns.copy()
-    if stratify_by is not None and stratify_by in df_num.columns:
-        drop_subset = drop_subset + [stratify_by]
+    for k in keys:
+        if k in df_num.columns:
+            drop_subset.append(k)
     df_complete = df_num.dropna(subset=drop_subset)
 
     if df_complete.empty:
@@ -141,15 +280,20 @@ def build_long_df_for_score(df: pd.DataFrame, score_name: str, columns: list[str
     # Build long-format from complete cases only
     records = []
     for s_num, (col, lab) in enumerate(zip(columns, session_labels), start=1):
-        for _, row in df_complete[['participant_id', col] + ([stratify_by] if stratify_by and stratify_by in df_complete.columns else [])].iterrows():
+        base_cols = ['participant_id', col]
+        extra_cols = [k for k in keys if k in df_complete.columns]
+        use_cols = base_cols + extra_cols
+        for _, row in df_complete[use_cols].iterrows():
             rec = {
                 'participant_id': row['participant_id'],
                 'session_numeric': s_num,
                 'session_label': lab,
                 'score': float(row[col]),
             }
-            if stratify_by and stratify_by in df_complete.columns:
-                rec['stratum'] = row[stratify_by]
+            if len(extra_cols) >= 1:
+                rec['stratum1'] = row[extra_cols[0]]
+            if len(extra_cols) >= 2:
+                rec['stratum2'] = row[extra_cols[1]]
             records.append(rec)
     return pd.DataFrame.from_records(records)
 
@@ -178,12 +322,17 @@ def plot_score_trajectory(plot_df: pd.DataFrame, score_name: str, y_label: str, 
     width = max(6, int(2.5 * len(sessions)))
     fig, ax = plt.subplots(1, 1, figsize=(width, 4))
 
+    # Apply custom y-limits if provided for this score
+    ylim = _get_ylim_for_score(score_name)
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
     # Plot individual trajectories (only when subject has >1 time points)
     for pid, g in plot_df.groupby('participant_id'):
         g_sorted = g.sort_values('session_numeric')
         if len(g_sorted) > 1:
             ax.plot(g_sorted['session_numeric'], g_sorted['score'],
-                    color='black', alpha=0.5, linewidth=1, marker='o', markersize=0, linestyle='dashed', zorder=3)
+                    color='black', alpha=0.3, linewidth=0.5, marker='o', markersize=0, linestyle='dashed', zorder=3)
 
     # Mean ± SD per session
     stats = _compute_session_stats(plot_df)
@@ -192,7 +341,7 @@ def plot_score_trajectory(plot_df: pd.DataFrame, score_name: str, y_label: str, 
         xs = [d['session_numeric'] for d in stats]
         means = [d['mean'] for d in stats]
         stds = [d['std'] for d in stats]
-        ax.plot(xs, means, color='blue', linewidth=3, marker='o', markersize=6, label='Mean ± SD', zorder=6)
+        ax.plot(xs, means, color='blue', linewidth=2, marker='o', markersize=3, label='Mean ± SD', zorder=6)
         ax.errorbar(xs, means, yerr=stds, color='blue', capsize=4, capthick=2, linestyle='None', zorder=5)
         # Annotate mean ± SD values near each mean point
         for i, (x, m, s) in enumerate(zip(xs, means, stds)):
@@ -245,6 +394,11 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
     width = max(6, int(2.8 * len(sessions)))
     fig, ax = plt.subplots(1, 1, figsize=(width, 4))
 
+    # Apply custom y-limits if provided for this score
+    ylim = _get_ylim_for_score(score_name)
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
     # Determine strata order and labels from data
     strata_vals = list(plot_df['stratum'].dropna().unique())
     try:
@@ -280,7 +434,7 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
             g_sorted = g.sort_values('session_numeric')
             if len(g_sorted) > 1:
                 ax.plot(g_sorted['session_numeric'], g_sorted['score'],
-                        color=colors[val], alpha=0.35, linewidth=1, linestyle='dashed', zorder=3)
+                        color=colors[val], alpha=0.3, linewidth=0.5, linestyle='solid', zorder=3)
 
         # Mean ± SD per session for this stratum
         stats = _compute_session_stats(gdf)
@@ -289,7 +443,7 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
             means = [d['mean'] for d in stats]
             stds = [d['std'] for d in stats]
             # Keep long text in legend
-            ax.plot(xs, means, color=colors[val], linewidth=3, marker='o', markersize=6, label=label_long, zorder=6)
+            ax.plot(xs, means, color=colors[val], linewidth=2, linestyle='solid', marker='o', markersize=3, label=label_long, zorder=6)
             ax.errorbar(xs, means, yerr=stds, color=colors[val], capsize=4, capthick=2, linestyle='None', zorder=5)
             # Collect values for aggregated per-session annotation (use short label)
             for d in stats:
@@ -347,6 +501,121 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
     print(f'Clinical trajectory figure saved to {out_path}')
 
 
+def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: str, y_label: str, outdir: str,
+                                            stratify_by: list[str]):
+    """Plot trajectories stratified by two factors.
+    The first factor controls color; the second controls line style. Two legends are added accordingly.
+    """
+    if plot_df.empty or 'stratum1' not in plot_df.columns or 'stratum2' not in plot_df.columns:
+        print(f"No multi-stratified data available for {score_name}; skipping.")
+        return
+
+    key1, key2 = stratify_by[0], stratify_by[1]
+
+    mpl.rcParams['font.family'] = 'Arial'
+
+    sessions = sorted(plot_df['session_numeric'].unique())
+    width = max(7, int(3.2 * len(sessions)))
+    fig, ax = plt.subplots(1, 1, figsize=(width, 4.6))
+
+    # Apply custom y-limits if provided for this score
+    ylim = _get_ylim_for_score(score_name)
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
+    # Determine unique strata
+    vals1 = list(plot_df['stratum1'].dropna().unique())
+    vals2 = list(plot_df['stratum2'].dropna().unique())
+    try:
+        strata1 = sorted(vals1)
+    except Exception:
+        strata1 = vals1
+    try:
+        strata2 = sorted(vals2)
+    except Exception:
+        strata2 = vals2
+
+    colors1 = _palette_for_strata(strata1, key1)
+    linestyles2 = _linestyles_for_strata(strata2, key2)
+
+    def _short_label(k, v):
+        if k != 'normative_mean_c2':
+            return str(v)
+        s = str(v).lower()
+        if 'above' in s:
+            return 'above'
+        if 'below' in s:
+            return 'below'
+        return str(v)
+
+    # Plot per combination
+    for v1 in strata1:
+        df1 = plot_df[plot_df['stratum1'] == v1]
+        for v2 in strata2:
+            gdf = df1[df1['stratum2'] == v2]
+            if gdf.empty:
+                continue
+            # Individual trajectories
+            for pid, g in gdf.groupby('participant_id'):
+                g_sorted = g.sort_values('session_numeric')
+                if len(g_sorted) > 1:
+                    ax.plot(g_sorted['session_numeric'], g_sorted['score'],
+                            color=colors1[v1], alpha=0.3, linewidth=0.5, linestyle=linestyles2[v2], zorder=3)
+
+            # Mean ± SD per session for this combo
+            stats = _compute_session_stats(gdf)
+            if len(stats) >= 1:
+                xs = [d['session_numeric'] for d in stats]
+                means = [d['mean'] for d in stats]
+                stds = [d['std'] for d in stats]
+                ax.plot(xs, means, color=colors1[v1], linewidth=2, marker='o', markersize=3,
+                        linestyle=linestyles2[v2], label=f"{v1} • {_short_label(key2, v2)}", zorder=6, alpha=0.95)
+                ax.errorbar(xs, means, yerr=stds, color=colors1[v1], capsize=3, capthick=1.5, linestyle='None', zorder=5)
+
+    # X ticks with per-combination n
+    tick_labels = []
+    for s in sessions:
+        lab = plot_df.loc[plot_df['session_numeric'] == s, 'session_label'].iloc[0]
+        parts = []
+        for v1 in strata1:
+            for v2 in strata2:
+                n = plot_df[(plot_df['session_numeric'] == s) & (plot_df['stratum1'] == v1) & (plot_df['stratum2'] == v2)]['participant_id'].nunique()
+                if n > 0:
+                    parts.append(f"{_short_label(key1, v1)}/{_short_label(key2, v2)}={n}")
+        parts_join = "\n".join(parts)
+        tick_labels.append(f"{lab}\n{parts_join}" if parts_join else lab)
+
+    ax.set_xticks(sessions)
+    ax.set_xticklabels(tick_labels, fontsize=TICK_FONT_SIZE)
+
+    ax.set_xlabel('Session', fontsize=LABEL_FONT_SIZE)
+    ax.set_ylabel(y_label, fontsize=LABEL_FONT_SIZE)
+    ax.set_title(f"{score_name} across sessions by {STRATIFICATION_TO_TITLE.get(key1, key1)} and {STRATIFICATION_TO_TITLE.get(key2, key2)}",
+                 fontsize=TITLE_FONT_SIZE)
+
+    ax.tick_params(axis='y', labelsize=TICK_FONT_SIZE)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+
+    # Build separate legends: one for colors (key1) and one for line styles (key2)
+    from matplotlib.lines import Line2D
+    color_handles = [Line2D([0], [0], color=colors1[v], lw=1, marker='o', markersize=3, label=str(v)) for v in strata1]
+    style_handles = [Line2D([0], [0], color='black', lw=1, linestyle=linestyles2[v], label=_short_label(key2, v)) for v in strata2]
+
+    leg1 = ax.legend(handles=color_handles, title=key1, loc='upper left', bbox_to_anchor=(1.01, 1.0),
+                     fontsize=TICK_FONT_SIZE-2, title_fontsize=TICK_FONT_SIZE-1, frameon=False)
+    ax.add_artist(leg1)
+    ax.legend(handles=style_handles, title=key2, loc='upper left', bbox_to_anchor=(1.01, 0.45),
+              fontsize=TICK_FONT_SIZE-2, title_fontsize=TICK_FONT_SIZE-1, frameon=False)
+
+    fig.tight_layout()
+    os.makedirs(outdir, exist_ok=True)
+    out_path = os.path.join(outdir, f"clinical_score_trajectory_{score_name.replace(' ', '_')}_by_{key1}_and_{key2}.png")
+    fig.savefig(out_path, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+    print(f'Clinical trajectory figure saved to {out_path}')
+
+
 def _process_myelopathy(value):
     """Map raw myelopathy to 'yes'/'no' (NA -> 'no')."""
     if pd.isna(value) or str(value).strip().lower() in {'n/a', 'na', ''}:
@@ -374,43 +643,48 @@ def _normalize_normative_c2(value):
     return s
 
 
-def merge_stratification(df_clinical: pd.DataFrame, participants_file: str | None, stratify_by: str | None) -> pd.DataFrame:
-    """Merge stratification column from participants.tsv into clinical dataframe when needed."""
-    if not stratify_by:
+def merge_stratification(df_clinical: pd.DataFrame, participants_file: str | None, stratify_by: list[str] | str | None) -> pd.DataFrame:
+    """Merge one or two stratification columns from participants.tsv into clinical dataframe when needed."""
+    keys = _parse_stratify_arg(stratify_by) if isinstance(stratify_by, str) or stratify_by is None else list(stratify_by)
+    if len(keys) == 0:
         return df_clinical
 
-    # If the stratify column already exists in clinical DF, nothing to merge
-    if stratify_by in df_clinical.columns:
-        return df_clinical
+    df_out = df_clinical.copy()
 
     if not participants_file or not os.path.isfile(participants_file):
-        print(f"Warning: participants file not provided or not found; cannot fetch '{stratify_by}'.")
-        return df_clinical
+        if any(k not in df_out.columns for k in keys):
+            print(f"Warning: participants file not provided or not found; cannot fetch {keys}.")
+        return df_out
 
     try:
         df_part = pd.read_csv(participants_file, sep='\t')
     except Exception as e:
         print(f"Warning: failed to read participants TSV: {e}")
-        return df_clinical
+        return df_out
 
     if 'participant_id' not in df_part.columns:
         print("Warning: 'participant_id' missing in participants.tsv; cannot merge stratification.")
-        return df_clinical
+        return df_out
 
-    if stratify_by not in df_part.columns:
-        print(f"Warning: '{stratify_by}' not found in participants.tsv; cannot merge stratification.")
-        return df_clinical
+    # Prepare subset with available keys
+    available = [k for k in keys if k in df_part.columns and k not in df_out.columns]
+    if len(available) == 0:
+        # Nothing to merge (either not found, or already present)
+        missing = [k for k in keys if (k not in df_part.columns and k not in df_out.columns)]
+        if missing:
+            print(f"Warning: {missing} not found in participants.tsv; cannot merge these.")
+        return df_out
 
-    # Prepare subset with the stratification column
-    df_sub = df_part[['participant_id', stratify_by]].copy()
+    df_sub = df_part[['participant_id'] + available].copy()
 
     # Special handling
-    if stratify_by == 'myelopathy':
-        df_sub[stratify_by] = df_sub[stratify_by].apply(_process_myelopathy)
-    elif stratify_by == 'normative_mean_c2':
-        df_sub[stratify_by] = df_sub[stratify_by].apply(_normalize_normative_c2)
+    for k in available:
+        if k == 'myelopathy':
+            df_sub[k] = df_sub[k].apply(_process_myelopathy)
+        elif k == 'normative_mean_c2':
+            df_sub[k] = df_sub[k].apply(_normalize_normative_c2)
 
-    merged = df_clinical.merge(df_sub, on='participant_id', how='left')
+    merged = df_out.merge(df_sub, on='participant_id', how='left')
     return merged
 
 
@@ -418,8 +692,9 @@ def main():
     args = get_parser().parse_args()
 
     df = load_clinical_excel(args.clinical_file, args.subject_col)
-    # Merge stratification info from participants.tsv if needed
-    df = merge_stratification(df, args.participants_file, args.stratify_by)
+    # Parse and merge stratification info from participants.tsv if needed
+    strat_keys = _parse_stratify_arg(args.stratify_by)
+    df = merge_stratification(df, args.participants_file, strat_keys)
 
     # For each requested score, build long-format DF and plot
     for score in args.scores:
@@ -428,16 +703,22 @@ def main():
             continue
         cfg = SCORES[score]
 
-        plot_df = build_long_df_for_score(df, score, cfg['columns'], SESSION_LABELS_DEFAULT, stratify_by=args.stratify_by)
+        plot_df = build_long_df_for_score(df, score, cfg['columns'], SESSION_LABELS_DEFAULT, stratify_by=strat_keys)
         if plot_df.empty:
             print(f"No data available for {score} with complete sessions: {cfg['columns']}")
             continue
 
         # If no stratification requested, plot a single non-stratified figure
-        if not args.stratify_by or 'stratum' not in plot_df.columns:
+        if len(strat_keys) == 0 or (len(strat_keys) >= 1 and 'stratum1' not in plot_df.columns):
             plot_score_trajectory(plot_df, score, cfg['y_label'], args.outdir)
+        elif len(strat_keys) == 1:
+            # Create a simplified view with a single 'stratum' column for the existing function
+            df_single = plot_df.copy()
+            df_single['stratum'] = df_single['stratum1']
+            plot_score_trajectory_stratified(df_single, score, cfg['y_label'], args.outdir, strat_keys[0])
         else:
-            plot_score_trajectory_stratified(plot_df, score, cfg['y_label'], args.outdir, args.stratify_by)
+            # Dual stratification
+            plot_score_trajectory_stratified_multi(plot_df, score, cfg['y_label'], args.outdir, strat_keys)
 
 
 if __name__ == '__main__':
