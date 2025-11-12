@@ -30,7 +30,7 @@ import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from utils import METRICS_DTYPE, load_normative_df_c2, _categorize_c2_area
+from utils import METRICS_DTYPE, load_normative_df_c2, _categorize_c2_area, exclude_severe_mjoa
 
 LABELS_FONT_SIZE = 14
 TICKS_FONT_SIZE = 12
@@ -1083,6 +1083,9 @@ def main():
     if not os.path.isfile(csv_file):
         raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
     subjects_df = read_csv_file(csv_file, args.participants_file, args.clinical_file, args.stratify)
+
+    # Exclude severe and unknown mJOA subjects
+    subjects_df = exclude_severe_mjoa(subjects_df)
 
     # # Print number of subjects for each slice
     # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
