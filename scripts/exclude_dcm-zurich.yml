@@ -2,3 +2,15 @@ t2_ax:
 - sub-004/ses-M0    # poor canal seg due to strong flow void artifacts; but cord seg might be usable
 - sub-042/ses-M0    # missing T2w ax image
 - sub-045/ses-M0    # missing T2w ax image
+- sub-159/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-160/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-162/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-163/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-164/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-165/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-166/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-167/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-168/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-169/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-170/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-171/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
