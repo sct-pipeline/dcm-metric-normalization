@@ -9,11 +9,15 @@ python plotting/plot_clinical_trajectories.py \
     -o figures/clinical_trajectories \
     --stratify-by therapeutic_decision
 
+    --stratify-by mjoa
+
 Example usage dual stratification:
 python plotting/plot_clinical_trajectories.py \
     -clinical-file data/clinical_scores.xlsx \
     -o figures/clinical_trajectories \
     --stratify-by therapeutic_decision,normative_mean_c2
+
+    --stratify-by mjoa,normative_mean_c2
 """
 
 import os
@@ -25,7 +29,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 from generate_figure_PAM50_multiple_subjects import (MYELOPATHY_COLORS, AGE_GROUP_COLORS, SEX_COLORS_PATIENTS,
-                                                     THERAPEUTIC_DECISION_COLORS, MCL_COLORS, MJOA_COLORS, NORMATIVE_C2_COLORS)
+                                                     THERAPEUTIC_DECISION_COLORS, MCL_COLORS, MJOA_COLORS, NORMATIVE_C2_COLORS,
+                                                     _stratify_mjoa)
 
 # Plot fonts
 LABEL_FONT_SIZE = 14
@@ -74,7 +79,9 @@ SESSION_LABELS_DEFAULT = ['BL', '6 mth', '12 mth']
 STRATIFICATION_TO_TITLE = {
     'myelopathy': 'myelopathy',
     'normative_mean_c2': 'normative mean C2 cord area',
-    'therapeutic_decision': 'therapeutic decision'
+    'therapeutic_decision': 'therapeutic decision',
+    'mjoa': 'mJOA severity',
+    'mJOA_severity_bl': 'mJOA severity'
 }
 
 # Allow per-score y-axis limits; extend/edit as needed
@@ -254,6 +261,20 @@ def load_clinical_excel(path_xlsx: str, subject_col: str) -> pd.DataFrame:
     return df
 
 
+def _normalize_strat_keys(keys: list[str]) -> list[str]:
+    """Map user-friendly strat keys to actual dataframe columns.
+    Currently maps 'mjoa' to 'mJOA_severity_bl'.
+    """
+    out = []
+    for k in keys:
+        lk = k.strip()
+        if lk in {'mjoa'}:
+            out.append('mJOA_severity_bl')
+        else:
+            out.append(lk)
+    return out[:2]
+
+
 def build_long_df_for_score(df: pd.DataFrame, score_name: str, columns: list[str], session_labels: list[str], stratify_by: list[str] | str | None = None) -> pd.DataFrame:
     # Require that all expected session columns exist; otherwise skip this score
     if not all(c in df.columns for c in columns):
@@ -273,6 +294,13 @@ def build_long_df_for_score(df: pd.DataFrame, score_name: str, columns: list[str
         if k in df_num.columns:
             drop_subset.append(k)
     df_complete = df_num.dropna(subset=drop_subset)
+
+    # Special-case filter: for mJOA severity stratification, keep only mild/moderate
+    if 'mJOA_severity_bl' in df_complete.columns and ('mJOA_severity_bl' in keys):
+        df_complete = df_complete[df_complete['mJOA_severity_bl'].isin([
+            'mild (15 ≤ mJOA ≤ 18)',
+            'moderate (12 ≤ mJOA ≤ 14)'
+        ])]
 
     if df_complete.empty:
         return pd.DataFrame(columns=['participant_id', 'session_numeric', 'session_label', 'score'])
@@ -345,7 +373,7 @@ def plot_score_trajectory(plot_df: pd.DataFrame, score_name: str, y_label: str, 
         ax.errorbar(xs, means, yerr=stds, color='blue', capsize=4, capthick=2, linestyle='None', zorder=5)
         # Annotate mean ± SD values near each mean point
         for i, (x, m, s) in enumerate(zip(xs, means, stds)):
-            label = f"{m:.2f} ± {s:.2f}"
+            label = f"{m:.1f} ± {s:.1f}"
             xoff = -6 if x == xs[-1] else 6
             ax.annotate(label, xy=(x, m),
                         xytext=(xoff, 8),
@@ -411,6 +439,16 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
 
     # Helper to shorten normative_mean_c2 labels for ticks/annotations
     def _to_short_label(v):
+        # Shorten mJOA severity labels
+        if stratify_by in {'mJOA_severity_bl', 'mjoa', 'mjoa_severity'}:
+            s = str(v).lower()
+            if 'mild' in s:
+                return 'mild'
+            if 'moderate' in s:
+                return 'moderate'
+            if 'severe' in s:
+                return 'severe'
+            return str(v)
         if stratify_by != 'normative_mean_c2':
             return str(v)
         s = str(v).lower()
@@ -462,7 +500,7 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
             # Keep strata order consistent with legend order; use short labels when comparing
             order_keys = [_to_short_label(v) for v in strata]
             ordered = [l for key in order_keys for l in lines if l[0] == key]
-            text = "\n".join([f"{lab}: {m:.2f} ± {sd:.2f}" for (lab, m, sd) in ordered])
+            text = "\n".join([f"{lab}: {m:.1f} ± {sd:.1f}" for (lab, m, sd) in ordered])
             # Place just above the highest mean at this session
             y_local_max = max(m for (_, m, _) in lines)
             xoff = -8 if s == last_session else 8
@@ -539,6 +577,16 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     linestyles2 = _linestyles_for_strata(strata2, key2)
 
     def _short_label(k, v):
+        # Shorten mJOA severity labels for ticks/annotations
+        if k in {'mJOA_severity_bl', 'mjoa', 'mjoa_severity'}:
+            s = str(v).lower()
+            if 'mild' in s:
+                return 'mild'
+            if 'moderate' in s:
+                return 'moderate'
+            if 'severe' in s:
+                return 'severe'
+            return str(v)
         if k != 'normative_mean_c2':
             return str(v)
         s = str(v).lower()
@@ -602,11 +650,25 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     color_handles = [Line2D([0], [0], color=colors1[v], lw=1, marker='o', markersize=3, label=str(v)) for v in strata1]
     style_handles = [Line2D([0], [0], color='black', lw=1, linestyle=linestyles2[v], label=_short_label(key2, v)) for v in strata2]
 
-    leg1 = ax.legend(handles=color_handles, title=key1, loc='upper left', bbox_to_anchor=(1.01, 1.0),
-                     fontsize=TICK_FONT_SIZE-2, title_fontsize=TICK_FONT_SIZE-1, frameon=False)
+    # Place legends inside the axes to avoid cropping
+    leg1 = ax.legend(handles=color_handles,
+                     title=STRATIFICATION_TO_TITLE.get(key1, key1),
+                     loc='upper right',
+                     fontsize=TICK_FONT_SIZE-4,
+                     title_fontsize=TICK_FONT_SIZE-3,
+                     frameon=True)
+    leg1.get_frame().set_alpha(0.85)
+    leg1.get_frame().set_facecolor('white')
     ax.add_artist(leg1)
-    ax.legend(handles=style_handles, title=key2, loc='upper left', bbox_to_anchor=(1.01, 0.45),
-              fontsize=TICK_FONT_SIZE-2, title_fontsize=TICK_FONT_SIZE-1, frameon=False)
+
+    leg2 = ax.legend(handles=style_handles,
+                     title=STRATIFICATION_TO_TITLE.get(key2, key2),
+                     loc='lower right',
+                     fontsize=TICK_FONT_SIZE-4,
+                     title_fontsize=TICK_FONT_SIZE-3,
+                     frameon=True)
+    leg2.get_frame().set_alpha(0.85)
+    leg2.get_frame().set_facecolor('white')
 
     fig.tight_layout()
     os.makedirs(outdir, exist_ok=True)
@@ -641,7 +703,6 @@ def _normalize_normative_c2(value):
     if 'above' in lower:
         return 'Above normative mean C2 cord area'
     return s
-
 
 def merge_stratification(df_clinical: pd.DataFrame, participants_file: str | None, stratify_by: list[str] | str | None) -> pd.DataFrame:
     """Merge one or two stratification columns from participants.tsv into clinical dataframe when needed."""
@@ -692,8 +753,16 @@ def main():
     args = get_parser().parse_args()
 
     df = load_clinical_excel(args.clinical_file, args.subject_col)
-    # Parse and merge stratification info from participants.tsv if needed
-    strat_keys = _parse_stratify_arg(args.stratify_by)
+
+    # Compute mJOA severity from baseline score if available
+    if 'total_mjoa_bl' in df.columns:
+        df['mJOA_severity_bl'] = df['total_mjoa_bl'].apply(_stratify_mjoa)
+
+    # Parse stratification keys and normalize aliases (e.g., 'mjoa' -> 'mJOA_severity_bl')
+    strat_keys_in = _parse_stratify_arg(args.stratify_by)
+    strat_keys = _normalize_strat_keys(strat_keys_in)
+
+    # Merge stratification info from participants.tsv if needed (for keys not in clinical Excel)
     df = merge_stratification(df, args.participants_file, strat_keys)
 
     # For each requested score, build long-format DF and plot
@@ -715,7 +784,9 @@ def main():
             # Create a simplified view with a single 'stratum' column for the existing function
             df_single = plot_df.copy()
             df_single['stratum'] = df_single['stratum1']
-            plot_score_trajectory_stratified(df_single, score, cfg['y_label'], args.outdir, strat_keys[0])
+            # Use user-friendly label if alias was given
+            title_key = strat_keys_in[0] if strat_keys_in else strat_keys[0]
+            plot_score_trajectory_stratified(df_single, score, cfg['y_label'], args.outdir, title_key)
         else:
             # Dual stratification
             plot_score_trajectory_stratified_multi(plot_df, score, cfg['y_label'], args.outdir, strat_keys)
