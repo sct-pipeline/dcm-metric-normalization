@@ -102,7 +102,7 @@ THERAPEUTIC_DECISION_COLORS = {
 
 MJOA_COLORS = {
     'mJOA=18': '#2ca02c',    # green
-    'mild (15 ≤ mJOA ≤ 17)': '#ffdb4d',     # yellow for mild
+    'mild (15 ≤ mJOA ≤ 18)': '#2ca02c',     # green (#2ca02c) or yellow (#ffdb4d) for mild
     'moderate (12 ≤ mJOA ≤ 14)': '#ff7f0e',     # orange for moderate
     'severe (mJOA ≤ 11)': '#d62728',        # red for severe
     'unknown': '#7f7f7f'        # gray for unknown
@@ -153,7 +153,7 @@ def get_parser():
                              "'therapeutic_decision' (operative/conservative); -participants-file' is required, "
                              "'age' for age group stratification; '-participants-file' is required, "
                              "'sex' for sex-based stratification; '-participants-file' is required, "
-                             "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 17; moderate 14 ≤ mJOA); '-clinical-file' is required. "
+                             "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 18; moderate 14 ≤ mJOA); '-clinical-file' is required. "
                              "'normative_mean_c2' for stratification based on normative mean C2 cord area; "
                              "'None' for no stratification."
                              "Default: None.",
@@ -459,10 +459,10 @@ def _process_myelopathy(value):
 def _stratify_mjoa(score):
     if pd.isna(score):
         return 'unknown'
-    elif score == 18:
-        return 'mJOA=18'
-    elif 15 <= score <= 17:
-        return 'mild (15 ≤ mJOA ≤ 17)'
+    # elif score == 18:
+    #     return 'mJOA=18'
+    elif 15 <= score <= 18:
+        return 'mild (15 ≤ mJOA ≤ 18)'
     elif 12 <= score <= 14:
         return 'moderate (12 ≤ mJOA ≤ 14)'
     elif score < 12:
