@@ -29,6 +29,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+from scipy import stats
 
 from utils import METRICS_DTYPE, load_normative_df_c2, _categorize_c2_area, exclude_severe_mjoa
 
@@ -1227,8 +1228,42 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             if leg2 is not None:
                 leg2.remove()
 
-        # Tweak y-axis limits
-        ax_violin.set_ylim(METRICS_YLIMITS[metric][0]*0.9, METRICS_YLIMITS[metric][1]*1.1)
+        # Statistical comparison annotations (per level) for binary groupings
+        # Uses Mann-Whitney U test (non-parametric). Marks '*' if p < 0.05.
+        if hue is not None:
+            unique_groups = (hue_order if hue_order is not None else grouped[hue].dropna().unique().tolist())
+            unique_groups = [g for g in unique_groups if g in grouped[hue].dropna().unique().tolist()]
+            if len(unique_groups) == 2:
+                g1, g2 = unique_groups[0], unique_groups[1]
+                # Map x tick label to position
+                tick_labels = [t.get_text() for t in ax_violin.get_xticklabels()]
+                tick_pos_map = dict(zip(tick_labels, ax_violin.get_xticks()))
+                ymin, ymax = ax_violin.get_ylim()
+                yrange = ymax - ymin if ymax > ymin else 1.0
+                for lvl_label in level_order_labels:
+                    vals1 = grouped[(grouped[hue] == g1) & (grouped['Level'] == lvl_label)][metric].dropna().values
+                    vals2 = grouped[(grouped[hue] == g2) & (grouped['Level'] == lvl_label)][metric].dropna().values
+                    if len(vals1) >= 3 and len(vals2) >= 3:
+                        try:
+                            _, pval = stats.mannwhitneyu(vals1, vals2, alternative='two-sided')
+                        except ValueError:
+                            pval = 1.0
+                        if pval < 0.05:
+                            x = tick_pos_map.get(lvl_label, None)
+                            if x is not None:
+                                data_max = np.nanmax(np.concatenate([vals1, vals2])) if (len(vals1) + len(vals2)) > 0 else ymin + 0.8 * yrange
+                                y_star = data_max - 0.03 * yrange #+ 0.03 * yrange
+                                # Expand ylim if needed
+                                if y_star > ymax:
+                                    ax_violin.set_ylim(ymin, y_star + 0.03 * yrange)
+                                    ymin, ymax = ax_violin.get_ylim()
+                                    yrange = ymax - ymin
+                                    y_star = data_max - 0.03 * yrange
+                                ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+5, color='black')
+
+        # Y-axis limits for bottom row
+        if metric in METRICS_YLIMITS:
+            ax_violin.set_ylim(METRICS_YLIMITS[metric][0]*0.9, METRICS_YLIMITS[metric][1]*1.1)
 
         ax_violin.set_xlabel('Vertebral level', fontsize=LABELS_FONT_SIZE)
         ax_violin.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
