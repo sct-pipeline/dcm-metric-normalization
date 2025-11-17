@@ -149,6 +149,7 @@ def get_parser():
                              "'highest_stenosis' for the highest stenosis level; '-participants-file' is required, "
                              "'num_of_stenosis' for number of stenosis levels; '-participants-file' is required, "
                              "'single_vs_multi_stenosis' for single vs. multi-level stenosis; '-participants-file' is required, "
+                             "'num_of_stenosis_including_C2C3' for number of stenosis levels including stratification of subjects with 4 compressions to see if they have compression at C2/C3 level; '-participants-file' is required, "
                              "'myelopathy' for myelopathy status; '-participants-file' is required, "
                              "'therapeutic_decision' (operative/conservative); -participants-file' is required, "
                              "'age' for age group stratification; '-participants-file' is required, "
@@ -993,6 +994,15 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
                                 linewidth=2, label=f"{num_stenosis} (n={num_stenosis_n_subjects})")
+        elif stratify_type == 'num_of_stenosis_including_C2C3':
+            num_stenosis_groups = ['1', '2', '3', '4', '4 including C2/C3 or C3/C4']     # ensure order
+            for num_stenosis in num_stenosis_groups:
+                num_stenosis_data = subjects_df[subjects_df['num_of_stenosis_including_C2C3'] == num_stenosis]
+                if len(num_stenosis_data) > 0:
+                    num_stenosis_n_subjects = len(num_stenosis_data['participant_id'].unique())
+                    print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
+                                linewidth=2, label=f"Number of Stenosis = {num_stenosis} (n={num_stenosis_n_subjects})")
         elif stratify_type == 'myelopathy':
             # Plot by Myelopathy groups instead of sessions
             myelopathy_groups = subjects_df['Myelopathy'].unique()
@@ -1143,6 +1153,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['single_vs_multi_stenosis'].isin(['Single stenosis', 'Multi-level stenosis'])]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by Single vs. Multi-level Stenosis"
+    elif stratify_type == 'num_of_stenosis_including_C2C3':
+        plotted_subjects = subjects_df[subjects_df['num_of_stenosis_including_C2C3'].notna()]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        stratification_info = f"(n={n_subjects_plot} subjects) stratified by Number of Compressions"
     elif stratify_type == 'myelopathy':
         plotted_subjects = subjects_df[subjects_df['Myelopathy'].isin(MYELOPATHY_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
