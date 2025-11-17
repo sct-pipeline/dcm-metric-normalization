@@ -425,6 +425,8 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
         df_clinical = df_clinical.drop(columns=['record_id'])
         # Stratify mJOA
         df_clinical['mJOA_severity_bl'] = df_clinical['total_mjoa_bl'].apply(_stratify_mjoa)
+        # Exclude subjects with severe baseline mJOA
+        df_clinical = df_clinical[df_clinical['mJOA_severity_bl'] != 'severe (mJOA ≤ 11)']
 
         # Merge mJOA data
         subjects_df = subjects_df.merge(
