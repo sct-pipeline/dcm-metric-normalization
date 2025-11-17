@@ -914,9 +914,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     mpl.rcParams['font.family'] = 'Arial'
 
     if 'aSCOR' in figure_path:
-        # 1x1 grid for 1 metric; 6x5
-        fig, axs = plt.subplots(1, 1, figsize=(6, 5))
-        axs = [axs]  # Make it iterable
+        # 2x1 grid for 1 metric; 6x10
+        fig, axs = plt.subplots(2, 1, figsize=(6, 10))
+        top_axes = [axs[0]]
+        bottom_axes = [axs[1]]
         METRICS = ['aSCOR']
     else:
         METRICS = [
@@ -927,15 +928,21 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             # 'MEAN(eccentricity)',
             # 'MEAN(solidity)'
         ]
-        # 2x2 grid for 4 metrics; 12x10
-        # 2x3 grid for 6 metrics; 18x10
-        # fig, axs = plt.subplots(2, int(len(METRICS)/2), figsize=(int(len(METRICS)/2)*6, 10))
-        # 1x4 grid for 4 metrics; 24x5
-        fig, axs = plt.subplots(1, int(len(METRICS)), figsize=(int(len(METRICS)) * 6, 5))
-        axs = axs.ravel()
+        # 2xN grid (N=len(METRICS))
+        fig, axs = plt.subplots(2, int(len(METRICS)), figsize=(int(len(METRICS)) * 6, 10))
+        if len(METRICS) == 1:
+            top_axes = [axs[0]]
+            bottom_axes = [axs[1]]
+        else:
+            top_axes = axs[0, :]
+            bottom_axes = axs[1, :]
+
+    # Helper for level labels and order
+    level_order_nums = [2, 3, 4, 5, 6, 7]
+    level_order_labels = [f'C{v}' for v in level_order_nums]
 
     for metric_idx, metric in enumerate(METRICS):
-        ax = axs[metric_idx]
+        ax = top_axes[metric_idx]
 
         # Plot normative data
         if stratify_type == 'sex':
@@ -1091,19 +1098,19 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         # Keep the legend only for one plot to avoid duplication
         plot_to_keep_legend = 0 if 'aSCOR' in figure_path else (2 if (stratify_type and 'stenosis' in stratify_type or 'mcl' in stratify_type) else 0)
         if metric_idx == plot_to_keep_legend:
-            axs[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
+            top_axes[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
         else:
-            axs[metric_idx].get_legend().remove()
+            leg = top_axes[metric_idx].get_legend()
+            if leg is not None:
+                leg.remove()
 
         # Tweak y-axis limits
-        # ymin, ymax = METRICS_YLIMITS[metric]
-        # ax.set_ylim(ymin, ymax)
-        # Remove first and last 4 slices from the x-axis to match single subject figure (to remove smoothing artifacts)
-        ax.set_xlim(df_normative_data['Slice (I->S)'].iloc[4], df_normative_data['Slice (I->S)'].iloc[-4])
+        ax.set_ylim(METRICS_YLIMITS[metric][0], METRICS_YLIMITS[metric][1])
+        # # Remove first and last 4 slices from the x-axis to match single subject figure (to remove smoothing artifacts)
+        # ax.set_xlim(df_normative_data['Slice (I->S)'].iloc[4], df_normative_data['Slice (I->S)'].iloc[-4])
 
         ax.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
-        # ax.set_xlabel('PAM50 Axial Slice #', fontsize=LABELS_FONT_SIZE)
-        # Remove xticks to hide PAM50 Axial Slice numbers
+        # Remove xticks to hide PAM50 Axial Slice numbers (top row)
         ax.set_xticks([])
         ax.tick_params(axis='both', which='major', labelsize=TICKS_FONT_SIZE)
         ax.spines['right'].set_visible(False)
@@ -1111,7 +1118,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         ax.spines['top'].set_visible(False)
         ax.spines['bottom'].set_visible(True)
 
-        # Add vertebral level indicators
+        # Add vertebral level indicators (top row)
         ymin, ymax = ax.get_ylim()
         vert, ind_vert, ind_vert_mid = get_vert_indices(df_normative_data)
         for idx, x in enumerate(ind_vert[1:-1]):
@@ -1125,8 +1132,113 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         ax.yaxis.grid(True)
         ax.set_axisbelow(True)
         ax.invert_xaxis()
-        # Remove xlabel
-        ax.set_xlabel('')  # Remove x-axis label ('Slice (I->S)')
+        # Remove xlabel (top row)
+        ax.set_xlabel('')
+
+        # ----------------------
+        # Bottom row: stratified violin plots per level
+        # ----------------------
+        ax_violin = bottom_axes[metric_idx]
+        # Choose session for per-level mean (use first requested session if available)
+        violin_df = subjects_df.copy()
+        if 'session_id' in violin_df.columns and sessions_to_process:
+            sel_ses = sessions_to_process[0]
+            violin_df = violin_df[violin_df['session_id'] == sel_ses]
+        # Compute per-participant per-level mean for the metric
+        grouped = violin_df[['participant_id', 'VertLevel', metric]].dropna().groupby(['participant_id', 'VertLevel'], as_index=False).mean()
+        # Attach stratification columns (per participant) if needed
+        # Merge available grouping columns from the original df (drop duplicates per participant)
+        merge_cols = ['participant_id']
+        possible_group_cols = ['MCL', 'highest_stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis',
+                               'num_of_stenosis_including_C2C3', 'Myelopathy', 'therapeutic_decision',
+                               'mJOA_severity_bl', 'age_group', 'sex', 'normative_mean_c2']
+        available_cols = [c for c in possible_group_cols if c in subjects_df.columns]
+        merge_cols += available_cols
+        per_participant = subjects_df[merge_cols].drop_duplicates('participant_id')
+        grouped = grouped.merge(per_participant, on='participant_id', how='left')
+        # Keep only C2-C7
+        grouped = grouped[grouped['VertLevel'].isin(level_order_nums)]
+        grouped['Level'] = pd.Categorical([f'C{int(v)}' for v in grouped['VertLevel']], categories=level_order_labels, ordered=True)
+
+        hue = None
+        palette = None
+        hue_order = None
+
+        if stratify_type == 'mcl' and 'MCL' in grouped.columns:
+            hue = 'MCL'
+            hue_order = [lvl for lvl in ['C2/C3', 'C3/C4', 'C4/C5', 'C5/C6', 'C6/C7'] if lvl in grouped['MCL'].unique()]
+            palette = {k: v for k, v in MCL_COLORS.items() if k in hue_order}
+        elif stratify_type == 'highest_stenosis' and 'highest_stenosis' in grouped.columns:
+            hue = 'highest_stenosis'
+            hue_order = [lvl for lvl in ['C2/C3', 'C3/C4', 'C4/C5', 'C5/C6', 'C6/C7'] if lvl in grouped['highest_stenosis'].unique()]
+            palette = {k: v for k, v in MCL_COLORS.items() if k in hue_order}
+        elif stratify_type == 'num_of_stenosis' and 'num_of_stenosis' in grouped.columns:
+            hue = 'num_of_stenosis'
+            hue_order = sorted(grouped['num_of_stenosis'].dropna().unique().tolist())
+            palette = None  # use seaborn default
+        elif stratify_type == 'single_vs_multi_stenosis' and 'single_vs_multi_stenosis' in grouped.columns:
+            hue = 'single_vs_multi_stenosis'
+            hue_order = ['Single stenosis', 'Multi-level stenosis']
+            hue_order = [h for h in hue_order if h in grouped[hue].unique()]
+            palette = None
+        elif stratify_type == 'num_of_stenosis_including_C2C3' and 'num_of_stenosis_including_C2C3' in grouped.columns:
+            hue = 'num_of_stenosis_including_C2C3'
+            hue_order = ['1', '2', '3', '4', '4 including C2/C3 or C3/C4']
+            hue_order = [h for h in hue_order if h in grouped[hue].unique()]
+            palette = None
+        elif stratify_type == 'myelopathy' and 'Myelopathy' in grouped.columns:
+            hue = 'Myelopathy'
+            hue_order = [h for h in ['no', 'yes'] if h in grouped[hue].unique()]
+            palette = {k: v for k, v in MYELOPATHY_COLORS.items() if k in hue_order}
+        elif stratify_type == 'therapeutic_decision' and 'therapeutic_decision' in grouped.columns:
+            hue = 'therapeutic_decision'
+            hue_order = [h for h in ['conservative', 'operative'] if h in grouped[hue].unique()]
+            palette = {k: v for k, v in THERAPEUTIC_DECISION_COLORS.items() if k in hue_order}
+        elif stratify_type == 'mjoa' and 'mJOA_severity_bl' in grouped.columns:
+            hue = 'mJOA_severity_bl'
+            allowed = [k for k in MJOA_COLORS.keys() if k not in ['unknown', 'severe (mJOA ≤ 11)']]
+            hue_order = [h for h in allowed if h in grouped[hue].unique()]
+            palette = {k: v for k, v in MJOA_COLORS.items() if k in hue_order}
+        elif stratify_type == 'age' and 'age_group' in grouped.columns:
+            hue = 'age_group'
+            hue_order = [h for h in ['<50', '50-65', '>65'] if h in grouped[hue].unique()]
+            palette = {k: v for k, v in AGE_GROUP_COLORS.items() if k in hue_order}
+        elif stratify_type == 'sex' and 'sex' in grouped.columns:
+            hue = 'sex'
+            hue_order = [h for h in ['M', 'F'] if h in grouped[hue].unique()]
+            palette = {k: v for k, v in SEX_COLORS_PATIENTS.items() if k in hue_order}
+        elif stratify_type == 'normative_mean_c2' and 'normative_mean_c2' in grouped.columns:
+            hue = 'normative_mean_c2'
+            hue_order = [h for h in NORMATIVE_C2_COLORS.keys() if h in grouped[hue].unique()]
+            palette = {k: v for k, v in NORMATIVE_C2_COLORS.items() if k in hue_order}
+
+        if hue is None:
+            sns.violinplot(ax=ax_violin, data=grouped, x='Level', y=metric, order=level_order_labels,
+                           inner='box', cut=0, linewidth=1, fill=False)
+        else:
+            sns.violinplot(ax=ax_violin, data=grouped, x='Level', y=metric, hue=hue, order=level_order_labels,
+                           hue_order=hue_order, palette=palette, inner='box', cut=0, linewidth=1, dodge=True, fill=False)
+
+        # Legend handling for bottom row
+        if metric_idx == plot_to_keep_legend and hue is not None:
+            ax_violin.legend(fontsize=TICKS_FONT_SIZE)#, title=hue.replace('_', ' '), title_fontsize=TICKS_FONT_SIZE)
+        else:
+            leg2 = ax_violin.get_legend()
+            if leg2 is not None:
+                leg2.remove()
+
+        # Tweak y-axis limits
+        ax_violin.set_ylim(METRICS_YLIMITS[metric][0]*0.9, METRICS_YLIMITS[metric][1]*1.1)
+
+        ax_violin.set_xlabel('Vertebral level', fontsize=LABELS_FONT_SIZE)
+        ax_violin.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
+        ax_violin.tick_params(axis='both', which='major', labelsize=TICKS_FONT_SIZE)
+        ax_violin.spines['right'].set_visible(False)
+        ax_violin.spines['left'].set_visible(False)
+        ax_violin.spines['top'].set_visible(False)
+        ax_violin.spines['bottom'].set_visible(True)
+        ax_violin.yaxis.grid(True)
+        ax_violin.set_axisbelow(True)
 
     # Fetch cord, canal, or aSCOR from the input filename to include in the figure title
     if 'cord' in figure_path:
