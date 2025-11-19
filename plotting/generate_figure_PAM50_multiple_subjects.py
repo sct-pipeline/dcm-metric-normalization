@@ -30,6 +30,7 @@ import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from scipy import stats
+import statsmodels.formula.api as smf
 
 from utils import METRICS_DTYPE, load_normative_df_c2, _categorize_c2_area, exclude_severe_mjoa
 
@@ -92,8 +93,8 @@ MYELOPATHY_COLORS = {
 }
 
 NORMATIVE_C2_COLORS = {
+    'Above normative mean C2 cord area': '#2ca02c',  # green
     'Below normative mean C2 cord area': '#d62728',      # red
-    'Above normative mean C2 cord area': '#2ca02c',      # green
 }
 
 THERAPEUTIC_DECISION_COLORS = {
@@ -1152,7 +1153,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         merge_cols = ['participant_id']
         possible_group_cols = ['MCL', 'highest_stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis',
                                'num_of_stenosis_including_C2C3', 'Myelopathy', 'therapeutic_decision',
-                               'mJOA_severity_bl', 'age_group', 'sex', 'normative_mean_c2']
+                               'mJOA_severity_bl', 'age_group', 'sex', 'normative_mean_c2', 'age']
         available_cols = [c for c in possible_group_cols if c in subjects_df.columns]
         merge_cols += available_cols
         per_participant = subjects_df[merge_cols].drop_duplicates('participant_id')
@@ -1228,8 +1229,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             if leg2 is not None:
                 leg2.remove()
 
-        # Statistical comparison annotations (per level) for binary groupings
-        # Uses Mann-Whitney U test (non-parametric). Marks '*' if p < 0.05.
+        # Statistical comparison (per level)
+        # Marks '*' if p < 0.05.
         if hue is not None:
             unique_groups = (hue_order if hue_order is not None else grouped[hue].dropna().unique().tolist())
             unique_groups = [g for g in unique_groups if g in grouped[hue].dropna().unique().tolist()]
@@ -1244,12 +1245,35 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     vals1 = grouped[(grouped[hue] == g1) & (grouped['Level'] == lvl_label)][metric].dropna().values
                     vals2 = grouped[(grouped[hue] == g2) & (grouped['Level'] == lvl_label)][metric].dropna().values
                     if len(vals1) >= 3 and len(vals2) >= 3:
-                        try:
-                            _, pval = stats.mannwhitneyu(vals1, vals2, alternative='two-sided')
-                        except ValueError:
-                            pval = 1.0
+                        df_level = grouped[(grouped['Level'] == lvl_label) & (grouped[hue].isin([g1, g2]))].copy()
+                        df_level['grp'] = (df_level[hue] == g2).astype(int)
+                        # Build covariates (adjust for sex and age if available and not grouping variable)
+                        # C(): categorical variable
+                        # _c: centered continuous variable
+                        cov_terms = []
+                        if 'sex' in df_level.columns and hue != 'sex':
+                            cov_terms.append('C(sex)')
+                        if 'age' in df_level.columns and hue not in ['age', 'age_group']:
+                            df_level['age_c'] = pd.to_numeric(df_level['age'], errors='coerce')
+                            df_level['age_c'] = df_level['age_c'] - df_level['age_c'].mean()
+                            cov_terms.append('age_c')
+                        elif 'age_group' in df_level.columns and hue != 'age_group':
+                            cov_terms.append('C(age_group)')
+                        # Prepare model dataframe & rename metric column to avoid Patsy issues
+                        needed_cols = ['grp', metric] + [ct.split('(')[-1].rstrip(')') if ct.startswith('C(') else ct for ct in cov_terms]
+                        df_model = df_level.dropna(subset=needed_cols).copy().rename(columns={metric: 'metric_value'})
+                        formula = 'metric_value ~ grp' + (' + ' + ' + '.join(cov_terms) if cov_terms else '')
+                        n1 = int((df_model['grp'] == 0).sum())
+                        n2 = int((df_model['grp'] == 1).sum())
+                        if n1 >= 3 and n2 >= 3:
+                            res = smf.ols(formula, data=df_model).fit(cov_type='HC0')
+                            pval = float(res.pvalues.get('grp', np.nan))
+                        else:
+                            pval = np.nan
                         if pval < 0.05:
                             x = tick_pos_map.get(lvl_label, None)
+                            # # Save df_model as CSV for debugging
+                            # df_model.to_csv(f'debug_violin_{metric}_{lvl_label}.csv', index=False)
                             if x is not None:
                                 data_max = np.nanmax(np.concatenate([vals1, vals2])) if (len(vals1) + len(vals2)) > 0 else ymin + 0.8 * yrange
                                 y_star = data_max - 0.03 * yrange #+ 0.03 * yrange
