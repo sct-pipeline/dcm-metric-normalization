@@ -256,7 +256,7 @@ else
     segment_if_does_not_exist ${file_t2_ax} 'T2w_ax'
     file_t2_ax_seg=$FILESEG
 
-    label_if_does_not_exist ${file_t2_ax}
+    label_t2_ax_if_does_not_exist ${file_t2_ax}
     file_t2_ax_labels=${file_t2_ax}_label-disc
 
     # -------------
