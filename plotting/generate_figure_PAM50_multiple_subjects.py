@@ -146,7 +146,7 @@ def get_parser():
                         help="Path to the patients' participants.tsv file containing data for stratification, e.g.,:"
                              "age, sex, maximum_stenosis, myelopathy.")
     parser.add_argument('-clinical-file', required=False, type=str,
-                        help="Excel file with clinical scores (must contain 'total_mjoa_bl' column)")
+                        help="Excel file with clinical scores (must contain 'total_mjoa_BL' column)")
     parser.add_argument('-stratify', required=False, type=str, default=None,
                         choices=['mcl', 'highest_stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'num_of_stenosis_including_C2C3', 'myelopathy',
                                  'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
@@ -293,7 +293,7 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
         clinical Excel file with mJOA scores (if provided).
     :param csv_file: input CSV file path
     :param participants_file: path to participants.tsv file with stratification data
-    :param clinical_file: path to Excel file with clinical scores (must contain 'total_mjoa_bl' column)
+    :param clinical_file: path to Excel file with clinical scores (must contain 'total_mjoa_BL' column)
     :param stratify_type: type of stratification ('mcl' or 'myelopathy')
     :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio), and optionally stratification data
     """
@@ -425,19 +425,19 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
         sys.exit(f"Warning: Participants file not found: {participants_file}")
 
     if clinical_file and os.path.isfile(clinical_file):
-        df_clinical = pd.read_excel(clinical_file, usecols=['record_id', 'total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth'])
+        df_clinical = pd.read_excel(clinical_file, usecols=['record_id_BL', 'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth'])
         # Format record_id to match participant_id format (e.g., `1` to `sub-001`)
-        df_clinical['participant_id'] = df_clinical['record_id'].apply(lambda x: f'sub-{int(x):03d}')
+        df_clinical['participant_id'] = df_clinical['record_id_BL'].apply(lambda x: f'sub-{int(x):03d}')
         # Drop record_id column
-        df_clinical = df_clinical.drop(columns=['record_id'])
+        df_clinical = df_clinical.drop(columns=['record_id_BL'])
         # Stratify mJOA
-        df_clinical['mJOA_severity_bl'] = df_clinical['total_mjoa_bl'].apply(_stratify_mjoa)
+        df_clinical['mJOA_severity_bl'] = df_clinical['total_mjoa_BL'].apply(_stratify_mjoa)
         # Exclude subjects with severe baseline mJOA
         df_clinical = df_clinical[df_clinical['mJOA_severity_bl'] != 'severe (mJOA ≤ 11)']
 
         # Merge mJOA data
         subjects_df = subjects_df.merge(
-            df_clinical[['participant_id', 'total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth', 'mJOA_severity_bl']],
+            df_clinical[['participant_id', 'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth', 'mJOA_severity_bl']],
             on='participant_id', how='left'
         )
     else:
