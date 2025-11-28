@@ -1,20 +1,16 @@
 t2_ax_canal_seg:
 - sub-004/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
 - sub-020/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
-- sub-085/ses-M0    # flow void artifacts --> hard to correct the canal seg at lower levels; C2 canal can be used; cord seg looks good
-- sub-135/ses-M0    # flow void artifacts --> hard to correct the canal seg at lower levels; C2 canal can be used; cord seg looks good
+- sub-052/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-071/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-111/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-120/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-137/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-147/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-149/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-156/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
 t2_ax:
 - sub-042/ses-M0    # missing T2w ax image
 - sub-045/ses-M0    # missing T2w ax image
-- sub-159/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-160/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-162/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-163/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-164/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-165/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-166/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-167/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-168/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-169/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-170/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
-- sub-171/ses-M0      # newly added subjects, skipping for now as we don't have clinical scores for them yet
+- sub-037/ses-M0    # joined C1-C3 --> very hard to label discs
+- sub-064/ses-M0    # T2w ax is not aligned with T2w sag --> TODO: check the stitching
