@@ -1427,24 +1427,23 @@ def main():
     # print("Number of subjects per slice:")
     # print(slice_counts)
 
-    # Keep only VertLevel from C2 to C7
-    subjects_df = subjects_df[subjects_df['VertLevel'] >= 2]
-    subjects_df = subjects_df[subjects_df['VertLevel'] <= 7]
-
-    # Exclude sub-004 --> poor canal seg due to strong flow void artifacts
-    subjects_df = subjects_df[subjects_df['participant_id'] != 'sub-004']
-
-    # Get number of unique subjects
-    n_subjects = len(subjects_df['participant_id'].unique())
-    print(f"Number of unique subjects in the input CSV: {n_subjects}")
-
-    # Load normative data
     if 'cord' in args.i:
         structure = 'spinal_cord'
     elif 'canal' in args.i:
         structure = 'canal'
     elif 'aSCOR' in args.i:
         structure = 'aSCOR'
+
+    if structure == 'spinal_cord':
+        # Keep only VertLevel from C2 to C7
+        subjects_df = subjects_df[subjects_df['VertLevel'] >= 2]
+        subjects_df = subjects_df[subjects_df['VertLevel'] <= 7]
+    elif structure in ['canal', 'aSCOR']:
+        # Keep only VertLevel C2 to C3 -- due to flow void artifacts for canal seg
+        subjects_df = subjects_df[subjects_df['VertLevel'] >= 2]
+        subjects_df = subjects_df[subjects_df['VertLevel'] <= 3]
+
+    # Load normative data
     df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv_pam50, structure)
 
     if args.stratify == 'normative_mean_c2':
