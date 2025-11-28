@@ -216,26 +216,26 @@ rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/${SESSION}/anat/${SUBJECT}_${SESSION}*T2w
 # Go to subject folder for source images
 cd ${SUBJECT}/${SESSION}/anat
 
-# ------------------------------------------------------------------------------
-# T2w Sagittal
-# ------------------------------------------------------------------------------
-# Define variables
-# We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-file_t2_sag="${SUBJECT//[\/]/_}"_"${SESSION}"_acq-sagittal_T2w
-# Check if file_t2_sag exists
-if [[ ! -e ${file_t2_sag}.nii.gz ]]; then
-    echo "File ${file_t2_sag}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
-    echo "ERROR: File ${file_t2_sag}.nii.gz does not exist. Exiting."
-    exit 1
-else
-    # Segment SC
-    segment_if_does_not_exist ${file_t2_sag} 'T2w_sag'
-    file_t2_sag_seg=$FILESEG
-    label_t2_sag_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
-
-    echo "Finished processing ${file_t2_sag}" >> ${PATH_LOG}/processed_files_T2w_sag.log
-
-fi
+## ------------------------------------------------------------------------------
+## T2w Sagittal
+## ------------------------------------------------------------------------------
+## Define variables
+## We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
+#file_t2_sag="${SUBJECT//[\/]/_}"_"${SESSION}"_acq-sagittal_T2w
+## Check if file_t2_sag exists
+#if [[ ! -e ${file_t2_sag}.nii.gz ]]; then
+#    echo "File ${file_t2_sag}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
+#    echo "ERROR: File ${file_t2_sag}.nii.gz does not exist. Exiting."
+#    exit 1
+#else
+#    # Segment SC
+#    segment_if_does_not_exist ${file_t2_sag} 'T2w_sag'
+#    file_t2_sag_seg=$FILESEG
+#    label_t2_sag_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
+#
+#    echo "Finished processing ${file_t2_sag}" >> ${PATH_LOG}/processed_files_T2w_sag.log
+#
+#fi
 # ------------------------------------------------------------------------------
 # T2w Axial
 # ------------------------------------------------------------------------------
