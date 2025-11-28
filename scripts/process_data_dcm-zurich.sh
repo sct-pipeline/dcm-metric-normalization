@@ -98,6 +98,29 @@ label_t2_sag_if_does_not_exist(){
   sct_qc -i ${file}.nii.gz -s ${file_seg}_labeled_discs.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 }
 
+label_t2_ax_if_does_not_exist(){
+  local file="$1"
+  # Copy manual disc labels from derivatives/labels if they exist
+  FILELABEL="${file}_label-disc"
+  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file}_labels-manual.nii.gz"
+  echo "Looking for manual disc labels: $FILELABELMANUAL"
+  if [[ -e $FILELABELMANUAL ]]; then
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual disc labels."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found under derivatives/labels --> using manual disc labels" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
+    rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
+  else
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] Manual disc labels not found. Proceeding with automatic labeling using TotalSpineSeg."
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic labeling using TotalSpineSeg" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
+    # Automatically label discs using TotalSpineSeg
+    sct_deepseg totalspineseg -i ${file}.nii.gz -step1-only 1
+    # Keep only disc labels and remove other outputs
+    mv ${file}_step1_levels.nii.gz ${FILELABEL}.nii.gz
+    rm ${file}_step1_cord.nii.gz ${file}_step1_canal.nii.gz ${file}_step1_output.nii.gz
+    # Create disc labels QC
+    sct_qc -i ${file}.nii.gz -s ${FILELABEL}.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject "disc_labels_totalspineseg"
+  fi
+}
+
 # Check if manual canal segmentation file already exists. If it does, copy it locally.
 # If it doesn't, perform automatic canal segmentation
 segment_canal_if_does_not_exist() {
@@ -233,45 +256,8 @@ else
     segment_if_does_not_exist ${file_t2_ax} 'T2w_ax'
     file_t2_ax_seg=$FILESEG
 
-    # -------------
-    # Label SC
-    # TODO: consider moving the if statement inside a new function, e.g., `label_t2w_ax_if_does_not_exist`
-    # -------------
-    # Check if manual disc labels file already exists. If so, generate labeled segmentation from manual disc labels.
-    echo "Looking for manual disc labels: ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz"
-    if [[ -e ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ]]; then
-        echo "Found! Using manual T2w ax disc labels."
-        echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${file_t2_ax}_labels-manual.nii.gz found under derivatives/labels --> using manual T2w ax disc labels" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
-        rsync -avzh ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ${file_t2_ax}_labels.nii.gz
-
-        file_t2_ax_labels=${file_t2_ax}_labels
-    # If manual disc labels file does not exist, use disc labels from sagittal image
-    else
-        echo "Manual T2w ax disc labels not found. Using disc labels from sagittal image."
-        echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${file_t2_ax}_labels-manual.nii.gz NOT found --> using disc labels from sagittal image" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
-        # Bring T2w sagittal image to T2w axial image to obtain warping field.
-        # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
-        # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
-        # Note: the '-dseg' is used only for the QC report
-        sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION} -dseg ${file_t2_ax_seg}.nii.gz
-        # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
-        # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
-        sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
-
-        file_t2_ax_labels=${file_t2_sag_seg}_labeled_discs_reg
-    fi
-    # Generate QC report to T2w ax disc labels
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_labels}.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
-
-    # Label T2w axial spinal cord segmentation.
-    # Either using manual disc labels or using disc labels from sagittal image -- this is handled in the previous step.
-    # Note: we use `sct_label_vertebrae -discfile` to avoid cord straightening
-    # Details: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4896
-    sct_label_vertebrae -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -c t2
-    # Generate QC report to assess labeled segmentation
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
-    # Intervertebral discs labeling and vertebrae segmentation and generate QC report
-    #sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    label_if_does_not_exist ${file_t2_ax}
+    file_t2_ax_labels=${file_t2_ax}_label-disc
 
     # -------------
     # Compute spinal cord morphometrics
