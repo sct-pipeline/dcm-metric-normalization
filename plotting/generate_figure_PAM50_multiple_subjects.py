@@ -24,6 +24,7 @@ import os
 import sys
 import re
 import argparse
+import yaml
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -132,6 +133,9 @@ def get_parser():
                         default=['ses-M0'],
                         help="Session to process (e.g., 'ses-M0', 'ses-M3', etc.)",
                         )
+    parser.add_argument('-exclude-file', required=False, type=str,
+                        default='$HOME/code/dcm-metric-normalization/scripts/exclude_dcm-zurich.yml',
+                        help="YAML file with subjects to exclude")
     parser.add_argument('-path-HC', required=False, type=str,
                         default='$SCT_DIR/data/PAM50_normalized_metrics',
                         help="Path to the folder with CSV files with normative data from spine-generic dataset")
@@ -1384,6 +1388,7 @@ def main():
     path_participants_tsv_pam50 = os.path.expandvars(args.participants_file_pam50)
     path_out = os.path.abspath(args.o)
     sessions_to_process = args.s
+    exclude_file = os.path.expandvars(args.exclude_file)
 
     # Read CSV file with patients' morphometrics and optional stratification data (e.g., MCL, myelopathy)
     csv_file = os.path.abspath(args.i)
@@ -1393,6 +1398,29 @@ def main():
 
     # Exclude severe and unknown mJOA subjects
     subjects_df = exclude_severe_mjoa(subjects_df)
+
+    # Get number of unique subjects
+    n_subjects = len(subjects_df['participant_id'].unique())
+    print(f"Number of unique subjects in the input CSV: {n_subjects}")
+
+    # Read the exclude file
+    if exclude_file and os.path.isfile(exclude_file):
+        # Extract participant IDs (e.g., 'sub-004') from 'sub-XXX/ses-YYY'
+        with open(exclude_file, "r") as f:
+            data = yaml.safe_load(f)
+        exclude_ids = []
+        for section in data.values():
+            for item in section:
+                pid = item.split('/')[0].strip()
+                exclude_ids.append(pid)
+        print(f'Subjects to exclude: {exclude_ids}')     # ['sub-004', 'sub-020', 'sub-042', 'sub-045']
+        print(f'Number of subjects to exclude: {len(exclude_ids)}')
+
+        initial_count = len(subjects_df['participant_id'].unique())
+        subjects_df = subjects_df[~subjects_df['participant_id'].isin(exclude_ids)]
+        excluded_count = initial_count - len(subjects_df['participant_id'].unique())
+        print(f"Excluded {excluded_count} subjects based on exclude file: {exclude_file}")
+        print(f"Number of unique subjects after exclusion: {len(subjects_df['participant_id'].unique())}")
 
     # # Print number of subjects for each slice
     # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
