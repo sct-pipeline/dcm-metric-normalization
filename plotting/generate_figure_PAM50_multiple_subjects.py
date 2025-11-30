@@ -136,6 +136,9 @@ def get_parser():
     parser.add_argument('-exclude-file', required=False, type=str,
                         default='$HOME/code/dcm-metric-normalization/scripts/exclude_dcm-zurich.yml',
                         help="YAML file with subjects to exclude")
+    parser.add_argument('-c2c3-file', required=False, type=str,
+                        default='$HOME/code/dcm-metric-normalization/scripts/dcm-zurich_T2w_ax_ses-M0_canal_analysis.txt',
+                        help="File with list of subjects to use C2 or C3 vert level.")
     parser.add_argument('-path-HC', required=False, type=str,
                         default='$SCT_DIR/data/PAM50_normalized_metrics',
                         help="Path to the folder with CSV files with normative data from spine-generic dataset")
@@ -1389,6 +1392,7 @@ def main():
     path_out = os.path.abspath(args.o)
     sessions_to_process = args.s
     exclude_file = os.path.expandvars(args.exclude_file)
+    c2c3_file = os.path.expandvars(args.c2c3_file)
 
     # Read CSV file with patients' morphometrics and optional stratification data (e.g., MCL, myelopathy)
     csv_file = os.path.abspath(args.i)
@@ -1421,6 +1425,18 @@ def main():
         excluded_count = initial_count - len(subjects_df['participant_id'].unique())
         print(f"Excluded {excluded_count} subjects based on exclude file: {exclude_file}")
         print(f"Number of unique subjects after exclusion: {len(subjects_df['participant_id'].unique())}")
+
+    # Read text file with levels to use (C3 or C2,C3 or exclude)
+    c2c3_ids = pd.read_csv(c2c3_file, sep=r"\s+", header=None, names=["participant_id", "level_to_use"])
+    # Merge with subjects_df
+    subjects_df = subjects_df.merge(c2c3_ids, on='participant_id', how='left')
+    # Drop rows with level_to_use == 'exclude'
+    subjects_df = subjects_df[subjects_df['level_to_use'] != 'exclude']
+    print(f"Number of unique subjects after applying C2,C3 level exclusions: {len(subjects_df['participant_id'].unique())}")
+    # Drop C2 for subjects with level_to_use == 'C3'
+    print(f"Number of unique subjects before dropping C2 levels: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
+    subjects_df = subjects_df[~((subjects_df['level_to_use'] == 'C3') & (subjects_df['VertLevel'] == 2))]
+    print(f"Number of unique subjects before dropping C2 levels: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
 
     # # Print number of subjects for each slice
     # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
