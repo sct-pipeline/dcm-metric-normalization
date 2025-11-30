@@ -66,6 +66,15 @@ MCL_COLORS = {
     'C6/C7': '#9467bd',    # purple
 }
 
+MCL_FORMAT = {
+    1: 'C2/C3',
+    2: 'C3/C4',
+    3: 'C4/C5',
+    4: 'C5/C6',
+    5: 'C6/C7',
+    6: 'C7/T1'
+}
+
 AGE_GROUP_COLORS = {
     '<50': '#2ca02c',       # green
     '50-65': '#ff7f0e',     # orange
@@ -324,125 +333,198 @@ def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify
     subjects_df.insert(0, 'participant_id', participant_ids)
     subjects_df.insert(1, 'session_id', session_ids)
 
-    if participants_file and os.path.isfile(participants_file):
-        df_participants = pd.read_csv(participants_file, sep='\t')
+    clinical_columns = [
+        'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth',
+        'motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth',
+        'motor_dysfunction_UE_12mth_12mth',
+        'motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth',
+        'motor_dysfunction_LE_12mth_12mth',
+        'sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth',
+        'sensory_dysfunction_UE_12mth_12mth',
+        'sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth',
+        'sphincter_dysfunction_12mth_12mth',
+        'UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth', 'UEPP_C4_T1_12mth',
+        'UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth', 'UELT_C4_T1_12mth_12mth',
+        'upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'
+    ]
 
-        if 'maximum_stenosis' in df_participants.columns:
-            # Merge MCL data
-            subjects_df = subjects_df.merge(
-                df_participants[['participant_id', 'maximum_stenosis']],
-                on='participant_id', how='left'
-            )
-            # Clean up maximum_stenosis values and map to standard format
-            subjects_df['MCL'] = subjects_df['maximum_stenosis'].fillna('NA')
-            # Standardize MCL values
-            subjects_df['MCL'] = subjects_df['MCL'].apply(lambda x: x if x in MCL_COLORS else 'NA')
-            # Exclude subjects with MCL == 'NA'
-            subjects_df = subjects_df[subjects_df['MCL'] != 'NA']
-        else:
-            sys.exit("Warning: 'maximum_stenosis' column not found in participants file")
+    columns_to_read = [
+        'record_id_BL', 'age_BL', 'sex_BL', 'maximum_stenosis', 'myelopathy',
+        'c2_stenosis_no_yes', 'c3_stenosis_no_yes',
+        'c4_stenosis_no_yes', 'c5_stenosis_no_yes', 'c6_stenosis_no_yes', 'c7_stenosis_no_yes',
+        'surg_timepoint___2_12mth', 'surg_timepoint___3_12mth'
+        ]
 
-        if 'stenosis' in df_participants.columns:
-            # Merge stenosis data
-            subjects_df = subjects_df.merge(
-                df_participants[['participant_id', 'stenosis']],
-                on='participant_id', how='left'
-            )
-            subjects_df['stenosis'] = subjects_df['stenosis'].fillna('NA')
-            # Exclude subjects with stenosis == 'NA'
-            subjects_df = subjects_df[subjects_df['stenosis'] != 'NA']
-            # Stenosis is a str of different stenosis levels, e.g., 'C3/C4, C5/C6', convert it to list
-            subjects_df['stenosis_levels'] = subjects_df['stenosis'].apply(lambda x: [level.strip() for level in x.split(',')])
-            # Add a new column, 'highest_stenosis' with the highest stenosis level per subject
-            subjects_df['highest_stenosis'] = subjects_df['stenosis_levels'].apply(_get_highest_stenosis)
-            # Print subjects with 'C6/C7'
-            c67_subjects = subjects_df[subjects_df['highest_stenosis'] == 'C6/C7']['participant_id'].unique()
-            print(f"Subjects with highest stenosis at C6/C7: {c67_subjects}") if len(c67_subjects) > 0 else None
-            # Now, exclude 'C6/C7' -- only 3 subjects and C2 cord is noisy
-            subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C6/C7']
+    columns_to_read += clinical_columns
 
-            # Add a new column, 'num_of_stenosis' with the number of stenosis levels per subject
-            subjects_df['num_of_stenosis'] = subjects_df['stenosis_levels'].apply(len)
-            # Print 'stenosis' column for unique subjects with 4 compressions
-            four_stenosis_subjects = subjects_df[subjects_df['num_of_stenosis'] == 4][['participant_id', 'stenosis']].drop_duplicates(subset=['participant_id'])
-            print(f"Subjects with 4 stenosis levels:\n{four_stenosis_subjects.to_string(index=False)}")
-            # Add a new column, 'single_vs_multi_stenosis' with 'single' or 'multi' values
-            subjects_df['single_vs_multi_stenosis'] = subjects_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else 'Multi-level stenosis')
-            # Add a new column to further stratify subjects with 4 compressions to see how many of them have C2/C3 compression
-            subjects_df['num_of_stenosis_including_C2C3'] = subjects_df['num_of_stenosis']
-            # subjects_df['num_of_stenosis_including_C2C3'] = subjects_df.apply(
-            #     lambda row: '4 including C2/C3' if row['num_of_stenosis'] == 4 and 'C2/C3' in row['stenosis_levels'] else
-            #                 ('4' if row['num_of_stenosis'] == 4 else str(row['num_of_stenosis'])),
-            #     axis=1
-            # )
-            subjects_df['num_of_stenosis_including_C2C3'] = subjects_df.apply(
-                lambda row: '4 including C2/C3 or C3/C4' if row['num_of_stenosis'] == 4 and any(level in row['stenosis_levels'] for level in ['C2/C3', 'C3/C4']) else
-                ('4' if row['num_of_stenosis'] == 4 else str(row['num_of_stenosis'])),
-                axis=1
-            )
-        else:
-            sys.exit("Warning: 'stenosis' column not found in participants file")
-
-        if 'myelopathy' in df_participants.columns:
-            # Merge myelopathy data
-            subjects_df = subjects_df.merge(
-                df_participants[['participant_id', 'myelopathy']],
-                on='participant_id', how='left'
-            )
-            subjects_df['Myelopathy'] = subjects_df['myelopathy'].apply(_process_myelopathy)
-        else:
-            sys.exit("Warning: 'myelopathy' column not found in participants file")
-
-        if 'therapeutic_decision' in df_participants.columns:
-            # Merge therapeutic decision data
-            subjects_df = subjects_df.merge(
-                df_participants[['participant_id', 'therapeutic_decision']],
-                on='participant_id', how='left'
-            )
-            subjects_df['therapeutic_decision'] = subjects_df['therapeutic_decision'].fillna('NA')
-            # Exclude subjects with MCL == 'NA'
-            subjects_df = subjects_df[subjects_df['therapeutic_decision'] != 'NA']
-        else:
-            sys.exit("Warning: 'therapeutic_decision' column not found in participants file")
-
-        if 'age' in df_participants.columns:
-            subjects_df = subjects_df.merge(
-                df_participants[['participant_id', 'age']],
-                on='participant_id', how='left'
-            )
-            subjects_df['age_group'] = subjects_df['age'].apply(_create_age_group)
-            # Exclude unknown age
-            subjects_df = subjects_df[subjects_df['age_group'] != 'unknown']
-        else:
-            sys.exit(f"Warning: {stratify_type} column not found in participants file")
-
-        if 'sex' in df_participants.columns:
-            subjects_df = subjects_df.merge(
-                df_participants[['participant_id', 'sex']],
-                on='participant_id', how='left'
-            )
-        else:
-            sys.exit(f"Warning: {stratify_type} column not found in participants file")
-
-    else:
-        sys.exit(f"Warning: Participants file not found: {participants_file}")
+    # Get only baseline clinical columns (i.e., columns ending with _bl or _BL)
+    baseline_clinical_columns = [col for col in clinical_columns if col.endswith('_bl') or col.endswith('_BL')]
 
     if clinical_file and os.path.isfile(clinical_file):
-        df_clinical = pd.read_excel(clinical_file, usecols=['record_id_BL', 'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth'])
+        df_clinical = pd.read_excel(clinical_file, usecols=columns_to_read)
+        # Print number of missing values per column
+        print("Number of missing values per column in clinical file:")
+        print(df_clinical.isnull().sum())
+
         # Format record_id to match participant_id format (e.g., `1` to `sub-001`)
         df_clinical['participant_id'] = df_clinical['record_id_BL'].apply(lambda x: f'sub-{int(x):03d}')
         # Drop record_id column
         df_clinical = df_clinical.drop(columns=['record_id_BL'])
-        # Stratify mJOA
-        df_clinical['mJOA_severity_bl'] = df_clinical['total_mjoa_BL'].apply(_stratify_mjoa)
-        # Exclude subjects with severe baseline mJOA
-        df_clinical = df_clinical[df_clinical['mJOA_severity_bl'] != 'severe (mJOA ≤ 11)']
 
-        # Merge mJOA data
+        # ----
+        # Merge maximum_stenosis
+        # ----
+        # Format MCL using MCL_FORMAT
+        df_clinical['maximum_stenosis'] = df_clinical['maximum_stenosis'].fillna('NA')
+        df_clinical['maximum_stenosis'] = df_clinical['maximum_stenosis'].map(MCL_FORMAT)
+        # Standardize MCL values --> use 'NA'
+        df_clinical['maximum_stenosis'] = df_clinical['maximum_stenosis'].apply(lambda x: x if x in MCL_COLORS else 'NA')
+
+        # ----
+        # stenosis_levels
+        # ----
+        # C2: C2/C3, C3: C3/C4, C4: C4/C5, C5: C5/C6, C6: C6/C7, C7: C7/T1
+        # 0: no stenosis, 1: stenosis
+        stenosis_levels = []
+        for _, row in df_clinical.iterrows():
+            levels = []
+            if row['c2_stenosis_no_yes'] == 1:
+                levels.append('C2/C3')
+            if row['c3_stenosis_no_yes'] == 1:
+                levels.append('C3/C4')
+            if row['c4_stenosis_no_yes'] == 1:
+                levels.append('C4/C5')
+            if row['c5_stenosis_no_yes'] == 1:
+                levels.append('C5/C6')
+            if row['c6_stenosis_no_yes'] == 1:
+                levels.append('C6/C7')
+            if row['c7_stenosis_no_yes'] == 1:
+                levels.append('C7/T1')
+            stenosis_levels.append(', '.join(levels) if levels else 'NA')
+        df_clinical['stenosis_levels'] = stenosis_levels
+        df_clinical['stenosis_levels'] = df_clinical['stenosis_levels'].fillna('NA')
+        # Convert "C3/C4, C5/C6" to ["C3/C4", "C5/C6"]
+        df_clinical['stenosis_levels'] = df_clinical['stenosis_levels'].apply(lambda x: [level.strip() for level in x.split(',')])
+        # Convert [NA] to 'NA'
+        df_clinical['stenosis_levels'] = df_clinical['stenosis_levels'].apply(lambda x: x if x != ['NA'] else 'NA')
+
+        # ----
+        # highest_stenosis
+        # ----
+        # Add a new column, 'highest_stenosis' with the highest stenosis level per subject
+        df_clinical['highest_stenosis'] = df_clinical['stenosis_levels'].apply(_get_highest_stenosis)
+
+        # Print subjects with 'C6/C7'
+        c67_subjects = df_clinical[df_clinical['highest_stenosis'] == 'C6/C7']['participant_id'].unique()
+        print(f"Subjects with highest stenosis at C6/C7: {c67_subjects}") if len(c67_subjects) > 0 else None
+        # # Now, exclude 'C6/C7' -- only 3 subjects and C2 cord is noisy
+        # df_clinical = df_clinical[df_clinical['highest_stenosis'] != 'C6/C7']
+
+        # ----
+        # num_of_stenosis
+        # ----
+        # Add a new column, 'num_of_stenosis' with the number of stenosis levels per subject
+        df_clinical['num_of_stenosis'] = df_clinical['stenosis_levels'].apply(
+            lambda x: 0 if x == ['NA'] or x == 'NA' else len(x)
+        )
+        # Print 'stenosis_levels' column for unique subjects with 4 compressions
+        four_stenosis_subjects = df_clinical[df_clinical['num_of_stenosis'] == 4][['participant_id', 'stenosis_levels']]#.drop_duplicates(subset=['participant_id'])
+        print(f"Subjects with 4 stenosis levels:\n{four_stenosis_subjects.to_string(index=False)}")
+
+        # ----
+        # single_vs_multi_stenosis
+        # ----
+        # Add a new column, 'single_vs_multi_stenosis' with 'single' or 'multi' values
+        df_clinical['single_vs_multi_stenosis'] = df_clinical['num_of_stenosis'].apply(
+            lambda x: 'No stenosis' if x == 0
+            else ('Single stenosis' if x == 1
+                  else 'Multi-level stenosis')
+        )
+
+        # Add a new column to further stratify subjects with 4 compressions to see how many of them have C2/C3 compression
+        df_clinical['num_of_stenosis_including_C2C3'] = df_clinical['num_of_stenosis']
+        # subjects_df['num_of_stenosis_including_C2C3'] = subjects_df.apply(
+        #     lambda row: '4 including C2/C3' if row['num_of_stenosis'] == 4 and 'C2/C3' in row['stenosis_levels'] else
+        #                 ('4' if row['num_of_stenosis'] == 4 else str(row['num_of_stenosis'])),
+        #     axis=1
+        # )
+        df_clinical['num_of_stenosis_including_C2C3'] = df_clinical.apply(
+            lambda row: '4 including C2/C3 or C3/C4' if row['num_of_stenosis'] == 4 and any(level in row['stenosis_levels'] for level in ['C2/C3', 'C3/C4']) else
+            ('4' if row['num_of_stenosis'] == 4 else str(row['num_of_stenosis'])),
+            axis=1
+        )
+
+        # ----
+        # myelopathy
+        # ----
+        df_clinical['Myelopathy'] = df_clinical['myelopathy'].fillna('NA')
+
+        # ----
+        # therapeutic_decision
+        # ----
+        # 'surg_timepoint___2_12mth': between baseline and 6 month follow up
+        # 'surg_timepoint___3_12mth': between 6 month and 12 month follow up
+        # 0: conservative, 1: operative
+        # Set therapeutic_decision based on surgery timepoints
+        df_clinical['therapeutic_decision'] = df_clinical.apply(
+            lambda row: 'operative' if (row['surg_timepoint___2_12mth'] == 1 or row['surg_timepoint___3_12mth'] == 1) else 'conservative',
+            axis=1)
+        # Fill missing values with 'NA'
+        df_clinical['therapeutic_decision'] = df_clinical['therapeutic_decision'].fillna('NA')
+
+        # ----
+        # age
+        # ----
+        # rename age_BL to age
+        df_clinical = df_clinical.rename(columns={'age_BL': 'age'})
+        df_clinical['age_group'] = df_clinical['age'].apply(_create_age_group)
+        df_clinical['age'] = df_clinical['age'].fillna('NA')
+
+        # ----
+        # sex
+        # ----
+        # rename sex_BL to sex
+        df_clinical = df_clinical.rename(columns={'sex_BL': 'sex'})
+        df_clinical['sex'] = df_clinical['sex'].fillna('NA')
+        # Change 1 to F and 2 to M
+        df_clinical['sex'] = df_clinical['sex'].replace({1: 'F', '1': 'F', 2: 'M', '2': 'M'})
+
+        # ----
+        # Clinical scores
+        # ----
+        # Print number of missing values per column for baseline_clinical_columns
+        print("Number of missing values per baseline clinical column in clinical file:")
+        print(df_clinical[baseline_clinical_columns].isnull().sum())
+
+        # Stratify baseline mJOA
+        df_clinical['mJOA_severity_bl'] = df_clinical['total_mjoa_BL'].apply(_stratify_mjoa)
+
+        for col in baseline_clinical_columns:
+            df_clinical[col].fillna('NA')
+
+        # ----
+        # Drop NA subjects
+        # ----
+        # Exclude subjects with 'NA'
+        for col in ['stenosis_levels', 'highest_stenosis', 'maximum_stenosis', 'therapeutic_decision', 'age', 'sex'] + baseline_clinical_columns:
+            print(f'Number of subjects with NA in {col}: {(df_clinical[col] == "NA").sum()}')
+            print(f'Number of subjects before excluding NA in {col}: {df_clinical.shape[0]}')
+            df_clinical = df_clinical[df_clinical[col] != 'NA']
+            print(f'Number of subjects after excluding NA in {col}: {df_clinical.shape[0]}')
+
+        # ----
+        # Merge
+        # ----
         subjects_df = subjects_df.merge(
-            df_clinical[['participant_id', 'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth', 'mJOA_severity_bl']],
+            df_clinical[['participant_id', 'maximum_stenosis', 'stenosis_levels', 'highest_stenosis', 'num_of_stenosis',
+                         'single_vs_multi_stenosis', 'myelopathy', 'therapeutic_decision', 'age', 'age_group', 'sex',
+                         'mJOA_severity_bl'] + clinical_columns],
             on='participant_id', how='left'
         )
+
+        # Rename maximum_stenosis to MCL
+        subjects_df = subjects_df.rename(columns={'maximum_stenosis': 'MCL'})
+        print(f'Number of subjects after merging MRI and clinical data: {len(subjects_df['participant_id'].unique())}')
     else:
         sys.exit(f"Warning: Clinical file not found: {clinical_file}")
 
@@ -460,12 +542,6 @@ def _create_age_group(age):
     else:
         return '>65'
 
-def _process_myelopathy(value):
-    """# Process myelopathy values: if not n/a, use 'yes', if n/a, use 'no'"""
-    if pd.isna(value) or str(value).lower() == 'n/a':
-        return 'no'
-    else:
-        return 'yes'
 
 # Stratify based on mJOA scores
 def _stratify_mjoa(score):
@@ -1405,7 +1481,7 @@ def main():
 
     # Get number of unique subjects
     n_subjects = len(subjects_df['participant_id'].unique())
-    print(f"Number of unique subjects in the input CSV: {n_subjects}")
+    print(f"Number of unique subjects: {n_subjects}")
 
     # Read the exclude file
     if exclude_file and os.path.isfile(exclude_file):
