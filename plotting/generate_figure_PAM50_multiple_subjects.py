@@ -235,12 +235,14 @@ def _read_pam50_df(path_HC):
     return df
 
 
-def load_normative_data(path_HC, path_participants_pam50, structure):
+def load_normative_data(path_HC, path_participants_pam50, structure, vert_min, vert_max):
     """
     Load normative data from spine-generic dataset in PAM50 space
     :param path_HC:
     :param path_participants_pam50:
     :param structure: 'spinal_cord' or 'canal' or 'aSCOR'
+    :param vert_min: minimum vertebral level to keep (e.g., 2 for C2)
+    :param vert_max: maximum vertebral level to keep (e.g., 6 for C6)
     :return:
     """
 
@@ -266,9 +268,9 @@ def load_normative_data(path_HC, path_participants_pam50, structure):
 
     df = df.dropna(axis=1, how='all')
     df = df.dropna(axis=0, how='any').reset_index(drop=True)
-    # Keep only VertLevel from C2 to C7
-    df = df[df['VertLevel'] >= 2]
-    df = df[df['VertLevel'] <= 7]
+    # Keep only specified VertLevels (C2-C6 for spinal cord; C2-C3 for canal and aSCOR)
+    df = df[df['VertLevel'] >= vert_min]
+    df = df[df['VertLevel'] <= vert_max]
 
     df_spine_generic_min, df_spine_generic_max = df['Slice (I->S)'].min(), df['Slice (I->S)'].max()
 
@@ -1534,17 +1536,21 @@ def main():
     elif 'aSCOR' in args.i:
         structure = 'aSCOR'
 
-    if structure == 'spinal_cord':
-        # Keep only VertLevel from C2 to C7
-        subjects_df = subjects_df[subjects_df['VertLevel'] >= 2]
-        subjects_df = subjects_df[subjects_df['VertLevel'] <= 7]
-    elif structure in ['canal', 'aSCOR']:
-        # Keep only VertLevel C2 to C3 -- due to flow void artifacts for canal seg
-        subjects_df = subjects_df[subjects_df['VertLevel'] >= 2]
-        subjects_df = subjects_df[subjects_df['VertLevel'] <= 3]
+    # For spinal cord, keep only VertLevel C2 to C6; for canal and aSCOR, keep only C2 to C3 (due to flow void artifacts for canal seg)
+    vert_min, vert_max = (2, 6) if structure == 'spinal_cord' else (2, 3)
+    subjects_df = subjects_df[subjects_df['VertLevel'] >= vert_min]
+    subjects_df = subjects_df[subjects_df['VertLevel'] <= vert_max]
+
+    # ----
+    # Print number of unique participants per VertLevel
+    # ----
+    vert_counts = subjects_df.groupby('VertLevel')['participant_id'].nunique().sort_index()
+    print("Number of unique participants per VertLevel:")
+    for level, count in vert_counts.items():
+        print(f"  VertLevel {level}: {count}")
 
     # Load normative data
-    df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv_pam50, structure)
+    df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv_pam50, structure, vert_min, vert_max)
 
     if args.stratify == 'normative_mean_c2':
         # -------------
