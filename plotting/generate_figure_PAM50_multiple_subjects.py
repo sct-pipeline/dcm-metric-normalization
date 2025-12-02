@@ -1209,7 +1209,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         # Keep the legend only for one plot to avoid duplication
         plot_to_keep_legend = 0 if structure == 'aSCOR'else (2 if (stratify_type and 'stenosis' in stratify_type or 'mcl' in stratify_type) else 0)
         if metric_idx == plot_to_keep_legend:
-            top_axes[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
+            # top_axes[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
+            top_axes[metric_idx].legend(fontsize=TICKS_FONT_SIZE)
         else:
             leg = top_axes[metric_idx].get_legend()
             if leg is not None:
