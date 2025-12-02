@@ -1528,20 +1528,26 @@ def main():
     exclude_file = os.path.expandvars(args.exclude_file)
     c2c3_file = os.path.expandvars(args.c2c3_file)
 
-    # Read CSV file with patients' morphometrics and optional stratification data (e.g., MCL, myelopathy)
+    # ----
+    # Read CSV files with morphometrics and clinical data
+    # ----
     csv_file = os.path.abspath(args.i)
     if not os.path.isfile(csv_file):
         raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
     subjects_df = read_csv_file(csv_file,args.clinical_file)
 
+    # ----
     # Exclude severe and unknown mJOA subjects
+    # ----
     subjects_df = exclude_severe_mjoa(subjects_df)
 
     # Get number of unique subjects
     n_subjects = len(subjects_df['participant_id'].unique())
     print(f"Number of unique subjects: {n_subjects}")
 
+    # ----
     # Read the exclude file
+    # ----
     if exclude_file and os.path.isfile(exclude_file):
         # Extract participant IDs (e.g., 'sub-004') from 'sub-XXX/ses-YYY'
         with open(exclude_file, "r") as f:
@@ -1560,7 +1566,9 @@ def main():
         print(f"Excluded {excluded_count} subjects based on exclude file: {exclude_file}")
         print(f"Number of unique subjects after exclusion: {len(subjects_df['participant_id'].unique())}")
 
+    # ----
     # Read text file with levels to use (C3 or C2,C3 or exclude)
+    # ----
     c2c3_ids = pd.read_csv(c2c3_file, sep=r"\s+", header=None, names=["participant_id", "level_to_use"])
     # Merge with subjects_df
     subjects_df = subjects_df.merge(c2c3_ids, on='participant_id', how='left')
