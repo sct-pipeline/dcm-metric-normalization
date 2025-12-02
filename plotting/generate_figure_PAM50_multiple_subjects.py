@@ -778,8 +778,6 @@ def _build_myelopathy_compression_table(subjects_df, output_csv_path):
         subj_df['num_of_stenosis'] = subj_df['stenosis_levels'].apply(len)
     if 'single_vs_multi_stenosis' not in subj_df.columns and 'num_of_stenosis' in subj_df.columns:
         subj_df['single_vs_multi_stenosis'] = subj_df['num_of_stenosis'].apply(lambda x: 'Single stenosis' if x == 1 else ('Multi-level stenosis' if x > 1 else 'Unknown'))
-    if 'highest_stenosis' not in subj_df.columns and 'stenosis_levels' in subj_df.columns:
-        subj_df['highest_stenosis'] = subj_df['stenosis_levels'].apply(_get_highest_stenosis)
 
     for grp in groups:
         g_df = subj_df[subj_df['Myelopathy'] == grp]
