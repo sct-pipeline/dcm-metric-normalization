@@ -1332,13 +1332,16 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             sns.violinplot(ax=ax_violin, data=grouped, x='Level', y=metric, hue=hue, order=level_order_labels,
                            hue_order=hue_order, palette=palette, inner='box', cut=0, linewidth=1, dodge=True, fill=False)
 
-        # Legend handling for bottom row
-        if metric_idx == plot_to_keep_legend and hue is not None:
-            ax_violin.legend(fontsize=TICKS_FONT_SIZE)#, title=hue.replace('_', ' '), title_fontsize=TICKS_FONT_SIZE)
-        else:
+        # # Legend handling for bottom row
+        # if metric_idx == plot_to_keep_legend and hue is not None:
+        #     ax_violin.legend(fontsize=TICKS_FONT_SIZE)#, title=hue.replace('_', ' '), title_fontsize=TICKS_FONT_SIZE)
+        # else:
+        #     leg2 = ax_violin.get_legend()
+        #     if leg2 is not None:
+        #         leg2.remove()
+        if hue is not None:
             leg2 = ax_violin.get_legend()
-            if leg2 is not None:
-                leg2.remove()
+            leg2.remove()
 
         # Statistical comparison (per level)
         # Marks '*' if p < 0.05.
