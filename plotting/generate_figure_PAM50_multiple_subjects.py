@@ -519,7 +519,7 @@ def read_csv_file(csv_file, clinical_file=None):
         # Drop NA subjects
         # ----
         # Exclude subjects with 'NA'
-        for col in ['stenosis_levels', 'highest_stenosis', 'maximum_stenosis', 'therapeutic_decision', 'age', 'sex'] + baseline_clinical_columns:
+        for col in ['stenosis_levels', 'highest_stenosis', 'maximum_stenosis', 'therapeutic_decision', 'age', 'sex', 'Myelopathy', 'therapeutic_decision'] + baseline_clinical_columns:
             print(f'Number of subjects with NA in {col}: {(df_clinical[col] == "NA").sum()}')
             print(f'Number of subjects before excluding NA in {col}: {df_clinical.shape[0]}')
             df_clinical = df_clinical[df_clinical[col] != 'NA']
@@ -530,7 +530,7 @@ def read_csv_file(csv_file, clinical_file=None):
         # ----
         subjects_df = subjects_df.merge(
             df_clinical[['participant_id', 'maximum_stenosis', 'stenosis_levels', 'highest_stenosis', 'num_of_stenosis',
-                         'single_vs_multi_stenosis', 'myelopathy', 'therapeutic_decision', 'age', 'age_group', 'sex',
+                         'single_vs_multi_stenosis', 'Myelopathy', 'therapeutic_decision', 'age', 'age_group', 'sex',
                          'mJOA_severity_bl'] + clinical_columns],
             on='participant_id', how='left'
         )
