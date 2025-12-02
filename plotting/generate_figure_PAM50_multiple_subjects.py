@@ -468,6 +468,9 @@ def read_csv_file(csv_file, clinical_file=None):
         # myelopathy
         # ----
         df_clinical['Myelopathy'] = df_clinical['myelopathy'].fillna('NA')
+        df_clinical['Myelopathy'] = df_clinical['Myelopathy'].apply(
+            lambda x: 'yes' if x == 1 else ('no' if x == 0 else 'NA')
+        )
 
         # ----
         # therapeutic_decision
