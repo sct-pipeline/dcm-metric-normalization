@@ -1020,7 +1020,15 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     """
     mpl.rcParams['font.family'] = 'Arial'
 
-    if 'aSCOR' in figure_path:
+    # Fetch cord, canal, or aSCOR from the input filename to include in the figure title
+    if 'cord' in figure_path:
+        structure = 'spinal_cord'
+    elif 'canal' in figure_path:
+        structure = 'canal'
+    elif 'aSCOR' in figure_path:
+        structure = 'aSCOR'
+
+    if structure == 'aSCOR':
         # 2x1 grid for 1 metric; 6x10
         fig, axs = plt.subplots(2, 1, figsize=(6, 10))
         top_axes = [axs[0]]
@@ -1043,10 +1051,6 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         else:
             top_axes = axs[0, :]
             bottom_axes = axs[1, :]
-
-    # Helper for level labels and order
-    level_order_nums = [2, 3, 4, 5, 6, 7]
-    level_order_labels = [f'C{v}' for v in level_order_nums]
 
     for metric_idx, metric in enumerate(METRICS):
         ax = top_axes[metric_idx]
@@ -1203,7 +1207,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                                 label=f"{ses} (n={ses_n_subjects})")
 
         # Keep the legend only for one plot to avoid duplication
-        plot_to_keep_legend = 0 if 'aSCOR' in figure_path else (2 if (stratify_type and 'stenosis' in stratify_type or 'mcl' in stratify_type) else 0)
+        plot_to_keep_legend = 0 if structure == 'aSCOR'else (2 if (stratify_type and 'stenosis' in stratify_type or 'mcl' in stratify_type) else 0)
         if metric_idx == plot_to_keep_legend:
             top_axes[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
         else:
@@ -1263,7 +1267,9 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         merge_cols += available_cols
         per_participant = subjects_df[merge_cols].drop_duplicates('participant_id')
         grouped = grouped.merge(per_participant, on='participant_id', how='left')
-        # Keep only C2-C7
+        # Keep only specified vertebral levels (C2-C6 for spinal cord, C2-C3 for canal/aSCOR)
+        level_order_nums = [2, 3, 4, 5, 6] if structure == 'spinal_cord' else [2, 3]        # [2, 3, 4, 5, 6, 7]
+        level_order_labels = [f'C{v}' for v in level_order_nums]
         grouped = grouped[grouped['VertLevel'].isin(level_order_nums)]
         grouped['Level'] = pd.Categorical([f'C{int(v)}' for v in grouped['VertLevel']], categories=level_order_labels, ordered=True)
 
@@ -1404,14 +1410,6 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         ax_violin.yaxis.grid(True)
         ax_violin.set_axisbelow(True)
 
-    # Fetch cord, canal, or aSCOR from the input filename to include in the figure title
-    if 'cord' in figure_path:
-        structure = 'Spinal cord morphometrics'
-    elif 'canal' in figure_path:
-        structure = 'Canal morphometrics'
-    elif 'aSCOR' in figure_path:
-        structure = 'aSCOR'
-
     # Update title based on stratification
     if stratify_type == 'mcl':
         plotted_subjects = subjects_df[subjects_df['MCL'].isin(MCL_COLORS.keys())]['participant_id'].unique()
@@ -1463,7 +1461,12 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         n_subjects_plot = len(subjects_df['participant_id'].unique())
         stratification_info = f"(n={n_subjects_plot} subjects)"
 
-    # No title for aSCOR
+    # Fetch cord, canal, or aSCOR from the input filename to include in the figure title
+    if 'cord' in figure_path:
+        structure = 'Spinal cord morphometrics'
+    elif 'canal' in figure_path:
+        structure = 'Canal morphometrics'
+
     if 'aSCOR' in figure_path:
         plt.suptitle(f"aSCOR in the PAM50 space\n{stratification_info}",
                      fontsize=LABELS_FONT_SIZE-2, fontweight='bold', y=0.97)
