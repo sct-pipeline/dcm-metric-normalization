@@ -1368,6 +1368,12 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                         cov_terms = []
                         if 'sex' in df_level.columns and hue != 'sex':
                             cov_terms.append('C(sex)')
+                        if 'Myelopathy' in df_level.columns and hue != 'Myelopathy':
+                            cov_terms.append('C(Myelopathy)')
+                        if 'MCL' in df_level.columns and hue != 'mcl':
+                            cov_terms.append('C(MCL)')
+                        if 'mJOA_severity_bl' in df_level.columns and hue != 'mJOA_severity_bl':
+                            cov_terms.append('C(mJOA_severity_bl)')
                         if 'age' in df_level.columns and hue not in ['age', 'age_group']:
                             df_level['age_c'] = pd.to_numeric(df_level['age'], errors='coerce')
                             df_level['age_c'] = df_level['age_c'] - df_level['age_c'].mean()
@@ -1381,8 +1387,31 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                         n1 = int((df_model['grp'] == 0).sum())
                         n2 = int((df_model['grp'] == 1).sum())
                         if n1 >= 3 and n2 >= 3:
-                            res = smf.ols(formula, data=df_model).fit(cov_type='HC0')
-                            pval = float(res.pvalues.get('grp', np.nan))
+                            # Using HC3 due to small sample size (<100)
+                            res = smf.ols(formula, data=df_model).fit(cov_type='HC3')
+                            pval = float(res.pvalues.get('grp', np.nan))    # partial effect of the grp variable, after controlling for all covariates (age, sex, etc.).
+
+                            # Standardized regression coefficient (95% CI)
+                            # Extract unstandardized coefficient for 'grp'
+                            b = res.params['grp']
+                            ci_low, ci_high = res.conf_int().loc['grp']
+                            # Compute SDs
+                            sd_grp = df_model['grp'].std()
+                            sd_y = df_model['metric_value'].std()
+                            # Standardized effect and CI
+                            b_std = b * (sd_grp / sd_y)
+                            ci_low_std = ci_low * (sd_grp / sd_y)
+                            ci_high_std = ci_high * (sd_grp / sd_y)
+                            # b_std, (ci_low_std, ci_high_std)
+
+                            print(f'Metric {metric}, Level {lvl_label}, Group {g1} vs {g2}: n={n1} vs {n2}, p={pval:.4f}, Standardized regression coefficient={b_std:.4f} (95% CI: {ci_low_std:.4f}, {ci_high_std:.4f}). {formula}')
+
+                            # Summary table
+                            # res.summary()
+                            # Adjusted R-squared -- how much the model explains the variation in the metric. *100 for percentage
+                            # r2_adj = res.rsquared_adj # Adjusted R-squared
+                            # F-test p -- whether all predictors together have a statistically detectable effect
+                            # f_pvalue = res.f_pvalue
                         else:
                             pval = np.nan
                         if pval < 0.05:
