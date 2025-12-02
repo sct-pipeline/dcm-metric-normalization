@@ -769,7 +769,7 @@ def _build_myelopathy_compression_table(subjects_df, output_csv_path):
     rows = []
     # Collapse to unique subject rows with relevant columns
     subj_df = subjects_df[['participant_id', 'Myelopathy']].drop_duplicates()
-    for col in ['stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'highest_stenosis', 'stenosis_levels']:
+    for col in ['stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'highest_stenosis', 'stenosis_levels', 'MCL']:
         if col in subjects_df.columns:
             subj_df = subj_df.merge(subjects_df[['participant_id', col]].drop_duplicates('participant_id'), on='participant_id', how='left')
     if 'stenosis_levels' not in subj_df.columns and 'stenosis' in subj_df.columns:
@@ -818,6 +818,10 @@ def _build_myelopathy_compression_table(subjects_df, output_csv_path):
             else:
                 for lvl in stenosis_levels_order:
                     row[f'Highest stenosis: {lvl}'] = 0
+            if 'MCL' in valid_df.columns:
+                mcl_counts = valid_df['MCL'].value_counts().to_dict()
+                for mcl in stenosis_levels_order:
+                    row[f'MCL: {mcl}'] = int(mcl_counts.get(mcl, 0))
         rows.append(row)
     out_df = pd.DataFrame(rows)
     out_df.to_csv(output_csv_path, index=False)
@@ -871,11 +875,18 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
     for c in internal4:
         if c not in table_df.columns: table_df[c] = 0
     block4 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal4), internal4), internal4)
+    # Block5 MCL
+    internal5 = ['MCL: C2/C3', 'MCL: C3/C4', 'MCL: C4/C5', 'MCL: C5/C6', 'MCL: C6/C7']
+    for c in internal5:
+        if c not in table_df.columns: table_df[c] = 0
+    block5 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal5), internal5), internal5)
+    # Write multi-block CSV
     with open(output_csv_path, 'w', newline='') as f:
         block1.to_csv(f, index=False)
         f.write('\n\n'); block2.to_csv(f, index=False)
         f.write('\n\n'); block3.to_csv(f, index=False)
         f.write('\n\n'); block4.to_csv(f, index=False)
+        f.write('\n\n'); block5.to_csv(f, index=False)
     print(f"Publication-ready myelopathy table (with percentages) saved: {output_csv_path}")
 
 def _build_mjoa_compression_table(subjects_df, output_csv_path):
