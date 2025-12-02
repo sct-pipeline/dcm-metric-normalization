@@ -121,12 +121,25 @@ MJOA_COLORS = {
 }
 
 METRICS_YLIMITS = {
-    'MEAN(diameter_AP)': (5, 9),
-    'MEAN(area)': (35, 90),
-    'MEAN(diameter_RL)': (8, 15.5),
-    'MEAN(eccentricity)': (0.53, 0.91),
-    'MEAN(solidity)': (89, 100),
-    'MEAN(compression_ratio)': (0.35, 0.86),
+    'spinal_cord': {
+        'MEAN(diameter_AP)': (5, 9),
+        'MEAN(area)': (35, 90),
+        'MEAN(diameter_RL)': (8, 15.5),
+        'MEAN(eccentricity)': (0.53, 0.91),
+        'MEAN(solidity)': (89, 100),
+        'MEAN(compression_ratio)': (0.35, 0.86)
+    },
+    'canal': {
+        'MEAN(diameter_AP)': (7, 18),
+        'MEAN(area)': (100, 350),
+        'MEAN(diameter_RL)': (15, 27),
+        'MEAN(eccentricity)': (0.4, 0.8),
+        'MEAN(solidity)': (89, 100),
+        'MEAN(compression_ratio)': (0.35, 0.86)
+    },
+    'aSCOR': {
+        'aSCOR': (0.15, 0.5)
+    }
 }
 
 
@@ -1190,7 +1203,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                 leg.remove()
 
         # Tweak y-axis limits
-        ax.set_ylim(METRICS_YLIMITS[metric][0], METRICS_YLIMITS[metric][1])
+        ax.set_ylim(METRICS_YLIMITS[structure][metric][0], METRICS_YLIMITS[structure][metric][1])
         # # Remove first and last 4 slices from the x-axis to match single subject figure (to remove smoothing artifacts)
         # ax.set_xlim(df_normative_data['Slice (I->S)'].iloc[4], df_normative_data['Slice (I->S)'].iloc[-4])
 
@@ -1370,7 +1383,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
 
         # Y-axis limits for bottom row
         if metric in METRICS_YLIMITS:
-            ax_violin.set_ylim(METRICS_YLIMITS[metric][0]*0.9, METRICS_YLIMITS[metric][1]*1.1)
+            ax_violin.set_ylim(METRICS_YLIMITS[structure][metric][0]*0.9, METRICS_YLIMITS[structure][metric][1]*1.1)
 
         ax_violin.set_xlabel('Vertebral level', fontsize=LABELS_FONT_SIZE)
         ax_violin.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
