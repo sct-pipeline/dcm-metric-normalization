@@ -1576,14 +1576,23 @@ def main():
     subjects_df = subjects_df[subjects_df['level_to_use'] != 'exclude']
     print(f"Number of unique subjects after applying C2,C3 level exclusions: {len(subjects_df['participant_id'].unique())}")
     # Drop C2 for subjects with level_to_use == 'C3'
-    print(f"Number of unique subjects before dropping C2 levels: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
+    print(f"C2 level: Number of unique subjects before dropping subjects with missing C2 level: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
     subjects_df = subjects_df[~((subjects_df['level_to_use'] == 'C3') & (subjects_df['VertLevel'] == 2))]
-    print(f"Number of unique subjects before dropping C2 levels: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
+    print(f"C2 level: Number of unique subjects after dropping subjects with missing C2 level: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
 
-    # # Print number of subjects for each slice
-    # slice_counts = subjects_df.groupby('Slice (I->S)')['participant_id'].nunique()
-    # print("Number of subjects per slice:")
-    # print(slice_counts)
+    # Drop rows with highest_stenosis == C2/C3 or C3/C4
+    print(f"Number of unique subjects before dropping highest_stenosis at C2/C3: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C2/C3']
+    print(f"Number of unique subjects after dropping highest_stenosis at C2/C3: {len(subjects_df['participant_id'].unique())}")
+
+    print(f"Number of unique subjects before dropping highest_stenosis at C3/C4: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C3/C4']
+    print(f"Number of unique subjects after dropping highest_stenosis at C3/C4: {len(subjects_df['participant_id'].unique())}")
+
+    # Drop rows with num_of_stenosis == 4
+    print(f"Number of unique subjects before dropping num_of_stenosis == 4: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['num_of_stenosis'] != 4]
+    print(f"Number of unique subjects after dropping num_of_stenosis == 4: {len(subjects_df['participant_id'].unique())}")
 
     if 'cord' in args.i:
         structure = 'spinal_cord'
