@@ -167,9 +167,6 @@ def get_parser():
     parser.add_argument('-participants-file-pam50', required=False, type=str,
                         default='$SCT_DIR/data/PAM50_normalized_metrics/participants.tsv',
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
-    parser.add_argument('-participants-file', required=False, type=str,
-                        help="Path to the patients' participants.tsv file containing data for stratification, e.g.,:"
-                             "age, sex, maximum_stenosis, myelopathy.")
     parser.add_argument('-clinical-file', required=False, type=str,
                         help="Excel file with clinical scores (must contain 'total_mjoa_BL' column)")
     parser.add_argument('-stratify', required=False, type=str, default=None,
@@ -310,16 +307,14 @@ def fetch_participant_and_session(filename_path):
     return participant_id, session_id
 
 
-def read_csv_file(csv_file, participants_file=None, clinical_file=None, stratify_type=None):
+def read_csv_file(csv_file, clinical_file=None):
     """
     - Read CSV file with morphometrics in the PAM50 space across multiple subjects.
         This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`.
     - Read participants.tsv file with MCL or myelopathy data for stratification (if provided) or
         clinical Excel file with mJOA scores (if provided).
     :param csv_file: input CSV file path
-    :param participants_file: path to participants.tsv file with stratification data
     :param clinical_file: path to Excel file with clinical scores (must contain 'total_mjoa_BL' column)
-    :param stratify_type: type of stratification ('mcl' or 'myelopathy')
     :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio), and optionally stratification data
     """
 
@@ -1487,7 +1482,7 @@ def main():
     csv_file = os.path.abspath(args.i)
     if not os.path.isfile(csv_file):
         raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
-    subjects_df = read_csv_file(csv_file, args.participants_file, args.clinical_file, args.stratify)
+    subjects_df = read_csv_file(csv_file,args.clinical_file)
 
     # Exclude severe and unknown mJOA subjects
     subjects_df = exclude_severe_mjoa(subjects_df)
@@ -1552,52 +1547,29 @@ def main():
     df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv_pam50, structure)
 
     if args.stratify == 'normative_mean_c2':
-        # Check if 'participants.tsv' contains the 'normative_mean_c2' column
-        # If so, read it directly; otherwise, compute it
-        if args.participants_file and os.path.isfile(args.participants_file):
-            df_participants = pd.read_csv(args.participants_file, sep='\t')
-        else:
-            sys.exit(f"Warning: Participants file not found: {args.participants_file}")
+        # -------------
+        # Load normative cord area for VertLevel C2
+        # -------------
+        # Get normative data at C2 only (mean across slices for each subject)
+        normative_data_c2_grouped = load_normative_df_c2(path_HC, path_participants_tsv_pam50)
+        # Compute mean C2 across subjects
+        mean_c2_cord_normative = normative_data_c2_grouped['MEAN(area)'].mean()
 
-        if 'normative_mean_c2' in df_participants.columns:
-            print("Using existing 'normative_mean_c2' column from participants.tsv")
-            # Merge normative_mean_c2 data
-            subjects_df = subjects_df.merge(
-                df_participants[['participant_id', 'normative_mean_c2']],
-                on='participant_id', how='left'
-            )
-        else:
-            # -------------
-            # Load normative cord area for VertLevel C2
-            # -------------
-            # Get normative data at C2 only (mean across slices for each subject)
-            normative_data_c2_grouped = load_normative_df_c2(path_HC, path_participants_tsv_pam50)
-            # Compute mean C2 across subjects
-            mean_c2_cord_normative = normative_data_c2_grouped['MEAN(area)'].mean()
+        # -------------
+        # Compute mean C2 for each subject from subjects_df using df.groupby
+        # -------------
+        subjects_df_c2 = subjects_df[subjects_df['VertLevel'] == 2]
+        grouped_subjects_c2 = subjects_df_c2.groupby('participant_id').agg({
+            'MEAN(area)': 'mean'
+        }).reset_index()
+        # Add a new column to grouped_subjects_c2 indicating whether the subject's mean C2 cord area is below or above normative mean
+        grouped_subjects_c2['normative_mean_c2'] = grouped_subjects_c2['MEAN(area)'].apply(lambda x: _categorize_c2_area(x, mean_c2_cord_normative))
 
-            # -------------
-            # Compute mean C2 for each subject from subjects_df using df.groupby
-            # -------------
-            subjects_df_c2 = subjects_df[subjects_df['VertLevel'] == 2]
-            grouped_subjects_c2 = subjects_df_c2.groupby('participant_id').agg({
-                'MEAN(area)': 'mean'
-            }).reset_index()
-            # Add a new column to grouped_subjects_c2 indicating whether the subject's mean C2 cord area is below or above normative mean
-            grouped_subjects_c2['normative_mean_c2'] = grouped_subjects_c2['MEAN(area)'].apply(lambda x: _categorize_c2_area(x, mean_c2_cord_normative))
-
-            # Save the 'normative_mean_c2' column to the participants.tsv file for future use
-            df_participants = df_participants.merge(
-                grouped_subjects_c2[['participant_id', 'normative_mean_c2']],
-                on='participant_id', how='left'
-            )
-            df_participants.to_csv(args.participants_file, sep='\t', index=False)
-            print(f"'normative_mean_c2' column added to participants file: {args.participants_file}")
-
-            # Now, add this information back to the main subjects_df
-            subjects_df = subjects_df.merge(
-                grouped_subjects_c2[['participant_id', 'normative_mean_c2']],
-                on='participant_id', how='left'
-            )
+        # Now, add this information back to the main subjects_df
+        subjects_df = subjects_df.merge(
+            grouped_subjects_c2[['participant_id', 'normative_mean_c2']],
+            on='participant_id', how='left'
+        )
 
     # -------------
     # Plotting
