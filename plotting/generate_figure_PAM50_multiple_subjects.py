@@ -1349,11 +1349,11 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         if hue is not None:
             unique_groups = (hue_order if hue_order is not None else grouped[hue].dropna().unique().tolist())
             unique_groups = [g for g in unique_groups if g in grouped[hue].dropna().unique().tolist()]
+            tick_labels = [t.get_text() for t in ax_violin.get_xticklabels()]
+            tick_pos_map = dict(zip(tick_labels, ax_violin.get_xticks()))
             if len(unique_groups) == 2:
                 g1, g2 = unique_groups[0], unique_groups[1]
                 # Map x tick label to position
-                tick_labels = [t.get_text() for t in ax_violin.get_xticklabels()]
-                tick_pos_map = dict(zip(tick_labels, ax_violin.get_xticks()))
                 ymin, ymax = ax_violin.get_ylim()
                 yrange = ymax - ymin if ymax > ymin else 1.0
                 for lvl_label in level_order_labels:
