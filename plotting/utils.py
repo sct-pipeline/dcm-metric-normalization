@@ -104,15 +104,15 @@ def fetch_participant_and_session(filename_path):
     return participant_id, session_id
 
 
-def exclude_severe_mjoa(subjects_df):
+def exclude_severe_mjoa(df):
     # Exclude subjects with severe mJOA (<12) or unknown mJOA
-    print(f"Number of subjects: {len(subjects_df['participant_id'].unique())}")
+    print(f"Number of subjects: {len(df['participant_id'].unique())}")
     print("Excluding subjects with severe myelopathy (mJOA < 12)...")
     # Keep only subjects with mJOA_severity_bl 'mild (15 ≤ mJOA ≤ 18)' and 'moderate (12 ≤ mJOA ≤ 14)'
-    subjects_df = subjects_df[subjects_df['mJOA_severity_bl'].isin([
+    df = df[df['mJOA_severity_bl'].isin([
         'mild (15 ≤ mJOA ≤ 18)',
         'moderate (12 ≤ mJOA ≤ 14)'
     ])]
-    print(f"Number of subjects after excluding severe myelopathy: {len(subjects_df['participant_id'].unique())}")
+    print(f"Number of subjects after excluding severe myelopathy: {len(df['participant_id'].unique())}")
 
-    return subjects_df
+    return df
