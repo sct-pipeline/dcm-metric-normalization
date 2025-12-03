@@ -35,8 +35,8 @@ import statsmodels.formula.api as smf
 
 from utils import METRICS_DTYPE, load_normative_df_c2, _categorize_c2_area, exclude_severe_mjoa
 
-LABELS_FONT_SIZE = 14
-TICKS_FONT_SIZE = 12
+TICKS_FONT_SIZE = 18
+LABELS_FONT_SIZE = TICKS_FONT_SIZE+2
 
 METRIC_TO_AXIS = {
     'MEAN(diameter_AP)': 'AP Diameter [mm]',
@@ -1135,11 +1135,11 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             for sex in sex_groups:
                 normative_sex_data = df_normative_data[df_normative_data['sex'] == sex]
                 sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=normative_sex_data, errorbar='sd',
-                             linewidth=2, color=SEX_COLORS_NORMATIVE[sex], linestyle='--',
+                             linewidth=4, color=SEX_COLORS_NORMATIVE[sex], linestyle='--',
                              label=f'Normative Data {SEX_TO_LEGEND[sex]} (n={len(normative_sex_data["participant_id"].unique())})')
         else:
             sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df_normative_data, errorbar='sd',
-                         linewidth=2, color='black',
+                         linewidth=4, color='black',
                          label=f'Normative Data (n={len(df_normative_data["participant_id"].unique())})')
 
         if stratify_type == 'mcl':
@@ -1153,7 +1153,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     mcl_n_subjects = len(mcl_data['participant_id'].unique())
                     print(f"MCL group '{mcl}': {mcl_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mcl_data, errorbar='sd',
-                                linewidth=2, color=MCL_COLORS[mcl],
+                                linewidth=4, color=MCL_COLORS[mcl],
                                 label=f"MCL {mcl} (n={mcl_n_subjects})")
         elif stratify_type == 'highest_stenosis':
             # Plot by Stenosis groups instead of sessions
@@ -1164,7 +1164,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     stenosis_n_subjects = len(stenosis_data['participant_id'].unique())
                     print(f"Stenosis group '{level}': {stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=stenosis_data, errorbar='sd',
-                                linewidth=2, color=MCL_COLORS[level],
+                                linewidth=4, color=MCL_COLORS[level],
                                 label=f"Highest Stenosis at {level} (n={stenosis_n_subjects})")
         elif stratify_type == 'num_of_stenosis':
             # Plot by Number of Stenosis groups instead of sessions
@@ -1175,7 +1175,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     num_stenosis_n_subjects = len(num_stenosis_data['participant_id'].unique())
                     print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
-                                linewidth=2, label=f"Number of Stenosis = {num_stenosis} (n={num_stenosis_n_subjects})")
+                                linewidth=4, label=f"Number of Stenosis = {num_stenosis} (n={num_stenosis_n_subjects})")
         elif stratify_type == 'single_vs_multi_stenosis':
             # Plot by Number of Stenosis groups instead of sessions
             num_stenosis_groups = ['Single stenosis', 'Multi-level stenosis']
@@ -1185,7 +1185,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     num_stenosis_n_subjects = len(num_stenosis_data['participant_id'].unique())
                     print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
-                                linewidth=2, label=f"{num_stenosis} (n={num_stenosis_n_subjects})")
+                                linewidth=4, label=f"{num_stenosis} (n={num_stenosis_n_subjects})")
         elif stratify_type == 'num_of_stenosis_including_C2C3':
             num_stenosis_groups = ['1', '2', '3', '4', '4 including C2/C3 or C3/C4']     # ensure order
             for num_stenosis in num_stenosis_groups:
@@ -1194,7 +1194,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     num_stenosis_n_subjects = len(num_stenosis_data['participant_id'].unique())
                     print(f"Number of Stenosis '{num_stenosis}': {num_stenosis_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=num_stenosis_data, errorbar='sd',
-                                linewidth=2, label=f"Number of Stenosis = {num_stenosis} (n={num_stenosis_n_subjects})")
+                                linewidth=4, label=f"Number of Stenosis = {num_stenosis} (n={num_stenosis_n_subjects})")
         elif stratify_type == 'myelopathy':
             # Plot by Myelopathy groups instead of sessions
             myelopathy_groups = subjects_df['Myelopathy'].unique()
@@ -1206,7 +1206,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     myelopathy_n_subjects = len(myelopathy_data['participant_id'].unique())
                     print(f"Myelopathy group '{myelopathy}': {myelopathy_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
-                                linewidth=2, color=MYELOPATHY_COLORS[myelopathy],
+                                linewidth=4, color=MYELOPATHY_COLORS[myelopathy],
                                 label=f"Myelopathy {myelopathy} (n={myelopathy_n_subjects})")
         elif stratify_type == 'therapeutic_decision':
             # Plot by Therapeutic Decision groups instead of sessions
@@ -1219,7 +1219,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     decision_n_subjects = len(decision_data['participant_id'].unique())
                     print(f"Therapeutic Decision group '{decision}': {decision_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=decision_data, errorbar='sd',
-                                linewidth=2, color=THERAPEUTIC_DECISION_COLORS[decision],
+                                linewidth=4, color=THERAPEUTIC_DECISION_COLORS[decision],
                                 label=f"{decision} (n={decision_n_subjects})")
 
         elif stratify_type == 'mjoa':
@@ -1236,7 +1236,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     mjoa_n_subjects = len(mjoa_data['participant_id'].unique()) if metric == 'MEAN(area)' else None
                     print(f"mJOA severity group '{mjoa}': {mjoa_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=mjoa_data, errorbar='sd',
-                                linewidth=2, color=MJOA_COLORS[mjoa],
+                                linewidth=4, color=MJOA_COLORS[mjoa],
                                 label=f"{mjoa} (n={mjoa_n_subjects})")
         elif stratify_type == 'age':
             # Plot by age groups
@@ -1247,7 +1247,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     age_n_subjects = len(age_data['participant_id'].unique())
                     print(f"Age group '{age}': {age_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=age_data, errorbar='sd',
-                                linewidth=2, color=AGE_GROUP_COLORS[age],
+                                linewidth=4, color=AGE_GROUP_COLORS[age],
                                 label=f"Age {age} (n={age_n_subjects})")
         elif stratify_type == 'sex':
             sex_groups = ['M', 'F']  # Ensure legend order
@@ -1257,7 +1257,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sex_n_subjects = len(sex_data['participant_id'].unique())
                     print(f"Sex group '{sex}': {sex_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=sex_data, errorbar='sd',
-                                linewidth=2, color=SEX_COLORS_PATIENTS[sex],
+                                linewidth=4, color=SEX_COLORS_PATIENTS[sex],
                                  label=f"{SEX_TO_LEGEND[sex]} (n={sex_n_subjects})")
         elif stratify_type == 'normative_mean_c2':
             c2_groups = subjects_df['normative_mean_c2'].unique()
@@ -1267,7 +1267,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     c2_n_subjects = len(c2_data['participant_id'].unique())
                     print(f"Normative mean C2 group '{c2_group}': {c2_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=c2_data, errorbar='sd',
-                                linewidth=2, color=NORMATIVE_C2_COLORS[c2_group],
+                                linewidth=4, color=NORMATIVE_C2_COLORS[c2_group],
                                 label=f"{c2_group} (n={c2_n_subjects})")
         else:
             # Plot each session's mean and std (original behavior)
@@ -1277,7 +1277,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     ses_n_subjects = len(session_data['participant_id'].unique())
                     print(f"Session '{ses}': {ses_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=session_data, errorbar='sd',
-                                linewidth=2, color=SESSION_COLORS[ses],
+                                linewidth=4, color=SESSION_COLORS[ses],
                                 label=f"{ses} (n={ses_n_subjects})")
 
         # Keep the legend only for one plot to avoid duplication
@@ -1310,9 +1310,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         for idx, x in enumerate(ind_vert[1:-1]):
             ax.axvline(df_normative_data.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5, zorder=0)
         for idx, x in enumerate(ind_vert_mid, 0):
-            level = f'T{vert[x] - 7}' if vert[x] > 7 else f'C{vert[x]}'
+            x_pos = f'T{vert[x] - 7}' if vert[x] > 7 else f'C{vert[x]}'
+            y_pos = ymin - (ymax - ymin) * 0.1  # to move below x-axis
             ax.text(df_normative_data.loc[ind_vert_mid[idx], 'Slice (I->S)'],
-                    ymin - (ymax - ymin) * 0.05, level, horizontalalignment='center',
+                    y_pos, x_pos, horizontalalignment='center',
                     verticalalignment='bottom', color='black', fontsize=TICKS_FONT_SIZE)
 
         ax.yaxis.grid(True)
@@ -1402,10 +1403,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
 
         if hue is None:
             sns.violinplot(ax=ax_violin, data=grouped, x='Level', y=metric, order=level_order_labels,
-                           inner='box', cut=0, linewidth=1, fill=False)
+                           inner='box', cut=0, linewidth=2, fill=False)
         else:
             sns.violinplot(ax=ax_violin, data=grouped, x='Level', y=metric, hue=hue, order=level_order_labels,
-                           hue_order=hue_order, palette=palette, inner='box', cut=0, linewidth=1, dodge=True, fill=False)
+                           hue_order=hue_order, palette=palette, inner='box', cut=0, linewidth=2, dodge=True, fill=False)
 
         # # Legend handling for bottom row
         # if metric_idx == plot_to_keep_legend and hue is not None:
