@@ -309,15 +309,12 @@ def fetch_participant_and_session(filename_path):
     return participant_id, session_id
 
 
-def read_csv_file(csv_file, clinical_file=None):
+def read_morphometrics_file(csv_file):
     """
-    - Read CSV file with morphometrics in the PAM50 space across multiple subjects.
-        This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`.
-    - Read participants.tsv file with MCL or myelopathy data for stratification (if provided) or
-        clinical Excel file with mJOA scores (if provided).
+    Read CSV file with morphometrics in the PAM50 space across multiple subjects.
+    This file is generated with `sct_process_segmentation -normalize-PAM50 1 -perslice 1 -append 1`.
     :param csv_file: input CSV file path
-    :param clinical_file: path to Excel file with clinical scores (must contain 'total_mjoa_BL' column)
-    :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio), and optionally stratification data
+    :return: pandas dataframe with additional columns participant_id, session_id, MEAN(compression_ratio)
     """
 
     subjects_df = pd.read_csv(csv_file)
@@ -343,16 +340,24 @@ def read_csv_file(csv_file, clinical_file=None):
     subjects_df.insert(0, 'participant_id', participant_ids)
     subjects_df.insert(1, 'session_id', session_ids)
 
+    return subjects_df
+
+
+def read_clinical_file(clinical_file):
+    """
+    Read clinical Excel file with mJOA scores.
+    :param clinical_file: path to Excel file with clinical scores (must contain 'total_mjoa_BL' column)
+    :return: pandas dataframe with clinical data
+    :returns: list of clinical columns
+    """
+
+    # specifying separately as this list is being returned by this function
     clinical_columns = [
         'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth',
-        'motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth',
-        'motor_dysfunction_UE_12mth_12mth',
-        'motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth',
-        'motor_dysfunction_LE_12mth_12mth',
-        'sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth',
-        'sensory_dysfunction_UE_12mth_12mth',
-        'sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth',
-        'sphincter_dysfunction_12mth_12mth',
+        'motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth', 'motor_dysfunction_UE_12mth_12mth',
+        'motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth', 'motor_dysfunction_LE_12mth_12mth',
+        'sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth', 'sensory_dysfunction_UE_12mth_12mth',
+        'sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth', 'sphincter_dysfunction_12mth_12mth',
         'UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth', 'UEPP_C4_T1_12mth',
         'UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth', 'UELT_C4_T1_12mth_12mth',
         'upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'
@@ -526,20 +531,30 @@ def read_csv_file(csv_file, clinical_file=None):
             print(f'Number of subjects after excluding NA in {col}: {df_clinical.shape[0]}')
 
         # ----
-        # Merge
+        # Exclude severe and unknown mJOA subjects
         # ----
-        subjects_df = subjects_df.merge(
-            df_clinical[['participant_id', 'maximum_stenosis', 'stenosis_levels', 'highest_stenosis', 'num_of_stenosis',
-                         'single_vs_multi_stenosis', 'Myelopathy', 'therapeutic_decision', 'age', 'age_group', 'sex',
-                         'mJOA_severity_bl'] + clinical_columns],
-            on='participant_id', how='left'
-        )
+        df_clinical = exclude_severe_mjoa(df_clinical)
 
-        # Rename maximum_stenosis to MCL
-        subjects_df = subjects_df.rename(columns={'maximum_stenosis': 'MCL'})
-        print(f'Number of subjects after merging MRI and clinical data: {len(subjects_df['participant_id'].unique())}')
     else:
         sys.exit(f"Warning: Clinical file not found: {clinical_file}")
+
+    return df_clinical, clinical_columns
+
+
+def merge_morphometrics_and_clinical_data(subjects_df, df_clinical, clinical_columns):
+    """
+    Merge clinical data into dataframe with morphometrics
+    """
+    subjects_df = subjects_df.merge(
+        df_clinical[['participant_id', 'maximum_stenosis', 'stenosis_levels', 'highest_stenosis', 'num_of_stenosis',
+                     'single_vs_multi_stenosis', 'Myelopathy', 'therapeutic_decision', 'age', 'age_group', 'sex',
+                     'mJOA_severity_bl'] + clinical_columns],
+        on='participant_id', how='inner'
+    )
+
+    # Rename maximum_stenosis to MCL
+    subjects_df = subjects_df.rename(columns={'maximum_stenosis': 'MCL'})
+    print(f'Number of subjects after merging MRI and clinical data: {len(subjects_df['participant_id'].unique())}')
 
     return subjects_df
 
@@ -1588,17 +1603,11 @@ def main():
     c2c3_file = os.path.expandvars(args.c2c3_file)
 
     # ----
-    # Read CSV files with morphometrics and clinical data
+    # Read files with morphometrics (CSV) and clinical (XSLX) data
     # ----
-    csv_file = os.path.abspath(args.i)
-    if not os.path.isfile(csv_file):
-        raise FileNotFoundError(f"Input CSV file not found: {csv_file}")
-    subjects_df = read_csv_file(csv_file,args.clinical_file)
-
-    # ----
-    # Exclude severe and unknown mJOA subjects
-    # ----
-    subjects_df = exclude_severe_mjoa(subjects_df)
+    subjects_df = read_morphometrics_file(os.path.abspath(args.i))
+    df_clinical, clinical_columns = read_clinical_file(os.path.abspath(args.clinical_file))
+    subjects_df = merge_morphometrics_and_clinical_data(subjects_df, df_clinical, clinical_columns)
 
     # Get number of unique subjects
     n_subjects = len(subjects_df['participant_id'].unique())
