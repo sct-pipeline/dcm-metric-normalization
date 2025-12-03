@@ -28,9 +28,8 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from generate_figure_PAM50_multiple_subjects import (MYELOPATHY_COLORS, AGE_GROUP_COLORS, SEX_COLORS_PATIENTS,
-                                                     THERAPEUTIC_DECISION_COLORS, MCL_COLORS, MJOA_COLORS, NORMATIVE_C2_COLORS,
-                                                     _stratify_mjoa)
+from generate_figure_PAM50_multiple_subjects import (read_clinical_file, MYELOPATHY_COLORS, AGE_GROUP_COLORS, SEX_COLORS_PATIENTS,
+                                                     THERAPEUTIC_DECISION_COLORS, MCL_COLORS, MJOA_COLORS, NORMATIVE_C2_COLORS)
 
 # Plot fonts
 LABEL_FONT_SIZE = 14
@@ -40,36 +39,36 @@ TITLE_FONT_SIZE = 16
 # Default scores to plot: name -> list of column names in expected order
 SCORES = {
     'mJOA': {
-        'columns': ['total_mjoa_bl', 'total_mjoa_6mth', 'total_mjoa_12mth'],
+        'columns': ['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth'],
         'y_label': 'mJOA'
     },
-    'Nurick': {
-        'columns': ['nurick_bl', 'nurick_6mth', 'nurick_12mth'],
-        'y_label': 'Nurick grade'
+    'Motor Dysfunction UE': {
+        'columns': ['motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth', 'motor_dysfunction_UE_12mth_12mth'],
+        'y_label': 'Motor Dysfunction UE'
     },
-    'Pinprick total': {
-        'columns': ['pinprick_total_bl', 'pinprick_total_6mth', 'pinprick_total_12mth'],
-        'y_label': 'Pinprick total score'
+    'Motor Dysfunction LE': {
+        'columns': ['motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth', 'motor_dysfunction_LE_12mth_12mth'],
+        'y_label': 'Motor Dysfunction LE'
     },
-    'Pinprick cervical': {
-        'columns': ['pp_cervical_tot_bl', 'pp_cervical_tot_6mth', 'pp_cervical_tot_12mth'],
-        'y_label': 'Pinprick cervical score'
+    'Sensory Dysfunction UE': {
+        'columns': ['sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth', 'sensory_dysfunction_UE_12mth_12mth'],
+        'y_label': 'Sensory Dysfunction UE'
     },
-    'Pinprick below cervical': {
-        'columns': ['pp_below_cervical_tot_bl', 'pp_below_cervical_tot_6mth', 'pp_below_cervical_tot_12mth'],
-        'y_label': 'Pinprick below cervical score'
+    'Sphincter Dysfunction': {
+        'columns': ['sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth', 'sphincter_dysfunction_12mth_12mth'],
+        'y_label': 'Motor Dysfunction LE'
     },
-    'Lightouch total': {
-        'columns': ['lighttouch_total_bl', 'lighttouch_total_6mth', 'lighttouch_total_12mth'],
-        'y_label': 'Light touch total score'
+    'Pinprick UE': {
+        'columns': ['UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth', 'UEPP_C4_T1_12mth'],
+        'y_label': 'Pinprick UE'
     },
-    'Lightouch cervical': {
-        'columns': ['lt_cervical_tot_bl', 'lt_cervical_tot_6mth', 'lt_cervical_tot_12mth'],
-        'y_label': 'Light touch cervical score'
+    'Lightouch UE': {
+        'columns': ['UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth', 'UELT_C4_T1_12mth_12mth'],
+        'y_label': 'Lightouch UE'
     },
-    'Lightouch below cervical': {
-        'columns': ['lt_below_cervical_tot_bl', 'lt_below_cervical_tot_6mth', 'lt_below_cervical_tot_12mth'],
-        'y_label': 'Light touch below cervical score'
+    'Total Motor Score UE': {
+        'columns': ['upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'],
+        'y_label': 'Total Motor Score UE'
     },
 }
 
@@ -96,6 +95,19 @@ SCORE_TO_YLIM = {
     'Lightouch below cervical': (50, 90),
 }
 
+
+def get_parser():
+    p = argparse.ArgumentParser(description='Plot longitudinal clinical score trajectories (one figure per score).')
+    p.add_argument('-clinical-file', required=True, type=str,
+                   help='Path to Excel file with clinical scores (columns like total_mjoa_bl, nurick_bl, ...)')
+    p.add_argument('-participants-to-use', required=True, type=str,
+                   help='Path to text file with participant IDs to include (one ID per line)')
+    p.add_argument('-o', '--outdir', required=True, type=str,
+                   help='Output directory for figures')
+    # Stratification option: can provide one or two columns separated by comma
+    p.add_argument('--stratify-by', type=str, default=None,
+                   help='Column(s) to stratify by. Provide one or two, comma-separated (e.g., "therapeutic_decision,mjoa"). ')
+    return p
 
 def _get_ylim_for_score(score_name: str):
     return SCORE_TO_YLIM.get(score_name)
@@ -221,46 +233,6 @@ def _parse_stratify_arg(val: str | None):
     return parts[:2]
 
 
-def get_parser():
-    p = argparse.ArgumentParser(description='Plot longitudinal clinical score trajectories (one figure per score).')
-    p.add_argument('-clinical-file', required=True, type=str,
-                   help='Path to Excel file with clinical scores (columns like total_mjoa_bl, nurick_bl, ...)')
-    p.add_argument('-o', '--outdir', required=True, type=str,
-                   help='Output directory for figures')
-    p.add_argument('--subject-col', default='record_id', type=str, required=False,
-                   help='Subject ID column in the clinical Excel (default: record_id)')
-    p.add_argument('--scores', dest='scores', nargs='*', default=list(SCORES.keys()),
-                   help='Subset of scores to plot (default: all known)')
-    # Stratification option: can provide one or two columns separated by comma
-    p.add_argument('--stratify-by', type=str, default=None,
-                   help='Column(s) to stratify by. Provide one or two, comma-separated (e.g., "therapeutic_decision,normative_mean_c2"). '
-                        'If not in clinical Excel, provide --participants-file.')
-    p.add_argument('--participants-file', type=str, default=None,
-                   help='Path to participants.tsv to fetch stratification columns like myelopathy or normative_mean_c2 (tab-separated).')
-    return p
-
-
-def load_clinical_excel(path_xlsx: str, subject_col: str) -> pd.DataFrame:
-    try:
-        df = pd.read_excel(path_xlsx)
-    except Exception as e:
-        sys.exit(f'Error reading clinical Excel: {e}')
-
-    if subject_col not in df.columns:
-        sys.exit(f"Subject column '{subject_col}' not found. Available: {list(df.columns)}")
-
-    # Keep all columns; we will check existence later per score
-    df = df.copy()
-
-    # Rename subject column to participant_id and format as sub-XXX when numeric
-    df = df.rename(columns={subject_col: 'participant_id'})
-    df['participant_id'] = df['participant_id'].apply(
-        lambda x: f"sub-{int(x):03d}" if isinstance(x, (int, float)) and not pd.isna(x) else str(x)
-    )
-
-    return df
-
-
 def _normalize_strat_keys(keys: list[str]) -> list[str]:
     """Map user-friendly strat keys to actual dataframe columns.
     Currently maps 'mjoa' to 'mJOA_severity_bl'.
@@ -294,13 +266,6 @@ def build_long_df_for_score(df: pd.DataFrame, score_name: str, columns: list[str
         if k in df_num.columns:
             drop_subset.append(k)
     df_complete = df_num.dropna(subset=drop_subset)
-
-    # Special-case filter: for mJOA severity stratification, keep only mild/moderate
-    if 'mJOA_severity_bl' in df_complete.columns and ('mJOA_severity_bl' in keys):
-        df_complete = df_complete[df_complete['mJOA_severity_bl'].isin([
-            'mild (15 ≤ mJOA ≤ 18)',
-            'moderate (12 ≤ mJOA ≤ 14)'
-        ])]
 
     if df_complete.empty:
         return pd.DataFrame(columns=['participant_id', 'session_numeric', 'session_label', 'score'])
@@ -350,10 +315,10 @@ def plot_score_trajectory(plot_df: pd.DataFrame, score_name: str, y_label: str, 
     width = max(6, int(2.5 * len(sessions)))
     fig, ax = plt.subplots(1, 1, figsize=(width, 4))
 
-    # Apply custom y-limits if provided for this score
-    ylim = _get_ylim_for_score(score_name)
-    if ylim is not None:
-        ax.set_ylim(*ylim)
+    # # Apply custom y-limits if provided for this score
+    # ylim = _get_ylim_for_score(score_name)
+    # if ylim is not None:
+    #     ax.set_ylim(*ylim)
 
     # Plot individual trajectories (only when subject has >1 time points)
     for pid, g in plot_df.groupby('participant_id'):
@@ -529,7 +494,7 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
     ax.tick_params(axis='y', labelsize=TICK_FONT_SIZE)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.legend(title=stratify_by, fontsize=TICK_FONT_SIZE-2, title_fontsize=TICK_FONT_SIZE-1)
+    ax.legend(title=stratify_by, fontsize=TICK_FONT_SIZE-2, title_fontsize=TICK_FONT_SIZE-1, loc='lower left')
 
     fig.tight_layout()
     os.makedirs(outdir, exist_ok=True)
@@ -556,10 +521,10 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     width = max(7, int(3.2 * len(sessions)))
     fig, ax = plt.subplots(1, 1, figsize=(width, 4.6))
 
-    # Apply custom y-limits if provided for this score
-    ylim = _get_ylim_for_score(score_name)
-    if ylim is not None:
-        ax.set_ylim(*ylim)
+    # # Apply custom y-limits if provided for this score
+    # ylim = _get_ylim_for_score(score_name)
+    # if ylim is not None:
+    #     ax.set_ylim(*ylim)
 
     # Determine unique strata
     vals1 = list(plot_df['stratum1'].dropna().unique())
@@ -653,7 +618,7 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     # Place legends inside the axes to avoid cropping
     leg1 = ax.legend(handles=color_handles,
                      title=STRATIFICATION_TO_TITLE.get(key1, key1),
-                     loc='upper right',
+                     loc='lower left',
                      fontsize=TICK_FONT_SIZE-4,
                      title_fontsize=TICK_FONT_SIZE-3,
                      frameon=True)
@@ -676,13 +641,6 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     fig.savefig(out_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
     print(f'Clinical trajectory figure saved to {out_path}')
-
-
-def _process_myelopathy(value):
-    """Map raw myelopathy to 'yes'/'no' (NA -> 'no')."""
-    if pd.isna(value) or str(value).strip().lower() in {'n/a', 'na', ''}:
-        return 'no'
-    return 'yes'
 
 
 def _normalize_normative_c2(value):
@@ -740,9 +698,7 @@ def merge_stratification(df_clinical: pd.DataFrame, participants_file: str | Non
 
     # Special handling
     for k in available:
-        if k == 'myelopathy':
-            df_sub[k] = df_sub[k].apply(_process_myelopathy)
-        elif k == 'normative_mean_c2':
+        if k == 'normative_mean_c2':
             df_sub[k] = df_sub[k].apply(_normalize_normative_c2)
 
     merged = df_out.merge(df_sub, on='participant_id', how='left')
@@ -752,27 +708,25 @@ def merge_stratification(df_clinical: pd.DataFrame, participants_file: str | Non
 def main():
     args = get_parser().parse_args()
 
-    df = load_clinical_excel(args.clinical_file, args.subject_col)
+    df_clinical, _ = read_clinical_file(os.path.abspath(args.clinical_file))
+    # Read txt file with participant IDs to include
+    with open(args.participants_to_use, 'r') as f:
+        participant_ids = [line.strip() for line in f if line.strip()]
+    # Keep only requested participants
+    df_clinical = df_clinical[df_clinical['participant_id'].isin(participant_ids)].copy()
 
-    # Compute mJOA severity from baseline score if available
-    if 'total_mjoa_bl' in df.columns:
-        df['mJOA_severity_bl'] = df['total_mjoa_bl'].apply(_stratify_mjoa)
+    # Rename myelopathy values from 0 to 'myelopathy no' and 1 to 'myelopathy yes'
+    df_clinical['myelopathy'] = df_clinical['myelopathy'].map({0: 'myelopathy_no', 1: 'myelopathy_yes'})
 
     # Parse stratification keys and normalize aliases (e.g., 'mjoa' -> 'mJOA_severity_bl')
     strat_keys_in = _parse_stratify_arg(args.stratify_by)
     strat_keys = _normalize_strat_keys(strat_keys_in)
 
-    # Merge stratification info from participants.tsv if needed (for keys not in clinical Excel)
-    df = merge_stratification(df, args.participants_file, strat_keys)
-
     # For each requested score, build long-format DF and plot
-    for score in args.scores:
-        if score not in SCORES:
-            print(f"Unknown score '{score}', skipping. Known: {list(SCORES.keys())}")
-            continue
+    for score in SCORES.keys():
         cfg = SCORES[score]
 
-        plot_df = build_long_df_for_score(df, score, cfg['columns'], SESSION_LABELS_DEFAULT, stratify_by=strat_keys)
+        plot_df = build_long_df_for_score(df_clinical, score, cfg['columns'], SESSION_LABELS_DEFAULT, stratify_by=strat_keys)
         if plot_df.empty:
             print(f"No data available for {score} with complete sessions: {cfg['columns']}")
             continue
