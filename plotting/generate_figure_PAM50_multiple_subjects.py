@@ -543,6 +543,65 @@ def read_csv_file(csv_file, clinical_file=None):
 
     return subjects_df
 
+def read_exclude_file_and_exclude_subjects(subjects_df, exclude_file):
+    """
+    Read exclude file (YAML) and exclude subjects from subjects_df
+    """
+    if exclude_file and os.path.isfile(exclude_file):
+        # Extract participant IDs (e.g., 'sub-004') from 'sub-XXX/ses-YYY'
+        with open(exclude_file, "r") as f:
+            data = yaml.safe_load(f)
+        exclude_ids = []
+        for section in data.values():
+            for item in section:
+                pid = item.split('/')[0].strip()
+                exclude_ids.append(pid)
+        print(f'Subjects to exclude: {exclude_ids}')  # ['sub-004', 'sub-020', 'sub-042', 'sub-045']
+        print(f'Number of subjects to exclude: {len(exclude_ids)}')
+
+        initial_count = len(subjects_df['participant_id'].unique())
+        subjects_df = subjects_df[~subjects_df['participant_id'].isin(exclude_ids)]
+        excluded_count = initial_count - len(subjects_df['participant_id'].unique())
+        print(f"Excluded {excluded_count} subjects based on exclude file: {exclude_file}")
+        print(f"Number of unique subjects after exclusion: {len(subjects_df['participant_id'].unique())}")
+
+    return subjects_df
+
+
+def read_c2c3_file_and_apply_exclusions(subjects_df, c2c3_file):
+    """
+    Read C2C3 file and apply exclusions to subjects_df
+    """
+    c2c3_ids = pd.read_csv(c2c3_file, sep=r"\s+", header=None, names=["participant_id", "level_to_use"])
+    # Merge with subjects_df
+    subjects_df = subjects_df.merge(c2c3_ids, on='participant_id', how='left')
+    # Drop rows with level_to_use == 'exclude'
+    subjects_df = subjects_df[subjects_df['level_to_use'] != 'exclude']
+    print(f"Number of unique subjects after applying C2,C3 level exclusions: {len(subjects_df['participant_id'].unique())}")
+    # Drop C2 for subjects with level_to_use == 'C3'
+    print(f"C2 level: Number of unique subjects before dropping subjects with missing C2 level: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
+    subjects_df = subjects_df[~((subjects_df['level_to_use'] == 'C3') & (subjects_df['VertLevel'] == 2))]
+    print(f"C2 level: Number of unique subjects after dropping subjects with missing C2 level: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
+
+    return subjects_df
+
+def drop_highest_stenosis(subjects_df):
+    # Drop rows with highest_stenosis == C2/C3 or C3/C4
+    print(f"Number of unique subjects before dropping highest_stenosis at C2/C3: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C2/C3']
+    print(f"Number of unique subjects after dropping highest_stenosis at C2/C3: {len(subjects_df['participant_id'].unique())}")
+
+    print(f"Number of unique subjects before dropping highest_stenosis at C3/C4: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C3/C4']
+    print(f"Number of unique subjects after dropping highest_stenosis at C3/C4: {len(subjects_df['participant_id'].unique())}")
+
+    # Drop rows with num_of_stenosis == 4
+    print(f"Number of unique subjects before dropping num_of_stenosis == 4: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['num_of_stenosis'] != 4]
+    print(f"Number of unique subjects after dropping num_of_stenosis == 4: {len(subjects_df['participant_id'].unique())}")
+
+    return subjects_df
+
 
 def _create_age_group(age):
     if pd.isna(age):
@@ -1546,53 +1605,29 @@ def main():
     print(f"Number of unique subjects: {n_subjects}")
 
     # ----
-    # Read the exclude file
+    # Exclude subjects based on exclude file
     # ----
-    if exclude_file and os.path.isfile(exclude_file):
-        # Extract participant IDs (e.g., 'sub-004') from 'sub-XXX/ses-YYY'
-        with open(exclude_file, "r") as f:
-            data = yaml.safe_load(f)
-        exclude_ids = []
-        for section in data.values():
-            for item in section:
-                pid = item.split('/')[0].strip()
-                exclude_ids.append(pid)
-        print(f'Subjects to exclude: {exclude_ids}')     # ['sub-004', 'sub-020', 'sub-042', 'sub-045']
-        print(f'Number of subjects to exclude: {len(exclude_ids)}')
-
-        initial_count = len(subjects_df['participant_id'].unique())
-        subjects_df = subjects_df[~subjects_df['participant_id'].isin(exclude_ids)]
-        excluded_count = initial_count - len(subjects_df['participant_id'].unique())
-        print(f"Excluded {excluded_count} subjects based on exclude file: {exclude_file}")
-        print(f"Number of unique subjects after exclusion: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = read_exclude_file_and_exclude_subjects(subjects_df, exclude_file)
 
     # ----
     # Read text file with levels to use (C3 or C2,C3 or exclude)
     # ----
-    c2c3_ids = pd.read_csv(c2c3_file, sep=r"\s+", header=None, names=["participant_id", "level_to_use"])
-    # Merge with subjects_df
-    subjects_df = subjects_df.merge(c2c3_ids, on='participant_id', how='left')
-    # Drop rows with level_to_use == 'exclude'
-    subjects_df = subjects_df[subjects_df['level_to_use'] != 'exclude']
-    print(f"Number of unique subjects after applying C2,C3 level exclusions: {len(subjects_df['participant_id'].unique())}")
-    # Drop C2 for subjects with level_to_use == 'C3'
-    print(f"C2 level: Number of unique subjects before dropping subjects with missing C2 level: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
-    subjects_df = subjects_df[~((subjects_df['level_to_use'] == 'C3') & (subjects_df['VertLevel'] == 2))]
-    print(f"C2 level: Number of unique subjects after dropping subjects with missing C2 level: {len(subjects_df[subjects_df['VertLevel'] == 2]['participant_id'].unique())}")
+    subjects_df = read_c2c3_file_and_apply_exclusions(subjects_df, c2c3_file)
 
+    # ----
     # Drop rows with highest_stenosis == C2/C3 or C3/C4
-    print(f"Number of unique subjects before dropping highest_stenosis at C2/C3: {len(subjects_df['participant_id'].unique())}")
-    subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C2/C3']
-    print(f"Number of unique subjects after dropping highest_stenosis at C2/C3: {len(subjects_df['participant_id'].unique())}")
-
-    print(f"Number of unique subjects before dropping highest_stenosis at C3/C4: {len(subjects_df['participant_id'].unique())}")
-    subjects_df = subjects_df[subjects_df['highest_stenosis'] != 'C3/C4']
-    print(f"Number of unique subjects after dropping highest_stenosis at C3/C4: {len(subjects_df['participant_id'].unique())}")
-
     # Drop rows with num_of_stenosis == 4
-    print(f"Number of unique subjects before dropping num_of_stenosis == 4: {len(subjects_df['participant_id'].unique())}")
-    subjects_df = subjects_df[subjects_df['num_of_stenosis'] != 4]
-    print(f"Number of unique subjects after dropping num_of_stenosis == 4: {len(subjects_df['participant_id'].unique())}")
+    # ----
+    subjects_df = drop_highest_stenosis(subjects_df)
+
+    # Save unique participant IDs to be reused by other scripts
+    unique_participants = subjects_df['participant_id'].unique()
+    unique_participants_file = os.path.join(path_out, 'unique_participants_ids.txt')
+    os.makedirs(path_out, exist_ok=True)
+    with open(unique_participants_file, 'w') as f:
+        for pid in unique_participants:
+            f.write(f"{pid}\n")
+    print(f"Unique participant IDs saved to: {unique_participants_file}")
 
     if 'cord' in args.i:
         structure = 'spinal_cord'
