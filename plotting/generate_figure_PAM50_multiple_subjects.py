@@ -1502,7 +1502,66 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                                     ymin, ymax = ax_violin.get_ylim()
                                     yrange = ymax - ymin
                                     y_star = data_max - 0.03 * yrange
-                                ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+5, color='black')
+                                ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+10, color='black')
+            elif len(unique_groups) >= 3:
+                # Robust Wald F-test across all groups (>2)
+                ymin, ymax = ax_violin.get_ylim()
+                yrange = ymax - ymin if ymax > ymin else 1.0
+                for lvl_label in level_order_labels:
+                    df_level = grouped[(grouped['Level'] == lvl_label) & (grouped[hue].isin(unique_groups))].copy()
+                    if df_level.empty:
+                        continue
+                    # Use categorical group directly
+                    df_level['grp'] = df_level[hue].astype(str)
+                    # Adjust for covariates (same logic as binary case)
+                    cov_terms = []
+                    if 'sex' in df_level.columns and hue != 'sex':
+                        cov_terms.append('C(sex)')
+                    if 'age' in df_level.columns and hue not in ['age', 'age_group']:
+                        df_level['age_c'] = pd.to_numeric(df_level['age'], errors='coerce')
+                        df_level['age_c'] = df_level['age_c'] - df_level['age_c'].mean()
+                        cov_terms.append('age_c')
+                    elif 'age_group' in df_level.columns and hue != 'age_group':
+                        cov_terms.append('C(age_group)')
+                    # Minimum sample size per group
+                    counts = df_level['grp'].value_counts()
+                    if (len(counts) < 2) or (counts.min() < 3):
+                        continue
+                    # Prepare model dataframe & rename metric column
+                    needed_cols = ['grp', metric] + [ct.split('(')[-1].rstrip(')') if ct.startswith('C(') else ct for ct in cov_terms]
+                    df_model = df_level.dropna(subset=needed_cols).copy().rename(columns={metric: 'metric_value'})
+                    if df_model.empty:
+                        continue
+                    formula = 'metric_value ~ C(grp)' + (' + ' + ' + '.join(cov_terms) if cov_terms else '')
+                    try:
+                        res = smf.ols(formula, data=df_model).fit()
+                    except Exception:
+                        continue
+                    # Build R matrix to test all non-baseline group coefficients == 0
+                    param_names = list(res.params.index)
+                    test_idx = [j for j, name in enumerate(param_names) if name.startswith('C(grp)[')]
+                    if len(test_idx) == 0:
+                        continue
+                    R = np.zeros((len(test_idx), len(param_names)))
+                    for r, j in enumerate(test_idx):
+                        R[r, j] = 1.0
+                    try:
+                        ftest = res.f_test(R)
+                        pval = float(ftest.pvalue)
+                    except Exception:
+                        pval = np.nan
+                    if pval < 0.05:
+                        x = tick_pos_map.get(lvl_label, None)
+                        if x is not None:
+                            vals_all = grouped[grouped['Level'] == lvl_label][metric].dropna().values
+                            data_max = np.nanmax(vals_all) if len(vals_all) > 0 else ymin + 0.8 * yrange
+                            y_star = data_max - 0.03 * yrange
+                            if y_star > ymax:
+                                ax_violin.set_ylim(ymin, y_star + 0.03 * yrange)
+                                ymin, ymax = ax_violin.get_ylim()
+                                yrange = ymax - ymin
+                                y_star = data_max - 0.03 * yrange
+                            ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+10, color='black')
 
         # Y-axis limits for bottom row
         if metric in METRICS_YLIMITS:
