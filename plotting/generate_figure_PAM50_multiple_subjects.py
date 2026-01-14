@@ -1774,7 +1774,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
 
         # Center continuous variables
         long_df['baseline_area_c'] = long_df['baseline_area'] - long_df['baseline_area'].mean()
-        long_df['time_c'] = long_df['time'] - long_df['time'].mean()
+        # long_df['time_c'] = long_df['time'] - long_df['time'].mean()
 
         # Handle age centering
         age_valid = pd.to_numeric(long_df['age'], errors='coerce').notna()
@@ -1789,7 +1789,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
             long_df['ascor_c'] = long_df['ascor_c'] - long_df['ascor_c'].mean()
 
         # Build model formula
-        fixed_effects = ['baseline_area_c', 'time_c', 'baseline_area_c:time_c']
+        fixed_effects = ['baseline_area_c', 'time', 'baseline_area_c:time']
 
         # FIXED EFFECTS - in the main formula
         # Add covariates if available and have sufficient variation
@@ -1817,7 +1817,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
 
             # Remove rows with missing values for the model
             model_df = long_df.dropna(subset=['mjoa_score'] +
-                                    [col for col in ['baseline_area_c', 'time_c', 'age_c', 'ascor_c']
+                                    [col for col in ['baseline_area_c', 'time', 'age_c', 'ascor_c']
                                      if col in long_df.columns])
 
             if len(model_df) < 10:
@@ -1831,7 +1831,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
                 formula,
                 data=model_df,
                 groups=model_df["participant_id"],
-                re_formula="1 + time_c"  # Random intercept (1) and slope (time_c)
+                re_formula="1 + time"  # Random intercept (1) and slope (time)
                 # - By allowing this intercept to vary across patients, the model lets each person start at a different disability level.
                 # - Without a random intercept, the model would assume everyone starts at the same mJOA value, which is unrealistic.
                 # - Allowing this slope to vary means some patients worsen quickly, some slowly, and some may barely change.
@@ -1887,15 +1887,15 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
                       f"[95% CI: {row['ci_lower']:.4f}, {row['ci_upper']:.4f}]")
 
             # baseline_area_c - "Does area predict mJOA on average?" -- effect of baseline CSA on mJOA
-            # time_c - "Does mJOA improve over time?" -- effect of time on mJOA
-            # baseline_area_c:time_c - does baseline area modify the rate of mJOA change over time -- - larger area may slow disability progression
+            # time - "Does mJOA improve over time?" -- effect of time on mJOA
+            # baseline_area_c:time - does baseline area modify the rate of mJOA change over time -- - larger area may slow disability progression
 
             # Main effect (baseline_area_c): Tests if area predicts starting point (baseline mJOA)
-            # Interaction (baseline__area_c:time_c): Tests if area predicts rate of change (slope over time)
+            # Interaction (baseline__area_c:time): Tests if area predicts rate of change (slope over time)
 
             # Group Var - The between-participant variance in baseline mJOA scores (1.01), indicating substantial individual differences in neurological function
-            # Group x time_c Cov - The covariance between individual baselines and slopes, showing how baseline mJOA relates to rate of change over time
-            # time_c Var - The between-participant variance in rates of mJOA change over time (0.0035), indicating some individuals improve faster than others
+            # Group x time Cov - The covariance between individual baselines and slopes, showing how baseline mJOA relates to rate of change over time
+            # time Var - The between-participant variance in rates of mJOA change over time (0.0035), indicating some individuals improve faster than others
 
             # Save detailed results
             results_file = os.path.join(output_dir, f"mixed_effects_mjoa_area_{level_name}.txt")
@@ -1958,14 +1958,14 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
                     f.write(f"  Baseline area effect: β={row['coefficient']:.4f}, p={row['p_value']:.4f}{sig}\n")
 
                 # Time effect
-                time_effect = coef_df[coef_df['parameter'] == 'time_c']
+                time_effect = coef_df[coef_df['parameter'] == 'time']
                 if not time_effect.empty:
                     row = time_effect.iloc[0]
                     sig = "***" if row['p_value'] < 0.001 else "**" if row['p_value'] < 0.01 else "*" if row['p_value'] < 0.05 else ""
                     f.write(f"  Time effect: β={row['coefficient']:.4f}, p={row['p_value']:.4f}{sig}\n")
 
                 # Interaction effect
-                interaction_effect = coef_df[coef_df['parameter'] == 'baseline_area_c:time_c']
+                interaction_effect = coef_df[coef_df['parameter'] == 'baseline_area_c:time']
                 if not interaction_effect.empty:
                     row = interaction_effect.iloc[0]
                     sig = "***" if row['p_value'] < 0.001 else "**" if row['p_value'] < 0.01 else "*" if row['p_value'] < 0.05 else ""
