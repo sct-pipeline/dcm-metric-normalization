@@ -959,8 +959,8 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
     # Write multi-block CSV
     with open(output_csv_path, 'w', newline='') as f:
         block1.to_csv(f, index=False)
-        f.write('\n\n'); block2.to_csv(f, index=False)
         f.write('\n\n'); block3.to_csv(f, index=False)
+        f.write('\n\n'); block2.to_csv(f, index=False)
         f.write('\n\n'); block4.to_csv(f, index=False)
         f.write('\n\n'); block5.to_csv(f, index=False)
     print(f"Publication-ready myelopathy table (with percentages) saved: {output_csv_path}")
