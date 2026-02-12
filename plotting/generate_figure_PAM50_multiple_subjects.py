@@ -947,7 +947,7 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
         if c not in table_df.columns: table_df[c] = 0
     block3 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + needed3), needed3), needed3)
     # Block4 highest stenosis
-    internal4 = ['Highest stenosis: C2/C3', 'Highest stenosis: C3/C4', 'Highest stenosis: C4/C5', 'Highest stenosis: C5/C6', 'Highest stenosis: C6/C7']
+    internal4 = ['Highest stenosis: C4/C5', 'Highest stenosis: C5/C6', 'Highest stenosis: C6/C7']
     for c in internal4:
         if c not in table_df.columns: table_df[c] = 0
     block4 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal4), internal4), internal4)
