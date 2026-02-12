@@ -907,17 +907,19 @@ def _build_myelopathy_compression_table(subjects_df, output_csv_path):
 
 def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
     """Formatted multi-block CSV for myelopathy compression summary (counts with percentages in single cells)."""
+    # Rename 'Myelopathy' column to 'T2w hyperintensity' for display
+    table_df = table_df.rename(columns={'Myelopathy': 'T2w hyperintensity'})
     groups = ['yes', 'no']
     def _order(df, cols):
         out = df.copy()[cols]
-        out['Myelopathy'] = pd.Categorical(out['Myelopathy'], categories=groups, ordered=True)
-        out = out.sort_values('Myelopathy')
-        idx = pd.Index(groups, name='Myelopathy')
-        out = out.set_index('Myelopathy').reindex(idx).reset_index()
+        out['T2w hyperintensity'] = pd.Categorical(out['T2w hyperintensity'], categories=groups, ordered=True)
+        out = out.sort_values('T2w hyperintensity')
+        idx = pd.Index(groups, name='T2w hyperintensity')
+        out = out.set_index('T2w hyperintensity').reindex(idx).reset_index()
         return out
-    denom = _order(table_df, ['Myelopathy', 'n_subjects_with_stenosis_data']).rename(columns={'n_subjects_with_stenosis_data': '_den'})
+    denom = _order(table_df, ['T2w hyperintensity', 'n_subjects_with_stenosis_data']).rename(columns={'n_subjects_with_stenosis_data': '_den'})
     def _add_pct(block, count_cols):
-        b = block.merge(denom, on='Myelopathy', how='left')
+        b = block.merge(denom, on='T2w hyperintensity', how='left')
         # Calculate total across all columns and all myelopathy categories
         grand_total = sum(b[c].sum() for c in count_cols)
         for c in count_cols:
@@ -928,7 +930,7 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
             pct = pct.round(1)
             b[c + '_pct'] = pct
         b = b.drop(columns=['_den'])
-        cols = ['Myelopathy']
+        cols = ['T2w hyperintensity']
         for c in count_cols:
             cols += [c, c + '_pct']
         return b[cols]
@@ -937,29 +939,29 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
         for c in count_cols:
             out[c] = out.apply(lambda r: f"{int(r[c])} ({r[c + '_pct']:.1f}%)", axis=1)
             out = out.drop(columns=[c + '_pct'])
-        return out[['Myelopathy'] + count_cols]
+        return out[['T2w hyperintensity'] + count_cols]
     # Block1
-    block1 = _combine(_add_pct(_order(table_df, ['Myelopathy', 'Total number of subjects']), ['Total number of subjects']), ['Total number of subjects'])
+    block1 = _combine(_add_pct(_order(table_df, ['T2w hyperintensity', 'Total number of subjects']), ['Total number of subjects']), ['Total number of subjects'])
     # Block2 num of stenosis
     needed2 = ['Num of stenosis: 1', 'Num of stenosis: 2', 'Num of stenosis: 3']
     for c in needed2:
         if c not in table_df.columns: table_df[c] = 0
-    block2 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + needed2), needed2), needed2)
+    block2 = _combine(_add_pct(_order(table_df, ['T2w hyperintensity'] + needed2), needed2), needed2)
     # Block3 single vs multi
     needed3 = ['Single stenosis count', 'Multi-level stenosis count']
     for c in needed3:
         if c not in table_df.columns: table_df[c] = 0
-    block3 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + needed3), needed3), needed3)
+    block3 = _combine(_add_pct(_order(table_df, ['T2w hyperintensity'] + needed3), needed3), needed3)
     # Block4 highest stenosis
     internal4 = ['Highest stenosis: C4/C5', 'Highest stenosis: C5/C6', 'Highest stenosis: C6/C7']
     for c in internal4:
         if c not in table_df.columns: table_df[c] = 0
-    block4 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal4), internal4), internal4)
+    block4 = _combine(_add_pct(_order(table_df, ['T2w hyperintensity'] + internal4), internal4), internal4)
     # Block5 MCL
     internal5 = ['MCL: C4/C5', 'MCL: C5/C6', 'MCL: C6/C7']
     for c in internal5:
         if c not in table_df.columns: table_df[c] = 0
-    block5 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal5), internal5), internal5)
+    block5 = _combine(_add_pct(_order(table_df, ['T2w hyperintensity'] + internal5), internal5), internal5)
     # Write multi-block CSV
     with open(output_csv_path, 'w', newline='') as f:
         block1.to_csv(f, index=False)
