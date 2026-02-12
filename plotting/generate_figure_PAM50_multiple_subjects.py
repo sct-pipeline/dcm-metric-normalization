@@ -935,7 +935,7 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
             out = out.drop(columns=[c + '_pct'])
         return out[['Myelopathy'] + count_cols]
     # Block1
-    block1 = _order(table_df, ['Myelopathy', 'Total number of subjects'])
+    block1 = _combine(_add_pct(_order(table_df, ['Myelopathy', 'Total number of subjects']), ['Total number of subjects']), ['Total number of subjects'])
     # Block2 num of stenosis
     needed2 = ['Num of stenosis: 1', 'Num of stenosis: 2', 'Num of stenosis: 3']
     for c in needed2:
