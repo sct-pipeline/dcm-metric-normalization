@@ -939,7 +939,10 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
         for c in count_cols:
             out[c] = out.apply(lambda r: f"{int(r[c])} ({r[c + '_pct']:.1f}%)", axis=1)
             out = out.drop(columns=[c + '_pct'])
-        return out[['T2w hyperintensity'] + count_cols]
+        # Create row labels from T2w hyperintensity values and remove the column
+        out['T2w hyperintensity'] = out['T2w hyperintensity'].map({'yes': 'Yes', 'no': 'No'})
+        out = out.set_index('T2w hyperintensity')
+        return out[count_cols]
     # Block1
     block1 = _combine(_add_pct(_order(table_df, ['T2w hyperintensity', 'Total number of subjects']), ['Total number of subjects']), ['Total number of subjects'])
     # Block2 num of stenosis
@@ -964,11 +967,36 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
     block5 = _combine(_add_pct(_order(table_df, ['T2w hyperintensity'] + internal5), internal5), internal5)
     # Write multi-block CSV
     with open(output_csv_path, 'w', newline='') as f:
-        block1.to_csv(f, index=False)
-        f.write('\n\n'); block3.to_csv(f, index=False)
-        f.write('\n\n'); block2.to_csv(f, index=False)
-        f.write('\n\n'); block4.to_csv(f, index=False)
-        f.write('\n\n'); block5.to_csv(f, index=False)
+        # Write global header with T2w hyperintensity only once at the top
+        f.write('T2w hyperintensity,Total number of subjects\n')
+
+        # Write Block1 data without header
+        for idx, row in block1.iterrows():
+            f.write(f'{idx},' + ','.join(map(str, row.values)) + '\n')
+
+        f.write('\n\n')
+        # Write Block3 data without header - just column names and data
+        f.write(',' + ','.join(block3.columns) + '\n')
+        for idx, row in block3.iterrows():
+            f.write(f'{idx},' + ','.join(map(str, row.values)) + '\n')
+
+        f.write('\n\n')
+        # Write Block2 data without header
+        f.write(',' + ','.join(block2.columns) + '\n')
+        for idx, row in block2.iterrows():
+            f.write(f'{idx},' + ','.join(map(str, row.values)) + '\n')
+
+        f.write('\n\n')
+        # Write Block4 data without header
+        f.write(',' + ','.join(block4.columns) + '\n')
+        for idx, row in block4.iterrows():
+            f.write(f'{idx},' + ','.join(map(str, row.values)) + '\n')
+
+        f.write('\n\n')
+        # Write Block5 data without header
+        f.write(',' + ','.join(block5.columns) + '\n')
+        for idx, row in block5.iterrows():
+            f.write(f'{idx},' + ','.join(map(str, row.values)) + '\n')
     print(f"Publication-ready myelopathy table (with percentages) saved: {output_csv_path}")
 
 def _build_mjoa_compression_table(subjects_df, output_csv_path):
