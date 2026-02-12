@@ -918,10 +918,14 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
     denom = _order(table_df, ['Myelopathy', 'n_subjects_with_stenosis_data']).rename(columns={'n_subjects_with_stenosis_data': '_den'})
     def _add_pct(block, count_cols):
         b = block.merge(denom, on='Myelopathy', how='left')
+        # Calculate total across all columns and all myelopathy categories
+        grand_total = sum(b[c].sum() for c in count_cols)
         for c in count_cols:
-            d = b['_den'].replace({0: np.nan})
-            pct = (b[c] / d) * 100.0
-            pct = pct.fillna(0).round(1)
+            if grand_total == 0:
+                pct = 0.0
+            else:
+                pct = (b[c] / grand_total) * 100.0
+            pct = pct.round(1)
             b[c + '_pct'] = pct
         b = b.drop(columns=['_den'])
         cols = ['Myelopathy']
