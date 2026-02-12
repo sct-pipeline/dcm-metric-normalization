@@ -952,7 +952,7 @@ def _save_myelopathy_compression_table_formatted(table_df, output_csv_path):
         if c not in table_df.columns: table_df[c] = 0
     block4 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal4), internal4), internal4)
     # Block5 MCL
-    internal5 = ['MCL: C2/C3', 'MCL: C3/C4', 'MCL: C4/C5', 'MCL: C5/C6', 'MCL: C6/C7']
+    internal5 = ['MCL: C4/C5', 'MCL: C5/C6', 'MCL: C6/C7']
     for c in internal5:
         if c not in table_df.columns: table_df[c] = 0
     block5 = _combine(_add_pct(_order(table_df, ['Myelopathy'] + internal5), internal5), internal5)
