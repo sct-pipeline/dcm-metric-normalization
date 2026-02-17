@@ -568,6 +568,18 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
             return 'below'
         return str(v)
 
+    # Calculate dodge offsets for each combination
+    n_combinations = len(strata1) * len(strata2)
+    dodge_width = 0.04  # Total width for dodging
+    dodge_offsets = {}
+    combo_idx = 0
+    for v1 in strata1:
+        for v2 in strata2:
+            # Center the offsets around 0
+            offset = (combo_idx - (n_combinations - 1) / 2) * (dodge_width / max(1, n_combinations - 1))
+            dodge_offsets[(v1, v2)] = offset
+            combo_idx += 1
+
     # Plot per combination
     for v1 in strata1:
         df1 = plot_df[plot_df['stratum1'] == v1]
@@ -575,6 +587,9 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
             gdf = df1[df1['stratum2'] == v2]
             if gdf.empty:
                 continue
+
+            # Get dodge offset for this combination
+            offset = dodge_offsets[(v1, v2)]
 
             # # Individual trajectories
             # for pid, g in gdf.groupby('participant_id'):
@@ -586,7 +601,7 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
             # Mean ± SD per session for this combo
             stats = _compute_session_stats(gdf)
             if len(stats) >= 1:
-                xs = [d['session_numeric'] for d in stats]
+                xs = [d['session_numeric'] + offset for d in stats]
                 means = [d['mean'] for d in stats]
                 stds = [d['std'] for d in stats]
                 ax.plot(xs, means, color=colors1[v1], linewidth=2, marker='o', markersize=3,
