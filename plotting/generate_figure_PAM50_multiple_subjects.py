@@ -130,12 +130,12 @@ METRICS_YLIMITS = {
         'MEAN(compression_ratio)': (0.35, 0.86)
     },
     'canal': {
-        'MEAN(diameter_AP)': (7, 18),
-        'MEAN(area)': (100, 350),
-        'MEAN(diameter_RL)': (15, 27),
+        'MEAN(diameter_AP)': (7, 15.5),
+        'MEAN(area)': (100, 250),
+        'MEAN(diameter_RL)': (15, 26),
         'MEAN(eccentricity)': (0.4, 0.8),
         'MEAN(solidity)': (89, 100),
-        'MEAN(compression_ratio)': (0.35, 0.86)
+        'MEAN(compression_ratio)': (0.35, 0.75)
     },
     'aSCOR': {
         'aSCOR': (0.15, 0.5)
@@ -1604,8 +1604,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                             ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+10, color='black')
 
         # Y-axis limits for bottom row
-        if metric in METRICS_YLIMITS:
-            ax_violin.set_ylim(METRICS_YLIMITS[structure][metric][0]*0.9, METRICS_YLIMITS[structure][metric][1]*1.1)
+        if metric in METRICS_YLIMITS[structure]:
+            ax_violin.set_ylim(METRICS_YLIMITS[structure][metric][0]*0.8, METRICS_YLIMITS[structure][metric][1]*1.1)
 
         ax_violin.set_xlabel('Vertebral level', fontsize=LABELS_FONT_SIZE)
         ax_violin.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
