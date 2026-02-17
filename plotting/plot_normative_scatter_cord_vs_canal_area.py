@@ -13,16 +13,18 @@ import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
 from scipy.stats import spearmanr, normaltest, pearsonr
 
 from utils import format_pvalue
 
-LABELS_FONT_SIZE = 14
-TICKS_FONT_SIZE = 12
-TITLE_FONT_SIZE = 16
+LABELS_FONT_SIZE = 20
+TICKS_FONT_SIZE = 20
+TITLE_FONT_SIZE = 20
 
-VERTEBRAL_LEVELS = [2, 3, 4, 5, 6, 7]  # C2–C7
+# VERTEBRAL_LEVELS = [2, 3, 4, 5, 6, 7]  # C2–C7
+VERTEBRAL_LEVELS = [3]
 LEVEL_TO_LABEL = {2: 'C2', 3: 'C3', 4: 'C4', 5: 'C5', 6: 'C6', 7: 'C7'}
 
 METRICS_DTYPE = {
@@ -73,16 +75,21 @@ def load_normative_df(normative_dir, participants_file=None):
     return grouped
 
 def plot_scatter_grid(df, output_dir):
+    mpl.rcParams['font.family'] = 'Arial'
     os.makedirs(output_dir, exist_ok=True)
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-    axes = axes.ravel()
+    nrows = 1 if len(VERTEBRAL_LEVELS) <= 3 else 2
+    fig, axes = plt.subplots(nrows, len(VERTEBRAL_LEVELS), figsize=(6*len(VERTEBRAL_LEVELS), 6), sharey=True)
+    if len(VERTEBRAL_LEVELS) == 1:
+        axes = [axes]  # Make it a list when there's only one subplot
+    else:
+        axes = axes.ravel()
     results = []
     normality_results = []
 
     # Compute unique subject counts per sex for the master title
     total_n = df['participant_id'].nunique()
-    suptitle = f"Normative spinal cord vs spinal canal area per level (n={total_n})"
-    fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
+    # suptitle = f"Normative spinal cord vs spinal canal area per level (n={total_n})"
+    # fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
@@ -100,21 +107,22 @@ def plot_scatter_grid(df, output_dir):
         # Spearman and Pearson correlation
         r_spear, p_spear = spearmanr(x, y)
         r_pear, p_pear = pearsonr(x, y)
-        sns.scatterplot(x=x, y=y, ax=ax, color='black', alpha=0.6)
+        sns.scatterplot(x=x, y=y, ax=ax, color='black', alpha=0.8, s=80)
         if len(x) > 1:
             z = np.polyfit(x, y, 1)
             pfit = np.poly1d(z)
             x_vals = np.linspace(x.min(), x.max(), 100)
-            ax.plot(x_vals, pfit(x_vals), color='black', linewidth=2)
-        stats_text = (f"Spearman r={r_spear:.2f}, p{format_pvalue(p_spear)}\n"
-                      f"Pearson r={r_pear:.2f}, p{format_pvalue(p_pear)}\n"
-                      f"Normality canal p{format_pvalue(p_x)}\n"
-                      f"Normality cord p{format_pvalue(p_y)}")
+            ax.plot(x_vals, pfit(x_vals), color='black', linewidth=5)
+        # stats_text = (f"Spearman r={r_spear:.2f}, p{format_pvalue(p_spear)}\n"
+        #               f"Pearson r={r_pear:.2f}, p{format_pvalue(p_pear)}\n"
+        #               f"Normality canal p{format_pvalue(p_x)}\n"
+        #               f"Normality cord p{format_pvalue(p_y)}")
+        stats_text = f"n={len(x)}\nr={np.nan_to_num(r_spear):.2f}\np{format_pvalue(p_spear, alpha=.05)}"
         ax.text(0.98, 0.02, stats_text, transform=ax.transAxes,
                 verticalalignment='bottom', horizontalalignment='right',
-                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
-                fontsize=12)
-        ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
+                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0),
+                fontsize=TICKS_FONT_SIZE-4)
+        # ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
         ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
@@ -127,6 +135,12 @@ def plot_scatter_grid(df, output_dir):
             'pearson_p': p_pear,
             'n': len(x)
         })
+
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(True)
+        ax.spines['bottom'].set_visible(True)
+
     plt.tight_layout()
     fig_path = os.path.join(output_dir, 'normative_scatter_cord_vs_canal_area_perlevel.png')
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
@@ -140,9 +154,14 @@ def plot_scatter_grid(df, output_dir):
         print(f"{norm_res['level']}: Canal p={format_pvalue(norm_res['canal_p'])}, Cord p={format_pvalue(norm_res['cord_p'])}")
 
 def plot_scatter_grid_by_sex(df, output_dir):
+    mpl.rcParams['font.family'] = 'Arial'
     os.makedirs(output_dir, exist_ok=True)
-    fig, axes = plt.subplots(2, 3, figsize=(18, 10))
-    axes = axes.ravel()
+    nrows = 1 if len(VERTEBRAL_LEVELS) <= 3 else 2
+    fig, axes = plt.subplots(nrows, len(VERTEBRAL_LEVELS), figsize=(6*len(VERTEBRAL_LEVELS), 6), sharey=True)
+    if len(VERTEBRAL_LEVELS) == 1:
+        axes = [axes]  # Make it a list when there's only one subplot
+    else:
+        axes = axes.ravel()
     results = []
     sex_colors = {'M': 'blue', 'F': 'red'}
 
@@ -171,7 +190,7 @@ def plot_scatter_grid_by_sex(df, output_dir):
             ax.text(0.98, 0.02 + 0.08 * (0 if sex == 'M' else 1), stats_text, transform=ax.transAxes,
                     verticalalignment='bottom', horizontalalignment='right',
                     bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
-                    fontsize=12)
+                    fontsize=TICKS_FONT_SIZE-4)
             results.append({
                 'level': LEVEL_TO_LABEL[level],
                 'sex': sex,

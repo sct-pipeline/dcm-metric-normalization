@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 """
-Plot scatter plots between spinal cord area and spinal canal area (patients' data) for each vertebral level (C2–C3), and report correlation statistics.
+Plot scatter plots between spinal cord area and spinal canal area (patients' data) for each vertebral level (C2–C3),
+and report correlation statistics.
 
 Usage:
     python plot_patient_scatter_cord_vs_canal_area.py \
@@ -15,6 +16,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
 from scipy.stats import spearmanr, normaltest, pearsonr
 
@@ -23,12 +25,14 @@ from plotting.utils import format_pvalue, fetch_participant_and_session
 from generate_figure_PAM50_multiple_subjects import (read_clinical_file, read_c2c3_file_and_apply_exclusions,
                                                      SEX_COLORS_PATIENTS, MYELOPATHY_COLORS)
 
+LABELS_FONT_SIZE = 20
 TICKS_FONT_SIZE = 20
-LABELS_FONT_SIZE = TICKS_FONT_SIZE + 2
-TITLE_FONT_SIZE = TICKS_FONT_SIZE + 4
+TITLE_FONT_SIZE = 20
 
-VERTEBRAL_LEVELS = [2, 3]  # C2–C3
-LEVEL_TO_LABEL = {2: 'C2', 3: 'C3'}
+# VERTEBRAL_LEVELS = [2, 3]
+# LEVEL_TO_LABEL = {2: 'C2', 3: 'C3'}
+VERTEBRAL_LEVELS = [3]  # C2–C3
+LEVEL_TO_LABEL = {3: 'C3'}
 
 
 def load_patient_df(cord_csv, canal_csv):
@@ -55,9 +59,13 @@ def load_patient_df(cord_csv, canal_csv):
 
 
 def plot_scatter_grid(df, output_dir):
+    mpl.rcParams['font.family'] = 'Arial'
     os.makedirs(output_dir, exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(10, 8), sharey=True)
-    axes = axes.ravel()
+    fig, axes = plt.subplots(1, len(VERTEBRAL_LEVELS), figsize=(6*len(VERTEBRAL_LEVELS), 6), sharey=True)
+    if len(VERTEBRAL_LEVELS) == 1:
+        axes = [axes]  # Make it a list when there's only one subplot
+    else:
+        axes = axes.ravel()
     results = []
 
     total_n = df['participant_id'].nunique()
@@ -85,7 +93,7 @@ def plot_scatter_grid(df, output_dir):
             x_vals = np.linspace(x.min(), x.max(), 100)
             ax.plot(x_vals, pfit(x_vals), color='black', linewidth=5)
 
-        stats_text = (f"Spearman\nr={np.nan_to_num(r_spear):.2f}\np{format_pvalue(p_spear, alpha=.05)}"
+        stats_text = (f"(n={len(x)})\nr={np.nan_to_num(r_spear):.2f}\np{format_pvalue(p_spear, alpha=.05)}"
                       # f"Pearson r={np.nan_to_num(r_pear):.2f}, p{format_pvalue(p_pear)}\n"
                       # f"Normality canal p{format_pvalue(p_x)}\n"
                       # f"Normality cord p{format_pvalue(p_y)}"
@@ -94,7 +102,7 @@ def plot_scatter_grid(df, output_dir):
                 verticalalignment='bottom', horizontalalignment='right',
                 bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8), fontsize=TICKS_FONT_SIZE-4)
 
-        ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
+        # ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
         ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
@@ -120,9 +128,13 @@ def plot_scatter_grid_by_sex(df, output_dir):
     """
     Plot scatter grid split by sex (M/F)
     """
+    mpl.rcParams['font.family'] = 'Arial'
     os.makedirs(output_dir, exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(10, 8), sharey=True)
-    axes = axes.ravel()
+    fig, axes = plt.subplots(1, len(VERTEBRAL_LEVELS), figsize=(6*len(VERTEBRAL_LEVELS), 6), sharey=True)
+    if len(VERTEBRAL_LEVELS) == 1:
+        axes = [axes]  # Make it a list when there's only one subplot
+    else:
+        axes = axes.ravel()
     results = []
 
     total_n = df['participant_id'].nunique()
@@ -146,7 +158,7 @@ def plot_scatter_grid_by_sex(df, output_dir):
                 ax.plot(x_vals, pfit(x_vals), color=color, linewidth=5)
             r, p = spearmanr(x, y)
             stats_text = f"{sex_text} (n={len(x)})\nr={np.nan_to_num(r):.2f}\np{format_pvalue(p, alpha=.05)}"
-            ax.text(0.98, 0.02 if sex == 'M' else 0.15, stats_text, transform=ax.transAxes,
+            ax.text(0.98, 0.02 if sex == 'M' else 0.20, stats_text, transform=ax.transAxes,
                     verticalalignment='bottom', horizontalalignment='right',
                     bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0), fontsize=TICKS_FONT_SIZE-4, color=color)
             results.append({'level': LEVEL_TO_LABEL[level], 'sex': sex, 'r': r, 'p': p, 'n': len(x)})
@@ -175,9 +187,13 @@ def plot_scatter_grid_by_myelopathy(df, output_dir):
     """
     Plot scatter grid split by myelopathy status.
     """
+    mpl.rcParams['font.family'] = 'Arial'
     os.makedirs(output_dir, exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(10, 8), sharey=True)
-    axes = axes.ravel()
+    fig, axes = plt.subplots(1, len(VERTEBRAL_LEVELS), figsize=(6*len(VERTEBRAL_LEVELS), 6), sharey=True)
+    if len(VERTEBRAL_LEVELS) == 1:
+        axes = [axes]  # Make it a list when there's only one subplot
+    else:
+        axes = axes.ravel()
     results = []
 
     total_n = df['participant_id'].nunique()
@@ -192,7 +208,7 @@ def plot_scatter_grid_by_myelopathy(df, output_dir):
             df_myelopathy = df_level[df_level.get('Myelopathy') == myelopathy_status]
             x = df_myelopathy['MEAN(area)_canal']
             y = df_myelopathy['MEAN(area)_cord']
-            myelopathy_text = 'Myelopathy yes' if myelopathy_status == 'yes' else 'Myelopathy no'
+            myelopathy_text = 'T2w+' if myelopathy_status == 'yes' else 'T2w-'
             sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, s=80)      # label=myelopathy_text
             if len(x) > 1:
                 z = np.polyfit(x, y, 1)
@@ -201,7 +217,7 @@ def plot_scatter_grid_by_myelopathy(df, output_dir):
                 ax.plot(x_vals, pfit(x_vals), color=color, linewidth=5)
             r, p = spearmanr(x, y)
             stats_text = f"{myelopathy_text} (n={len(x)})\nr={np.nan_to_num(r):.2f}\np{format_pvalue(p, alpha=.05)}"
-            ax.text(0.98, 0.02 if myelopathy_status == 'yes' else 0.15, stats_text, transform=ax.transAxes,
+            ax.text(0.98, 0.02 if myelopathy_status == 'yes' else 0.20, stats_text, transform=ax.transAxes,
                     verticalalignment='bottom', horizontalalignment='right',
                     bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0), fontsize=TICKS_FONT_SIZE-4, color=color)
             results.append({'level': LEVEL_TO_LABEL[level], 'myelopathy': myelopathy_status, 'r': r, 'p': p, 'n': len(x)})

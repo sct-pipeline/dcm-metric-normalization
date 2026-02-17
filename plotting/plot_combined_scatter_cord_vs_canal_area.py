@@ -8,6 +8,7 @@ import os
 import argparse
 import numpy as np
 import pandas as pd
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
 from matplotlib.lines import Line2D
@@ -20,11 +21,11 @@ from generate_figure_PAM50_multiple_subjects import (read_clinical_file, read_c2
                                                      NORMATIVE_C2_COLORS, SEX_COLORS_PATIENTS, SEX_COLORS_NORMATIVE,
                                                      MYELOPATHY_COLORS)
 
+LABELS_FONT_SIZE = 20
 TICKS_FONT_SIZE = 20
-LABELS_FONT_SIZE = TICKS_FONT_SIZE + 2
-TITLE_FONT_SIZE = TICKS_FONT_SIZE + 4
+TITLE_FONT_SIZE = 20
 
-VERTEBRAL_LEVELS = [2, 3]  # C2–C3
+VERTEBRAL_LEVELS = [3]  # C2–C3
 LEVEL_TO_LABEL = {2: 'C2', 3: 'C3'}
 
 cohort_markers = {'normative': 'o', 'patients': 'X'}
@@ -63,9 +64,13 @@ def load_perlevel_df(cord_csv, canal_csv, cohort_label, participants_file=None):
 
 
 def plot_combined_by_myelopathy(df, output_dir):
+    mpl.rcParams['font.family'] = 'Arial'
     os.makedirs(output_dir, exist_ok=True)
-    fig, axes = plt.subplots(1, 2, figsize=(10, 8), sharey=True)
-    axes = axes.ravel()
+    fig, axes = plt.subplots(1, len(VERTEBRAL_LEVELS), figsize=(6*len(VERTEBRAL_LEVELS), 6), sharey=True)
+    if len(VERTEBRAL_LEVELS) == 1:
+        axes = [axes]  # Make it a list when there's only one subplot
+    else:
+        axes = axes.ravel()
     results = []
 
     total_counts = df.groupby('cohort')['participant_id'].nunique().to_dict()
@@ -86,6 +91,12 @@ def plot_combined_by_myelopathy(df, output_dir):
                 sns.scatterplot(x=x, y=y, ax=ax, color='black', alpha=0.3, marker=cohort_markers[cohort], s=80)
                                 # label=f"{cohort.capitalize()} (n={df_c['participant_id'].nunique()})")
 
+                r_norm, p_norm = spearmanr(x, y)
+                stats_text = f"Normative (n={len(x)})\nr={np.nan_to_num(r_norm):.2f}\np{format_pvalue(p_norm, alpha=.05)}"
+                ax.text(0.68, 0.02, stats_text, transform=ax.transAxes, verticalalignment='bottom', horizontalalignment='right',
+                        bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0), fontsize=TICKS_FONT_SIZE - 4,
+                        color='black')
+
                 # add linear fit (linear regression) per cohort for this level
                 x_vals = x.dropna().values
                 y_vals = y.dropna().values
@@ -100,7 +111,7 @@ def plot_combined_by_myelopathy(df, output_dir):
                     df_plot = df_cohort[df_cohort.get('Myelopathy') == myelopathy_status]
                     x = df_plot['MEAN(area)_canal']
                     y = df_plot['MEAN(area)_cord']
-                    myelopathy_text = 'Myelopathy yes' if myelopathy_status == 'yes' else 'Myelopathy no'
+                    myelopathy_text = 'T2w+' if myelopathy_status == 'yes' else 'T2w-'
                     sns.scatterplot(x=x, y=y, ax=ax, color=color, marker=marker, s=80, edgecolor='w', alpha=0.8)
                     # add linear fit (linear regression) for this cohort+sex if enough variation
                     x_vals = x.dropna().values
@@ -112,14 +123,14 @@ def plot_combined_by_myelopathy(df, output_dir):
                         ax.plot(xs, pfit(xs), color=color, linewidth=5)
                     r, p = spearmanr(x, y)
                     stats_text = f"{myelopathy_text} (n={len(x)})\nr={np.nan_to_num(r):.2f}\np{format_pvalue(p, alpha=.05)}"
-                    ax.text(0.98, 0.02 if myelopathy_status == 'yes' else 0.15, stats_text, transform=ax.transAxes,
+                    ax.text(0.98, 0.02 if myelopathy_status == 'yes' else 0.18, stats_text, transform=ax.transAxes,
                             verticalalignment='bottom', horizontalalignment='right',
                             bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0), fontsize=TICKS_FONT_SIZE - 4,
                             color=color)
                     results.append(
                         {'level': LEVEL_TO_LABEL[level], 'myelopathy': myelopathy_status, 'r': r, 'p': p, 'n': len(x)})
 
-        ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
+        # ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
         ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
