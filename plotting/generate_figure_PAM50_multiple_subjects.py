@@ -1140,7 +1140,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
 
     if structure == 'aSCOR':
         # 2x1 grid for 1 metric; 6x10
-        fig, axs = plt.subplots(2, 1, figsize=(6, 10))
+        fig, axs = plt.subplots(2, 1, figsize=(4, 10))
         top_axes = [axs[0]]
         bottom_axes = [axs[1]]
         METRICS = ['aSCOR']
@@ -1154,7 +1154,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             # 'MEAN(solidity)'
         ]
         # 2xN grid (N=len(METRICS))
-        fig, axs = plt.subplots(2, int(len(METRICS)), figsize=(int(len(METRICS)) * 6, 10))
+        fig, axs = plt.subplots(2, int(len(METRICS)), figsize=(int(len(METRICS)) * 4, 10))
         if len(METRICS) == 1:
             top_axes = [axs[0]]
             bottom_axes = [axs[1]]
@@ -1383,7 +1383,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         per_participant = subjects_df[merge_cols].drop_duplicates('participant_id')
         grouped = grouped.merge(per_participant, on='participant_id', how='left')
         # Keep only specified vertebral levels (C2-C6 for spinal cord, C2-C3 for canal/aSCOR)
-        level_order_nums = [2, 3, 4, 5, 6] if structure == 'spinal_cord' else [2, 3]        # [2, 3, 4, 5, 6, 7]
+        # level_order_nums = [2, 3, 4, 5, 6] if structure == 'spinal_cord' else [2, 3]        # [2, 3, 4, 5, 6, 7]
+        level_order_nums = [3]
         level_order_labels = [f'C{v}' for v in level_order_nums]
         grouped = grouped[grouped['VertLevel'].isin(level_order_nums)]
         grouped['Level'] = pd.Categorical([f'C{int(v)}' for v in grouped['VertLevel']], categories=level_order_labels, ordered=True)
@@ -1688,6 +1689,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     else:
         figure_fname = f'{figure_path}_{n_subjects_plot}subjects_{len(sessions_to_process)}sessions.png'
 
+    # Adjust spacing to prevent overlap of y-axis labels with adjacent plots
+    plt.subplots_adjust(wspace=0.5, hspace=0.3)
     plt.savefig(figure_fname, dpi=300, bbox_inches='tight')
     print(f'Figure saved: {figure_fname}')
 
