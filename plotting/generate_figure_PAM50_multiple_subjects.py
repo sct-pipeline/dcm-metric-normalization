@@ -1165,18 +1165,18 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     for metric_idx, metric in enumerate(METRICS):
         ax = top_axes[metric_idx]
 
-        # Plot normative data
-        if stratify_type == 'sex':
-            sex_groups = ['M', 'F']  # Ensure legend order
-            for sex in sex_groups:
-                normative_sex_data = df_normative_data[df_normative_data['sex'] == sex]
-                sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=normative_sex_data, errorbar='sd',
-                             linewidth=4, color=SEX_COLORS_NORMATIVE[sex], linestyle='--',
-                             label=f'Normative Data {SEX_TO_LEGEND[sex]} (n={len(normative_sex_data["participant_id"].unique())})')
-        else:
-            sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df_normative_data, errorbar='sd',
-                         linewidth=4, color='black',
-                         label=f'Normative Data (n={len(df_normative_data["participant_id"].unique())})')
+        # # Plot normative data
+        # if stratify_type == 'sex':
+        #     sex_groups = ['M', 'F']  # Ensure legend order
+        #     for sex in sex_groups:
+        #         normative_sex_data = df_normative_data[df_normative_data['sex'] == sex]
+        #         sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=normative_sex_data, errorbar='sd',
+        #                      linewidth=4, color=SEX_COLORS_NORMATIVE[sex], linestyle='--',
+        #                      label=f'Normative Data {SEX_TO_LEGEND[sex]} (n={len(normative_sex_data["participant_id"].unique())})')
+        # else:
+        #     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df_normative_data, errorbar='sd',
+        #                  linewidth=4, color='black',
+        #                  label=f'Normative Data (n={len(df_normative_data["participant_id"].unique())})')
 
         if stratify_type == 'mcl':
             # Plot by MCL groups instead of sessions
