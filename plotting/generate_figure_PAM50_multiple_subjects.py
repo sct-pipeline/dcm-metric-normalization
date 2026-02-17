@@ -1321,6 +1321,9 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         if metric_idx == plot_to_keep_legend:
             # top_axes[metric_idx].legend(fontsize=TICKS_FONT_SIZE, title="mean ± std across subjects", title_fontsize=TICKS_FONT_SIZE)
             top_axes[metric_idx].legend(fontsize=TICKS_FONT_SIZE)
+            # Change legend transparency
+            leg = top_axes[metric_idx].get_legend()
+            leg.get_frame().set_alpha(1.0)
         else:
             leg = top_axes[metric_idx].get_legend()
             if leg is not None:
