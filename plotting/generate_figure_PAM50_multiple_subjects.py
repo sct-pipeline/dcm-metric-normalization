@@ -1535,14 +1535,27 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                             # df_model.to_csv(f'debug_violin_{metric}_{lvl_label}.csv', index=False)
                             if x is not None:
                                 data_max = np.nanmax(np.concatenate([vals1, vals2])) if (len(vals1) + len(vals2)) > 0 else ymin + 0.8 * yrange
-                                y_star = data_max - 0.03 * yrange #+ 0.03 * yrange
+                                y_star = data_max + 0.15 * yrange
                                 # Expand ylim if needed
                                 if y_star > ymax:
                                     ax_violin.set_ylim(ymin, y_star + 0.03 * yrange)
                                     ymin, ymax = ax_violin.get_ylim()
                                     yrange = ymax - ymin
                                     y_star = data_max - 0.03 * yrange
-                                ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+10, color='black')
+                                ax_violin.text(x, y_star, '*', ha='center', va='center', fontsize=LABELS_FONT_SIZE+50, color='black')
+                                # # Add horizontal line connecting the two groups
+                                # # Get the positions of the two groups for the horizontal line
+                                # group_positions = []
+                                # for i, group in enumerate([g1, g2]):
+                                #     n_groups = len(unique_groups)
+                                #     group_idx = list(unique_groups).index(group)
+                                #     offset = (group_idx - (n_groups - 1) / 2) * 0.4 / (n_groups - 1) if n_groups > 1 else 0
+                                #     group_positions.append(x + offset)
+                                # # Draw horizontal line between the two groups
+                                # if len(group_positions) == 2 and group_positions[0] != group_positions[1]:
+                                #     y_line = y_star * 0.98  # slightly below the star
+                                #     ax_violin.plot([group_positions[0], group_positions[1]], [y_line, y_line],
+                                #                  color='black', linewidth=1.5, zorder=10)
             elif len(unique_groups) >= 3:
                 # Robust Wald F-test across all groups (>2)
                 ymin, ymax = ax_violin.get_ylim()
@@ -1601,7 +1614,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                                 ymin, ymax = ax_violin.get_ylim()
                                 yrange = ymax - ymin
                                 y_star = data_max - 0.03 * yrange
-                            ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+10, color='black')
+                            ax_violin.text(x, y_star, '*', ha='center', va='bottom', fontsize=LABELS_FONT_SIZE+50, color='black')
 
         # Y-axis limits for bottom row
         if metric in METRICS_YLIMITS[structure]:
