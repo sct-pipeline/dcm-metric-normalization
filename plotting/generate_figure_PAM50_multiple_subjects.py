@@ -1620,7 +1620,10 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         if metric in METRICS_YLIMITS[structure]:
             ax_violin.set_ylim(METRICS_YLIMITS[structure][metric][0]*0.8, METRICS_YLIMITS[structure][metric][1]*1.1)
 
-        ax_violin.set_xlabel('Vertebral level', fontsize=LABELS_FONT_SIZE)
+        # Remove xlabel
+        ax_violin.set_xlabel('', fontsize=LABELS_FONT_SIZE)     # 'Vertebral level'
+        # Remove xticks
+        ax_violin.set_xticks([])
         ax_violin.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
         ax_violin.tick_params(axis='both', which='major', labelsize=TICKS_FONT_SIZE)
         ax_violin.spines['right'].set_visible(False)
