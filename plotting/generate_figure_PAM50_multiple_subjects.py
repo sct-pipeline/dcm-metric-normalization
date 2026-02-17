@@ -1343,17 +1343,17 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         ax.spines['top'].set_visible(False)
         ax.spines['bottom'].set_visible(True)
 
-        # Add vertebral level indicators (top row)
-        ymin, ymax = ax.get_ylim()
-        vert, ind_vert, ind_vert_mid = get_vert_indices(df_normative_data)
-        for idx, x in enumerate(ind_vert[1:-1]):
-            ax.axvline(df_normative_data.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5, zorder=0)
-        for idx, x in enumerate(ind_vert_mid, 0):
-            x_pos = f'T{vert[x] - 7}' if vert[x] > 7 else f'C{vert[x]}'
-            y_pos = ymin - (ymax - ymin) * 0.1  # to move below x-axis
-            ax.text(df_normative_data.loc[ind_vert_mid[idx], 'Slice (I->S)'],
-                    y_pos, x_pos, horizontalalignment='center',
-                    verticalalignment='bottom', color='black', fontsize=TICKS_FONT_SIZE)
+        # # Add vertebral level indicators (top row)
+        # ymin, ymax = ax.get_ylim()
+        # vert, ind_vert, ind_vert_mid = get_vert_indices(df_normative_data)
+        # for idx, x in enumerate(ind_vert[1:-1]):
+        #     ax.axvline(df_normative_data.loc[x, 'Slice (I->S)'], color='black', linestyle='--', alpha=0.5, zorder=0)
+        # for idx, x in enumerate(ind_vert_mid, 0):
+        #     x_pos = f'T{vert[x] - 7}' if vert[x] > 7 else f'C{vert[x]}'
+        #     y_pos = ymin - (ymax - ymin) * 0.1  # to move below x-axis
+        #     ax.text(df_normative_data.loc[ind_vert_mid[idx], 'Slice (I->S)'],
+        #             y_pos, x_pos, horizontalalignment='center',
+        #             verticalalignment='bottom', color='black', fontsize=TICKS_FONT_SIZE)
 
         ax.yaxis.grid(True)
         ax.set_axisbelow(True)
