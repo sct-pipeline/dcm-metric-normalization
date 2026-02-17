@@ -1613,7 +1613,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         ax_violin.spines['left'].set_visible(True)
         ax_violin.spines['top'].set_visible(False)
         ax_violin.spines['bottom'].set_visible(True)
-        ax_violin.yaxis.grid(True)
+        # ax_violin.yaxis.grid(True)
         ax_violin.set_axisbelow(True)
 
     # Update title based on stratification
