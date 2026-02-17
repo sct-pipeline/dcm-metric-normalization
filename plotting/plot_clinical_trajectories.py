@@ -39,41 +39,42 @@ TITLE_FONT_SIZE = 16
 # Default scores to plot: name -> list of column names in expected order
 SCORES = {
     'mJOA': {
-        'columns': ['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth'],
+        'columns': ['total_mjoa_BL', 'total_mjoa_6mth'],
         'y_label': 'mJOA'
     },
     'Motor Dysfunction UE': {
-        'columns': ['motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth', 'motor_dysfunction_UE_12mth_12mth'],
+        'columns': ['motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth'],
         'y_label': 'Motor Dysfunction UE'
     },
     'Motor Dysfunction LE': {
-        'columns': ['motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth', 'motor_dysfunction_LE_12mth_12mth'],
+        'columns': ['motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth'],
         'y_label': 'Motor Dysfunction LE'
     },
     'Sensory Dysfunction UE': {
-        'columns': ['sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth', 'sensory_dysfunction_UE_12mth_12mth'],
+        'columns': ['sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth'],
         'y_label': 'Sensory Dysfunction UE'
     },
     'Sphincter Dysfunction': {
-        'columns': ['sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth', 'sphincter_dysfunction_12mth_12mth'],
+        'columns': ['sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth'],
         'y_label': 'Motor Dysfunction LE'
     },
     'Pinprick UE': {
-        'columns': ['UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth', 'UEPP_C4_T1_12mth'],
+        'columns': ['UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth'],
         'y_label': 'Pinprick UE'
     },
     'Lightouch UE': {
-        'columns': ['UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth', 'UELT_C4_T1_12mth_12mth'],
+        'columns': ['UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth'],
         'y_label': 'Lightouch UE'
     },
     'Total Motor Score UE': {
-        'columns': ['upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'],
+        'columns': ['upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth'],
         'y_label': 'Total Motor Score UE'
     },
 }
 
 # Session labels to display (same length and order as each score's columns)
-SESSION_LABELS_DEFAULT = ['BL', '6 mth', '12 mth']
+# SESSION_LABELS_DEFAULT = ['BL', '6 mth', '12 mth']
+SESSION_LABELS_DEFAULT = ['Baseline', '6-month']
 
 STRATIFICATION_TO_TITLE = {
     'myelopathy': 'myelopathy',
