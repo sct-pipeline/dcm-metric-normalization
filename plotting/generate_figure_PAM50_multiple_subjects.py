@@ -1610,7 +1610,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         ax_violin.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
         ax_violin.tick_params(axis='both', which='major', labelsize=TICKS_FONT_SIZE)
         ax_violin.spines['right'].set_visible(False)
-        ax_violin.spines['left'].set_visible(False)
+        ax_violin.spines['left'].set_visible(True)
         ax_violin.spines['top'].set_visible(False)
         ax_violin.spines['bottom'].set_visible(True)
         ax_violin.yaxis.grid(True)
