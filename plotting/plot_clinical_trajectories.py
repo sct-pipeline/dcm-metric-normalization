@@ -321,12 +321,12 @@ def plot_score_trajectory(plot_df: pd.DataFrame, score_name: str, y_label: str, 
     # if ylim is not None:
     #     ax.set_ylim(*ylim)
 
-    # Plot individual trajectories (only when subject has >1 time points)
-    for pid, g in plot_df.groupby('participant_id'):
-        g_sorted = g.sort_values('session_numeric')
-        if len(g_sorted) > 1:
-            ax.plot(g_sorted['session_numeric'], g_sorted['score'],
-                    color='black', alpha=0.3, linewidth=0.5, marker='o', markersize=0, linestyle='dashed', zorder=3)
+    # # Plot individual trajectories (only when subject has >1 time points)
+    # for pid, g in plot_df.groupby('participant_id'):
+    #     g_sorted = g.sort_values('session_numeric')
+    #     if len(g_sorted) > 1:
+    #         ax.plot(g_sorted['session_numeric'], g_sorted['score'],
+    #                 color='black', alpha=0.3, linewidth=0.5, marker='o', markersize=0, linestyle='dashed', zorder=3)
 
     # Mean ± SD per session
     stats = _compute_session_stats(plot_df)
@@ -569,12 +569,13 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
             gdf = df1[df1['stratum2'] == v2]
             if gdf.empty:
                 continue
-            # Individual trajectories
-            for pid, g in gdf.groupby('participant_id'):
-                g_sorted = g.sort_values('session_numeric')
-                if len(g_sorted) > 1:
-                    ax.plot(g_sorted['session_numeric'], g_sorted['score'],
-                            color=colors1[v1], alpha=0.3, linewidth=0.5, linestyle=linestyles2[v2], zorder=3)
+
+            # # Individual trajectories
+            # for pid, g in gdf.groupby('participant_id'):
+            #     g_sorted = g.sort_values('session_numeric')
+            #     if len(g_sorted) > 1:
+            #         ax.plot(g_sorted['session_numeric'] + offset, g_sorted['score'],
+            #                 color=colors1[v1], alpha=0.3, linewidth=0.3, linestyle=linestyles2[v2], zorder=3)
 
             # Mean ± SD per session for this combo
             stats = _compute_session_stats(gdf)
