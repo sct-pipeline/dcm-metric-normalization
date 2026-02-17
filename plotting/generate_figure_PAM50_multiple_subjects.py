@@ -2193,7 +2193,8 @@ def main():
         structure = 'aSCOR'
 
     # For spinal cord, keep only VertLevel C2 to C6; for canal and aSCOR, keep only C2 to C3 (due to flow void artifacts for canal seg)
-    vert_min, vert_max = (2, 6) if structure == 'spinal_cord' else (2, 3)
+    # vert_min, vert_max = (2, 6) if structure == 'spinal_cord' else (2, 3)
+    vert_min, vert_max = (3, 3)
     subjects_df = subjects_df[subjects_df['VertLevel'] >= vert_min]
     subjects_df = subjects_df[subjects_df['VertLevel'] <= vert_max]
 
