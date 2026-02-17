@@ -612,14 +612,15 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     tick_labels = []
     for s in sessions:
         lab = plot_df.loc[plot_df['session_numeric'] == s, 'session_label'].iloc[0]
-        parts = []
-        for v1 in strata1:
-            for v2 in strata2:
-                n = plot_df[(plot_df['session_numeric'] == s) & (plot_df['stratum1'] == v1) & (plot_df['stratum2'] == v2)]['participant_id'].nunique()
-                if n > 0:
-                    parts.append(f"{_short_label(key1, v1)}/{_short_label(key2, v2)}={n}")
-        parts_join = "\n".join(parts)
-        tick_labels.append(f"{lab}\n{parts_join}" if parts_join else lab)
+        # parts = []
+        # for v1 in strata1:
+        #     for v2 in strata2:
+        #         n = plot_df[(plot_df['session_numeric'] == s) & (plot_df['stratum1'] == v1) & (plot_df['stratum2'] == v2)]['participant_id'].nunique()
+        #         if n > 0:
+        #             parts.append(f"{_short_label(key1, v1)}/{_short_label(key2, v2)}={n}")
+        # parts_join = "\n".join(parts)
+        # tick_labels.append(f"{lab}\n{parts_join}" if parts_join else lab)
+        tick_labels.append(f"{lab}")
 
     ax.set_xticks(sessions)
     ax.set_xticklabels(tick_labels, fontsize=TICK_FONT_SIZE)
