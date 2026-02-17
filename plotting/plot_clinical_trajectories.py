@@ -747,8 +747,8 @@ def main():
     # Keep only requested participants
     df_clinical = df_clinical[df_clinical['participant_id'].isin(participant_ids)].copy()
 
-    # Rename myelopathy values from 0 to 'myelopathy no' and 1 to 'myelopathy yes'
-    df_clinical['myelopathy'] = df_clinical['myelopathy'].map({0: 'myelopathy_no', 1: 'myelopathy_yes'})
+    # Rename myelopathy values from 0 to 'no' and 1 to 'yes' to match MYELOPATHY_COLORS
+    df_clinical['myelopathy'] = df_clinical['myelopathy'].map({0: 'no', 1: 'yes'})
 
     # Parse stratification keys and normalize aliases (e.g., 'mjoa' -> 'mJOA_severity_bl')
     strat_keys_in = _parse_stratify_arg(args.stratify_by)
