@@ -641,20 +641,18 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
 
     # Place legends inside the axes to avoid cropping
     leg1 = ax.legend(handles=color_handles,
-                     title=STRATIFICATION_TO_TITLE.get(key1, key1),
-                     loc='lower left',
-                     fontsize=TICK_FONT_SIZE-4,
-                     title_fontsize=TICK_FONT_SIZE-3,
+                     loc='center left',
+                     bbox_to_anchor=(0.1, 0.1),
+                     fontsize=TICK_FONT_SIZE,
                      frameon=True)
     leg1.get_frame().set_alpha(0.85)
     leg1.get_frame().set_facecolor('white')
     ax.add_artist(leg1)
 
     leg2 = ax.legend(handles=style_handles,
-                     title=STRATIFICATION_TO_TITLE.get(key2, key2),
-                     loc='lower right',
-                     fontsize=TICK_FONT_SIZE-4,
-                     title_fontsize=TICK_FONT_SIZE-3,
+                     loc='center right',
+                     bbox_to_anchor=(0.9, 0.1),
+                     fontsize=TICK_FONT_SIZE,
                      frameon=True)
     leg2.get_frame().set_alpha(0.85)
     leg2.get_frame().set_facecolor('white')
