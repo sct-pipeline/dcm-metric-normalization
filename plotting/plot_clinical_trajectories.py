@@ -358,7 +358,6 @@ def plot_score_trajectory(plot_df: pd.DataFrame, score_name: str, y_label: str, 
     ax.set_xticks(sessions)
     ax.set_xticklabels(tick_labels, fontsize=TICK_FONT_SIZE)
 
-    ax.set_xlabel('Session', fontsize=LABEL_FONT_SIZE)
     ax.set_ylabel(y_label, fontsize=LABEL_FONT_SIZE)
     ax.set_title(f'{score_name} across sessions', fontsize=TITLE_FONT_SIZE)
 
@@ -491,14 +490,13 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
     ax.set_xticks(sessions)
     ax.set_xticklabels(tick_labels, fontsize=TICK_FONT_SIZE)
 
-    ax.set_xlabel('Session', fontsize=LABEL_FONT_SIZE)
     ax.set_ylabel(y_label, fontsize=LABEL_FONT_SIZE)
     ax.set_title(f'{score_name} across sessions by {STRATIFICATION_TO_TITLE[stratify_by]}', fontsize=TITLE_FONT_SIZE)
 
     ax.tick_params(axis='y', labelsize=TICK_FONT_SIZE)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
-    ax.legend(title=stratify_by, fontsize=TICK_FONT_SIZE-2, title_fontsize=TICK_FONT_SIZE-1, loc='lower left')
+    ax.legend(fontsize=TICK_FONT_SIZE-2, loc='lower left')
 
     fig.tight_layout()
     os.makedirs(outdir, exist_ok=True)
@@ -522,8 +520,8 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     mpl.rcParams['font.family'] = 'Arial'
 
     sessions = sorted(plot_df['session_numeric'].unique())
-    width = max(7, int(3.2 * len(sessions)))
-    fig, ax = plt.subplots(1, 1, figsize=(width, 4.6))
+    width = max(5, int(2 * len(sessions)))
+    fig, ax = plt.subplots(1, 1, figsize=(width, 4))
 
     # # Apply custom y-limits if provided for this score
     # ylim = _get_ylim_for_score(score_name)
@@ -625,10 +623,9 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     ax.set_xticks(sessions)
     ax.set_xticklabels(tick_labels, fontsize=TICK_FONT_SIZE)
 
-    ax.set_xlabel('Session', fontsize=LABEL_FONT_SIZE)
     ax.set_ylabel(y_label, fontsize=LABEL_FONT_SIZE)
-    ax.set_title(f"{score_name} across sessions by {STRATIFICATION_TO_TITLE.get(key1, key1)} and {STRATIFICATION_TO_TITLE.get(key2, key2)}",
-                 fontsize=TITLE_FONT_SIZE)
+    # ax.set_title(f"{score_name} across sessions by {STRATIFICATION_TO_TITLE.get(key1, key1)} and {STRATIFICATION_TO_TITLE.get(key2, key2)}",
+    #              fontsize=TITLE_FONT_SIZE)
 
     ax.tick_params(axis='y', labelsize=TICK_FONT_SIZE)
     ax.spines['top'].set_visible(False)
