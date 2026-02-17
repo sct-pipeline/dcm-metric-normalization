@@ -168,23 +168,23 @@ def get_parser():
                         default='$SCT_DIR/data/PAM50_normalized_metrics/participants.tsv',
                         help="Path to the spine-generic participants.tsv file (used to filter per sex).")
     parser.add_argument('-clinical-file', required=False, type=str,
-                        help="Excel file with clinical scores (must contain 'total_mjoa_BL' column)")
+                        help="Excel file with clinical scores (must contain 'total_mjoa_BL' column) and demographic data")
     parser.add_argument('-ascor-file', required=False, type=str,
                         help="CSV file with aSCOR metrics (for longitudinal analysis as covariate)")
     parser.add_argument('-stratify', required=False, type=str, default=None,
                         choices=['mcl', 'highest_stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'num_of_stenosis_including_C2C3', 'myelopathy',
                                  'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
                         help="Stratification method:"
-                             "'mcl' for Maximum Compression Level; '-participants-file' is required, "
-                             "'highest_stenosis' for the highest stenosis level; '-participants-file' is required, "
-                             "'num_of_stenosis' for number of stenosis levels; '-participants-file' is required, "
-                             "'single_vs_multi_stenosis' for single vs. multi-level stenosis; '-participants-file' is required, "
-                             "'num_of_stenosis_including_C2C3' for number of stenosis levels including stratification of subjects with 4 compressions to see if they have compression at C2/C3 level; '-participants-file' is required, "
-                             "'myelopathy' for myelopathy status; '-participants-file' is required, "
-                             "'therapeutic_decision' (operative/conservative); -participants-file' is required, "
-                             "'age' for age group stratification; '-participants-file' is required, "
-                             "'sex' for sex-based stratification; '-participants-file' is required, "
-                             "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 18; moderate 14 ≤ mJOA); '-clinical-file' is required. "
+                             "'mcl' for Maximum Compression Level; "
+                             "'highest_stenosis' for the highest stenosis level; "
+                             "'num_of_stenosis' for number of stenosis levels; "
+                             "'single_vs_multi_stenosis' for single vs. multi-level stenosis; "
+                             "'num_of_stenosis_including_C2C3' for number of stenosis levels including stratification of subjects with 4 compressions to see if they have compression at C2/C3 level; "
+                             "'myelopathy' for myelopathy status; "
+                             "'therapeutic_decision' (operative/conservative); "
+                             "'age' for age group stratification; "
+                             "'sex' for sex-based stratification; "
+                             "'mjoa' mJOA (mild: 15 ≤ mJOA ≤ 18; moderate 14 ≤ mJOA) "
                              "'normative_mean_c2' for stratification based on normative mean C2 cord area; "
                              "'None' for no stratification."
                              "Default: None.",
