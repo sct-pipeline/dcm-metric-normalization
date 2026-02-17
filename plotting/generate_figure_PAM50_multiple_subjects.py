@@ -1243,7 +1243,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     print(f"Myelopathy group '{myelopathy}': {myelopathy_n_subjects} subjects") if metric == 'MEAN(area)' else None
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
                                 linewidth=4, color=MYELOPATHY_COLORS[myelopathy],
-                                label=f"Myelopathy {myelopathy} (n={myelopathy_n_subjects})")
+                                label=f"T2w- (n={myelopathy_n_subjects})" if myelopathy == 'no' else f"T2w+ (n={myelopathy_n_subjects})")
         elif stratify_type == 'therapeutic_decision':
             # Plot by Therapeutic Decision groups instead of sessions
             decision_groups = subjects_df['therapeutic_decision'].unique()
