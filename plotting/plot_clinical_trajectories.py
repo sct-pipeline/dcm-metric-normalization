@@ -415,6 +415,9 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
             if 'severe' in s:
                 return 'severe'
             return str(v)
+        if stratify_by == 'myelopathy':
+            # Use display labels for myelopathy
+            return _get_display_label(v, stratify_by)
         if stratify_by != 'normative_mean_c2':
             return str(v)
         s = str(v).lower()
@@ -430,7 +433,7 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
     # Plot per stratum
     for idx, val in enumerate(strata):
         gdf = plot_df[plot_df['stratum'] == val]
-        label_long = str(val)
+        label_long = _get_display_label(val, stratify_by)
         label_short = _to_short_label(val)
 
         # Individual trajectories per stratum
@@ -553,6 +556,9 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
             if 'severe' in s:
                 return 'severe'
             return str(v)
+        if k == 'myelopathy':
+            # Use display labels for myelopathy
+            return _get_display_label(v, k)
         if k != 'normative_mean_c2':
             return str(v)
         s = str(v).lower()
@@ -584,7 +590,7 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
                 means = [d['mean'] for d in stats]
                 stds = [d['std'] for d in stats]
                 ax.plot(xs, means, color=colors1[v1], linewidth=2, marker='o', markersize=3,
-                        linestyle=linestyles2[v2], label=f"{v1} • {_short_label(key2, v2)}", zorder=6, alpha=0.95)
+                        linestyle=linestyles2[v2], label=f"{_get_display_label(v1, key1)} • {_short_label(key2, v2)}", zorder=6, alpha=0.95)
                 ax.errorbar(xs, means, yerr=stds, color=colors1[v1], capsize=3, capthick=1.5, linestyle='None', zorder=5)
 
     # X ticks with per-combination n
@@ -614,8 +620,8 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
 
     # Build separate legends: one for colors (key1) and one for line styles (key2)
     from matplotlib.lines import Line2D
-    color_handles = [Line2D([0], [0], color=colors1[v], lw=1, marker='o', markersize=3, label=str(v)) for v in strata1]
-    style_handles = [Line2D([0], [0], color='black', lw=1, linestyle=linestyles2[v], label=_short_label(key2, v)) for v in strata2]
+    color_handles = [Line2D([0], [0], color=colors1[v], lw=2, marker='o', markersize=3, label=_get_display_label(v, key1)) for v in strata1]
+    style_handles = [Line2D([0], [0], color='black', lw=2, linestyle=linestyles2[v], label=_short_label(key2, v)) for v in strata2]
 
     # Place legends inside the axes to avoid cropping
     leg1 = ax.legend(handles=color_handles,
@@ -705,6 +711,16 @@ def merge_stratification(df_clinical: pd.DataFrame, participants_file: str | Non
 
     merged = df_out.merge(df_sub, on='participant_id', how='left')
     return merged
+
+
+def _get_display_label(value, stratify_by):
+    """Map internal stratification values to display labels for figures."""
+    if stratify_by == 'myelopathy':
+        if value == 'yes':
+            return 'T2w+'
+        elif value == 'no':
+            return 'T2w-'
+    return str(value)
 
 
 def main():
