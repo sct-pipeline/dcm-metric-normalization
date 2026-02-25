@@ -268,12 +268,13 @@ else
     # Either using manual disc labels or using disc labels from sagittal image -- this is handled in the previous step.
     # Note: we use `sct_label_vertebrae -discfile` to avoid cord straightening
     # Details: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4896
-    sct_label_vertebrae -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -c t2
+    #sct_label_vertebrae -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -c t2
     # Generate QC report to assess labeled segmentation
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    #sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
     # Intervertebral discs labeling and vertebrae segmentation and generate QC report
-    sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
-
+    #sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    # COmmenting out the lines above to avoid performing labeling again
+    
     # -------------
     # Compute spinal cord morphometrics
     # -------------
