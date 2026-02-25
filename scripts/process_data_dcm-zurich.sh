@@ -35,27 +35,44 @@ echo "PATH_QC: ${PATH_QC}"
 # CONVENIENCE FUNCTIONS
 # ======================================================================================================================
 # Check if manual spinal cord segmentation file already exists. If it does, copy it locally.
+# Accept both the old naming convention (ending with _label-SC_mask) and the new naming convention (ending with _label-SC_seg).
 # If it doesn't, perform automatic spinal cord segmentation
 segment_if_does_not_exist() {
   local file="$1"
   local contrast="$2"
   # Update global variable with segmentation file name
   FILESEG="${file}_label-SC_mask"
-  # Getting the path for manual segmentation for each session
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
+
+  # Existing expected manual filename (keep it)
+  FILESEGMANUAL_OLD="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
+
+  # NEW: accept your existing filename
+  FILESEGMANUAL_NEW="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file}_label-SC_seg.nii.gz"
+
   echo
-  echo "Looking for manual segmentation: $FILESEGMANUAL"
-  if [[ -e $FILESEGMANUAL ]]; then
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual spinal cord segmentation."
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz found under derivatives/labels --> using manual spinal cord segmentation" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
-    rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
-    sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+  echo "Looking for manual spinal cord segmentation:"
+  echo "  - $FILESEGMANUAL_OLD"
+  echo "  - $FILESEGMANUAL_NEW"
+
+  if [[ -e "$FILESEGMANUAL_OLD" ]]; then
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found OLD naming. Using manual spinal cord segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Using: $FILESEGMANUAL_OLD" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
+    rsync -avzh "$FILESEGMANUAL_OLD" "${FILESEG}.nii.gz"
+
+  elif [[ -e "$FILESEGMANUAL_NEW" ]]; then
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found NEW naming (_label-SC_seg). Using manual spinal cord segmentation."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Using: $FILESEGMANUAL_NEW" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
+    # Copy your seg but rename it to what the rest of the script expects
+    rsync -avzh "$FILESEGMANUAL_NEW" "${FILESEG}.nii.gz"
+
   else
     echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic spinal cord segmentation."
     echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting spinal cord automatically" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
-    # Segment spinal cord
-    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    sct_deepseg spinalcord -i "${file}.nii.gz" -o "${FILESEG}.nii.gz" -c "${contrast}" -qc "${PATH_QC}" -qc-subject "${SUBJECT}_${SESSION}"
   fi
+
+  # QC for whichever seg we used
+  sct_qc -i "${file}.nii.gz" -s "${FILESEG}.nii.gz" -p sct_deepseg_sc -qc "${PATH_QC}" -qc-subject "${SUBJECT}_${SESSION}"
 }
 
 # Check if manual T2w sag disc labels already exist. If it does, generate labeled segmentation from manual disc labels.
