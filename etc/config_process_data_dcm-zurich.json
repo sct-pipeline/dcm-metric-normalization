@@ -1,7 +1,7 @@
 {
   "path_data"   : "/Users/kahina/NeuroPoly/data/dcm-zurich",
-  "path_output" : "/Users/kahina/NeuroPoly/results/first_tests_sept25",
-  "script"      : "/Users/kahina/NeuroPoly/scr/dcm-metric-normalization/scripts/process_data_dcm-zurich.sh",
+  "path_output" : "/Users/kahina/NeuroPoly/results/2026-02-25",
+  "script": "/Users/kahina/NeuroPoly/dcm-metric-normalization/scripts/process_data_dcm-zurich.sh",
   "exclude_list"     : ["sub-817811", "sub-834907", "sub-842197", "sub-294305", "sub-796358", "sub-561017", "sub-250791", "sub-895299"],
   "jobs"        : 4
 }

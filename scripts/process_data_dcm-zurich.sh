@@ -101,6 +101,40 @@ label_t2_sag_if_does_not_exist(){
   sct_qc -i ${file}.nii.gz -s ${file_seg}_labeled_discs.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 }
 
+## The axial images were used to do labeling
+# Check if manual T2w AXIAL disc labels already exist. If it does, generate labeled segmentation from manual disc labels.
+# If it doesn't, perform automatic spinal cord labeling
+label_t2_ax_if_does_not_exist(){
+  local file="$1"       # e.g., sub-001_ses-M6_acq-axial_T2w
+  local file_seg="$2"   # e.g., sub-001_ses-M6_acq-axial_T2w_label-SC_mask
+  local contrast="$3"   # e.g., t2
+
+  FILELABEL="${file}_labels"
+
+  # Manual labels expected for axial
+  FILELABELMANUAL_AX="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILELABEL}-manual.nii.gz"
+
+  echo "Looking for manual AXIAL disc labels: $FILELABELMANUAL_AX"
+
+  if [[ -e "$FILELABELMANUAL_AX" ]]; then
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual axial disc labels."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found --> using manual axial disc labels" >> "${PATH_LOG}/T2w_disc_labels_axial.log"
+    rsync -avzh "$FILELABELMANUAL_AX" "${FILELABEL}.nii.gz"
+
+    # Generate labeled segmentation from manual disc labels
+    sct_label_vertebrae -i "${file}.nii.gz" -s "${file_seg}.nii.gz" -discfile "${FILELABEL}.nii.gz" -c "${contrast}" -qc "${PATH_QC}" -qc-subject "${SUBJECT}_${SESSION}"
+  else
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Manual axial disc labels not found. Proceeding with automatic labeling."
+    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic labeling (axial)" >> "${PATH_LOG}/T2w_disc_labels_axial.log"
+
+    # Generate labeled segmentation automatically
+    sct_label_vertebrae -i "${file}.nii.gz" -s "${file_seg}.nii.gz" -c "${contrast}" -qc "${PATH_QC}" -qc-subject "${SUBJECT}_${SESSION}"
+  fi
+
+  # QC to access disc labels created by sct_label_vertebrae
+  sct_qc -i "${file}.nii.gz" -s "${file_seg}_labeled_discs.nii.gz" -p sct_label_utils -qc "${PATH_QC}" -qc-subject "${SUBJECT}_${SESSION}"
+}
+
 # Check if manual canal segmentation file already exists. If it does, copy it locally.
 # If it doesn't, perform automatic canal segmentation
 segment_canal_if_does_not_exist() {
@@ -190,12 +224,15 @@ if [[ ! -e ../participants.tsv ]]; then
     rsync -avzh ${PATH_DATA}/participants.tsv ${PARTICIPANTS_PATH}
 fi
 
-# Copy source T2w images
-# Note: we use '/./' in order to include the sub-folder 'ses-0X'
-rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/${SESSION}/anat/${SUBJECT}_${SESSION}*T2w.* .
+# Copy source T2w images into a local BIDS-like structure
+mkdir -p "${SUBJECT}/${SESSION}/anat"
+
+rsync -avzh \
+  "${PATH_DATA}/${SUBJECT}/${SESSION}/anat/${SUBJECT}_${SESSION}"*T2w.* \
+  "${SUBJECT}/${SESSION}/anat/"
 
 # Go to subject folder for source images
-cd ${SUBJECT}/${SESSION}/anat
+cd "${SUBJECT}/${SESSION}/anat"
 
 # ------------------------------------------------------------------------------
 # T2w Sagittal
@@ -254,14 +291,15 @@ else
         # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
         # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
         # Note: the '-dseg' is used only for the QC report
-        sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION} -dseg ${file_t2_ax_seg}.nii.gz
+        #sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION} -dseg ${file_t2_ax_seg}.nii.gz
         # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
         # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
-        sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
+        #sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
         # Generate QC report to assess warped disc labels
-        sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+        #sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 
-        file_t2_ax_labels=${file_t2_sag_seg}_labeled_discs_reg
+        #file_t2_ax_labels=${file_t2_sag_seg}_labeled_discs_reg
+        echo "Manual disc labels not found."
     fi
 
     # Label T2w axial spinal cord segmentation.
