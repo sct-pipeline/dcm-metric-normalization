@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
 from scipy.stats import spearmanr, normaltest, pearsonr
+import pingouin as pg
 
 from utils import format_pvalue
 
@@ -61,7 +62,7 @@ def load_normative_df(normative_dir, participants_file=None):
     # Optionally merge participants.tsv info
     if participants_file and os.path.isfile(participants_file):
         df_participants = pd.read_csv(participants_file, sep='\t')
-        merged = merged.merge(df_participants[['participant_id', 'age', 'sex']], on='participant_id', how='left')
+        merged = merged.merge(df_participants[['participant_id', 'age', 'sex', 'height']], on='participant_id', how='left')
     # Keep only VertLevel C2–C7
     merged = merged[(merged['VertLevel'] >= 2) & (merged['VertLevel'] <= 7)]
     merged = merged.dropna(subset=['MEAN(area)_cord', 'MEAN(area)_canal'])
@@ -70,9 +71,152 @@ def load_normative_df(normative_dir, participants_file=None):
         'MEAN(area)_cord': 'mean',
         'MEAN(area)_canal': 'mean',
         'age': 'first',
-        'sex': 'first'
+        'sex': 'first',
+        'height': 'first'
     }).reset_index()
     return grouped
+
+def analyze_height_correlation(df, output_dir):
+    """
+    Analyze the correlation between height and cord/canal area, and compute partial correlations
+    to assess if height mediates the cord-canal relationship.
+    """
+    print("\n" + "="*80)
+    print("HEIGHT CORRELATION ANALYSIS")
+    print("="*80)
+
+    for level in VERTEBRAL_LEVELS:
+        df_level = df[df['VertLevel'] == level].dropna(subset=['height', 'MEAN(area)_cord', 'MEAN(area)_canal'])
+
+        if len(df_level) < 3:
+            print(f"\n{LEVEL_TO_LABEL[level]}: Insufficient data for height analysis (n={len(df_level)})")
+            continue
+
+        height = df_level['height'].values
+        cord_area = df_level['MEAN(area)_cord'].values
+        canal_area = df_level['MEAN(area)_canal'].values
+
+        print(f"\n{LEVEL_TO_LABEL[level]} (n={len(df_level)}):")
+        print("-" * 60)
+
+        # Correlation between height and cord area
+        r_height_cord, p_height_cord = spearmanr(height, cord_area)
+        print(f"Height vs Cord Area:   r={r_height_cord:.3f}, p{format_pvalue(p_height_cord)}")
+
+        # Correlation between height and canal area
+        r_height_canal, p_height_canal = spearmanr(height, canal_area)
+        print(f"Height vs Canal Area:  r={r_height_canal:.3f}, p{format_pvalue(p_height_canal)}")
+
+        # Direct correlation between cord and canal (for reference)
+        r_cord_canal, p_cord_canal = spearmanr(cord_area, canal_area)
+        print(f"Cord vs Canal Area:    r={r_cord_canal:.3f}, p{format_pvalue(p_cord_canal)}")
+
+        # Partial correlation: cord vs canal controlling for height
+        df_temp = pd.DataFrame({
+            'cord': cord_area,
+            'canal': canal_area,
+            'height': height
+        })
+        # https://pingouin-stats.org/generated/pingouin.partial_corr.html#pingouin.partial_corr
+        # Partial correlation measures the degree of association between x and y (i.e., cord and canal), after
+        # removing the effect of the controlling variables (i.e., height)
+        partial_corr = pg.partial_corr(data=df_temp, x='cord', y='canal', covar='height', method='spearman')
+        r_partial = partial_corr['r'].values[0]
+        p_partial = partial_corr['p_val'].values[0]
+        print(f"Cord vs Canal (controlling for height): r={r_partial:.3f}, p{format_pvalue(p_partial)}")
+        print(f"  → Change in r: {r_cord_canal:.3f} → {r_partial:.3f} (Δ={r_partial - r_cord_canal:.3f})")
+
+def plot_height_relationships(df, output_dir):
+    """
+    Create scatter plots showing relationships between height and cord/canal areas.
+    """
+    mpl.rcParams['font.family'] = 'Arial'
+    os.makedirs(output_dir, exist_ok=True)
+
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+    for i, level in enumerate(VERTEBRAL_LEVELS):
+        df_level = df[df['VertLevel'] == level].dropna(subset=['height', 'MEAN(area)_cord', 'MEAN(area)_canal'])
+
+        if len(df_level) < 3:
+            continue
+
+        # Plot 1: Height vs Cord Area
+        ax = axes[0]
+        x = df_level['height']
+        y = df_level['MEAN(area)_cord']
+        r, p = spearmanr(x, y)
+        sns.scatterplot(x=x, y=y, ax=ax, color='blue', alpha=0.6, s=80)
+        if len(x) > 1:
+            z = np.polyfit(x, y, 1)
+            pfit = np.poly1d(z)
+            x_vals = np.linspace(x.min(), x.max(), 100)
+            ax.plot(x_vals, pfit(x_vals), color='blue', linewidth=3)
+        stats_text = f"n={len(x)}\nr={r:.2f}\np{format_pvalue(p, alpha=.05)}"
+        ax.text(0.98, 0.03, stats_text, transform=ax.transAxes,
+                verticalalignment='bottom', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+                fontsize=TICKS_FONT_SIZE-4)
+        ax.set_xlabel('Height [cm]', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.set_title(f'Height vs Cord Area at {LEVEL_TO_LABEL[level]}', fontsize=TITLE_FONT_SIZE)
+        ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+        # Plot 2: Height vs Canal Area
+        ax = axes[1]
+        x = df_level['height']
+        y = df_level['MEAN(area)_canal']
+        r, p = spearmanr(x, y)
+        sns.scatterplot(x=x, y=y, ax=ax, color='green', alpha=0.6, s=80)
+        if len(x) > 1:
+            z = np.polyfit(x, y, 1)
+            pfit = np.poly1d(z)
+            x_vals = np.linspace(x.min(), x.max(), 100)
+            ax.plot(x_vals, pfit(x_vals), color='green', linewidth=3)
+        stats_text = f"n={len(x)}\nr={r:.2f}\np{format_pvalue(p, alpha=.05)}"
+        ax.text(0.98, 0.03, stats_text, transform=ax.transAxes,
+                verticalalignment='bottom', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+                fontsize=TICKS_FONT_SIZE-4)
+        ax.set_xlabel('Height [cm]', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.set_title(f'Height vs Canal Area at {LEVEL_TO_LABEL[level]}', fontsize=TITLE_FONT_SIZE)
+        ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+        # Plot 3: Cord vs Canal (for comparison)
+        ax = axes[2]
+        x = df_level['MEAN(area)_canal']
+        y = df_level['MEAN(area)_cord']
+        r, p = spearmanr(x, y)
+        sns.scatterplot(x=x, y=y, ax=ax, color='black', alpha=0.6, s=80)
+        if len(x) > 1:
+            z = np.polyfit(x, y, 1)
+            pfit = np.poly1d(z)
+            x_vals = np.linspace(x.min(), x.max(), 100)
+            ax.plot(x_vals, pfit(x_vals), color='black', linewidth=3)
+        stats_text = f"n={len(x)}\nr={r:.2f}\np{format_pvalue(p, alpha=.05)}"
+        ax.text(0.98, 0.03, stats_text, transform=ax.transAxes,
+                verticalalignment='bottom', horizontalalignment='right',
+                bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
+                fontsize=TICKS_FONT_SIZE-4)
+        ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
+        ax.set_title(f'Cord vs Canal Area at {LEVEL_TO_LABEL[level]}', fontsize=TITLE_FONT_SIZE)
+        ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
+        ax.grid(True, alpha=0.3)
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+
+    plt.tight_layout()
+    fig_path = os.path.join(output_dir, 'height_correlation_analysis.png')
+    plt.savefig(fig_path, dpi=300, bbox_inches='tight')
+    print(f"\nHeight correlation figure saved: {fig_path}")
 
 def plot_scatter_grid(df, output_dir):
     mpl.rcParams['font.family'] = 'Arial'
@@ -107,17 +251,39 @@ def plot_scatter_grid(df, output_dir):
         # Spearman and Pearson correlation
         r_spear, p_spear = spearmanr(x, y)
         r_pear, p_pear = pearsonr(x, y)
+
+        # Compute partial correlation controlling for height
+        df_level_height = df_level.dropna(subset=['height', 'MEAN(area)_cord', 'MEAN(area)_canal'])
+        r_partial = None
+        p_partial = None
+        if len(df_level_height) >= 3:
+            try:
+                df_temp = pd.DataFrame({
+                    'cord': df_level_height['MEAN(area)_cord'].values,
+                    'canal': df_level_height['MEAN(area)_canal'].values,
+                    'height': df_level_height['height'].values
+                })
+                partial_corr = pg.partial_corr(data=df_temp, x='cord', y='canal', covar='height', method='spearman')
+                r_partial = partial_corr['r'].values[0]
+                p_partial = partial_corr['p_val'].values[0]
+            except Exception as e:
+                print(f"Warning: Could not compute partial correlation for {LEVEL_TO_LABEL[level]}: {e}")
+
         sns.scatterplot(x=x, y=y, ax=ax, color='black', alpha=0.8, s=80)
         if len(x) > 1:
             z = np.polyfit(x, y, 1)
             pfit = np.poly1d(z)
             x_vals = np.linspace(x.min(), x.max(), 100)
             ax.plot(x_vals, pfit(x_vals), color='black', linewidth=5)
-        # stats_text = (f"Spearman r={r_spear:.2f}, p{format_pvalue(p_spear)}\n"
-        #               f"Pearson r={r_pear:.2f}, p{format_pvalue(p_pear)}\n"
-        #               f"Normality canal p{format_pvalue(p_x)}\n"
-        #               f"Normality cord p{format_pvalue(p_y)}")
-        stats_text = f"n={len(x)}\nr={np.nan_to_num(r_spear):.2f}\np{format_pvalue(p_spear, alpha=.05)}"
+
+        # Create stats text with partial correlation
+        if r_partial is not None:
+            stats_text = (f"n={len(x)}\n"
+                         f"r={np.nan_to_num(r_spear):.2f}, p{format_pvalue(p_spear, alpha=.05)}\n"
+                         f"r partial (controlling for height)={r_partial:.2f}, p{format_pvalue(p_partial, alpha=.05)}")
+        else:
+            stats_text = f"n={len(x)}\nr={np.nan_to_num(r_spear):.2f}\np{format_pvalue(p_spear, alpha=.05)}"
+
         ax.text(0.98, 0.02, stats_text, transform=ax.transAxes,
                 verticalalignment='bottom', horizontalalignment='right',
                 bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0),
@@ -133,6 +299,8 @@ def plot_scatter_grid(df, output_dir):
             'spearman_p': p_spear,
             'pearson_r': r_pear,
             'pearson_p': p_pear,
+            'partial_r': r_partial,
+            'partial_p': p_partial,
             'n': len(x)
         })
 
@@ -147,8 +315,13 @@ def plot_scatter_grid(df, output_dir):
     print(f"Figure saved: {fig_path}")
     print("\nCorrelation summary per vertebral level:")
     for res in results:
-        print(f"{res['level']}: Spearman r={res['spearman_r']:.2f} (p{format_pvalue(res['spearman_p'])}), "
-              f"Pearson r={res['pearson_r']:.2f} (p{format_pvalue(res['pearson_p'])}), n={res['n']}")
+        if res['partial_r'] is not None:
+            print(f"{res['level']}: Spearman r={res['spearman_r']:.2f} (p{format_pvalue(res['spearman_p'])}), "
+                  f"Pearson r={res['pearson_r']:.2f} (p{format_pvalue(res['pearson_p'])}), "
+                  f"Partial r={res['partial_r']:.2f} (p{format_pvalue(res['partial_p'])}), n={res['n']}")
+        else:
+            print(f"{res['level']}: Spearman r={res['spearman_r']:.2f} (p{format_pvalue(res['spearman_p'])}), "
+                  f"Pearson r={res['pearson_r']:.2f} (p{format_pvalue(res['pearson_p'])}), n={res['n']}")
     print("\nNormality test results (D'Agostino and Pearson):")
     for norm_res in normality_results:
         print(f"{norm_res['level']}: Canal p={format_pvalue(norm_res['canal_p'])}, Cord p={format_pvalue(norm_res['cord_p'])}")
@@ -229,6 +402,13 @@ def main():
                         help='Output directory for figure')
     args = parser.parse_args()
     df = load_normative_df(os.path.expandvars(args.path_HC), os.path.expandvars(args.participants_file_pam50))
+
+    # Perform height correlation analysis
+    analyze_height_correlation(df, os.path.expandvars(args.o))
+    # Create height relationship plots
+    plot_height_relationships(df, os.path.expandvars(args.o))
+
+    # Original plots
     plot_scatter_grid(df, os.path.expandvars(args.o))
     plot_scatter_grid_by_sex(df, os.path.expandvars(args.o))
 
