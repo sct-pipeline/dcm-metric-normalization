@@ -8,9 +8,10 @@ t2_ax_canal_seg:
 - sub-137/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
 - sub-147/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
 - sub-149/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
-- sub-156/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+
 t2_ax:
 - sub-042/ses-M0    # missing T2w ax image
 - sub-045/ses-M0    # missing T2w ax image
 - sub-037/ses-M0    # joined C1-C3 --> very hard to label discs
 - sub-064/ses-M0    # T2w ax is not aligned with T2w sag --> TODO: check the stitching
+- sub-156           # noisy image; flow void artifacts; all sessions (ses-M0, ses-M6, ses-M12, ses-M24)
