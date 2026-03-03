@@ -1754,7 +1754,8 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
     results = {}
 
     # Analyze separately for C2 and C3
-    for level in [2, 3]:
+    # for level in [2, 3]:
+    for level in [3]:
         level_name = f"C{level}"
         print(f"\n--- Analysis for {level_name} ---")
 
