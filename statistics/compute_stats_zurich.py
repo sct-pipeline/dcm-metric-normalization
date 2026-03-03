@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8
 # The script computes statistics and generates figures for the dcm-zurich dataset
 #   - correlation between normalized and non-normalized metrics
@@ -119,6 +118,17 @@ def get_parser():
                                  - sub-1000032_T1w.nii.gz
                                  - sub-1000498_T1w.nii.gz
                                  """))
+    parser.add_argument(
+        '-input-files',
+        required=False,
+        metavar='<tp=path,...>',
+        help="Per-timepoint morphometric CSV files, format: 'bl=path.csv,6m=path.csv,12m=path.csv'. "
+             "When provided, the full baseline analysis is replicated independently for each timepoint.")
+    parser.add_argument(
+        '-temporal',
+        action='store_true',
+        help="Compute per-subject linear slopes (units/month) for each metric across timepoints. "
+             "Requires -input-files. The baseline timepoint 'bl' (0 months) is included automatically.")
     return parser
 
 
@@ -753,6 +763,183 @@ def predict_mjoa_m12_diff(df_reg, df_reg_norm):
     fit_reg(x_norm[included_norm], y, 'linear', logger)
 
 
+# Columns to always drop when building a regression DataFrame (same set as baseline main()).
+# Listed here once so the longitudinal loop can reuse it with errors='ignore'.
+COLS_DROP = [
+    'pathology', 'record_id', 'record_id_y', 'record_id_x',
+    'compression_level', 'date_previous_surgery', 'surgery_date',
+    'date_of_scan', 'manufacturers_model_name', 'manufacturer',
+    'stenosis', 'maximum_stenosis', 'maximum_stenosis_y', 'maximum_stenosis_x',
+    'slice(I->S)',
+    'eccentricity_ratio_PAM50', 'diameter_RL_ratio_PAM50',
+    'diameter_AP_ratio_PAM50', 'area_ratio_PAM50', 'solidity_ratio_PAM50',
+    # baseline-only electro columns (may not exist for non-baseline timepoints)
+    'dSEP_C6_both_patho_bl', 'dSEP_C8_both_patho_bl',
+    'CHEPS_C6_patho_bl', 'CHEPS_C8_patho_bl', 'CHEPS_T4_grading_patho_bl',
+    'amp_max_sten_sag_or_ax1_or_ax2_bl', 'disp_max_sten_sag_or_ax1_or_ax2_mm_bl',
+    'dSEP_both_patho_bl', 'CHEPS_patho_bl',
+]
+
+# Mapping from timepoint label to months (used for slope computation)
+MONTHS_MAP = {'bl': 0, 'baseline': 0, '': 0, '6m': 6, '12m': 12}
+
+
+def parse_input_files(input_files_str):
+    """
+    Parse the '-input-files' argument string into a dict of {timepoint: filepath}.
+    Expected format: 'bl=path.csv,6m=path.csv,12m=path.csv'
+    """
+    result = {}
+    for pair in input_files_str.split(','):
+        pair = pair.strip()
+        if '=' not in pair:
+            raise ValueError(f"Invalid -input-files entry '{pair}'. Expected format: tp=path.csv")
+        tp, path = pair.split('=', 1)
+        result[tp.strip()] = path.strip()
+    return result
+
+
+def select_timepoint_columns(df, tp):
+    """
+    From a fully merged dataframe (containing baseline, 6m, and 12m columns),
+    return a copy with only the columns appropriate for the requested timepoint.
+
+    Rules:
+    - 'bl' / '' / 'baseline': keep all columns that do NOT end with '_6m' or '_12m'.
+    - '6m': rename '_6m' columns to their base name; drop '_12m' and '_bl' columns;
+            drop any base-named column that already has a '_6m' counterpart.
+    - '12m': same logic but for '_12m'.
+    MRI-metric columns (area_ratio, etc.) carry no timepoint suffix and are always kept.
+    """
+    df = df.copy()
+    known_tp_suffixes = ['_6m', '_12m']
+
+    if tp in ('bl', '', 'baseline'):
+        cols = [c for c in df.columns if not any(c.endswith(s) for s in known_tp_suffixes)]
+        return df[cols]
+
+    suffix = f'_{tp}'                                          # e.g. '_6m'
+    other_suffixes = [s for s in known_tp_suffixes if s != suffix]
+    # Base names that have a tp-specific version (e.g. 'total_mjoa' when 'total_mjoa_6m' exists)
+    tp_base_names = {c[: -len(suffix)] for c in df.columns if c.endswith(suffix)}
+
+    final_cols, rename_map = [], {}
+    for c in df.columns:
+        if c.endswith(suffix):                          # our timepoint column → rename to base
+            rename_map[c] = c[: -len(suffix)]
+            final_cols.append(c)
+        elif any(c.endswith(s) for s in other_suffixes):  # different follow-up tp → skip
+            pass
+        elif c.endswith('_bl'):                         # baseline-specific clinical/electro → skip
+            pass
+        elif c in tp_base_names:                        # base column superseded by tp version → skip
+            pass
+        else:                                           # static / MRI metric → keep
+            final_cols.append(c)
+
+    return df[final_cols].rename(columns=rename_map)
+
+
+def aggregate_ascore_for_timepoint(df, anatomical_df, tp):
+    """
+    Update the 'aSCOR' column of df with values from the given timepoint.
+    Returns a modified copy of df.
+
+    anatomical_df must be indexed by participant_id and contain columns:
+        'aSCOR_C{n}'      (baseline)
+        'aSCOR_C{n}_6m'   (6 months)
+        'aSCOR_C{n}_12m'  (12 months)
+    df must have 'participant_id' (as column), 'level' (numeric), and 'aSCOR' columns.
+    """
+    col_suffix = '' if tp in ('bl', '', 'baseline') else f'_{tp}'
+    df = df.copy()
+
+    for _, row in df[['participant_id', 'level']].dropna().iterrows():
+        subj = row['participant_id']
+        level = row['level']
+        if level == 2 or subj not in anatomical_df.index:  # skip C1/C2 and unknown subjects
+            continue
+        level_conversion = 'C' + str(int(level) - 1)       # disc label → vertebral level (C4/C5→C4)
+        ascore_col = f'aSCOR_{level_conversion}{col_suffix}'
+        if ascore_col in anatomical_df.columns:
+            df.loc[df['participant_id'] == subj, 'aSCOR'] = anatomical_df.loc[subj, ascore_col]
+
+    return df
+
+
+def compute_temporal_slopes(dfs_by_tp, metrics, months_map=None, path_out=None):
+    """
+    Compute a per-subject linear slope (units/month) for each metric across timepoints,
+    and test whether the population-mean slope is significantly different from zero.
+
+    Args:
+        dfs_by_tp (dict): {timepoint_label: DataFrame indexed by participant_id}
+        metrics   (list): metric column names to analyse
+        months_map (dict): mapping timepoint label → months (default: {'bl':0,'6m':6,'12m':12})
+        path_out  (str):  directory to save output CSVs (optional)
+
+    Returns:
+        df_slopes (pd.DataFrame): per-subject slopes, one row per subject
+        df_tests  (pd.DataFrame): group-level one-sample t-test (H0: mean slope = 0)
+    """
+    if months_map is None:
+        months_map = MONTHS_MAP
+
+    # Only consider timepoints that map to a numeric month value
+    tps = sorted(
+        [(tp, months_map[tp]) for tp in dfs_by_tp if tp in months_map],
+        key=lambda x: x[1]
+    )
+    if len(tps) < 2:
+        logger.warning('compute_temporal_slopes: fewer than 2 mapped timepoints – skipping.')
+        return None, None
+
+    all_subjects = sorted(set.union(*[set(df.index.tolist()) for df in dfs_by_tp.values()]))
+
+    rows = []
+    for subj in all_subjects:
+        row = {'participant_id': subj}
+        for metric in metrics:
+            xs, ys = [], []
+            for tp, months in tps:
+                df_tp = dfs_by_tp[tp]
+                if subj not in df_tp.index or metric not in df_tp.columns:
+                    continue
+                val = df_tp.loc[subj, metric]
+                if pd.isna(val):
+                    continue
+                xs.append(months)
+                ys.append(float(val))
+            row[f'{metric}_slope_per_month'] = np.polyfit(xs, ys, 1)[0] if len(xs) >= 2 else np.nan
+        rows.append(row)
+
+    df_slopes = pd.DataFrame(rows).set_index('participant_id')
+
+    # One-sample t-test: is the mean slope significantly different from 0?
+    test_rows = []
+    for sc in df_slopes.columns:
+        vals = df_slopes[sc].dropna().values
+        t_stat, p_val = stats.ttest_1samp(vals, 0) if len(vals) >= 3 else (np.nan, np.nan)
+        test_rows.append({
+            'metric_slope': sc,
+            'n': len(vals),
+            'mean_slope': np.nanmean(vals),
+            'std_slope': np.nanstd(vals),
+            't_stat': t_stat,
+            'p_value': p_val,
+        })
+    df_tests = pd.DataFrame(test_rows)
+
+    if path_out is not None:
+        df_slopes.to_csv(os.path.join(path_out, 'temporal_slopes.csv'))
+        df_tests.to_csv(os.path.join(path_out, 'temporal_slopes_significance.csv'), index=False)
+        logger.info('Saved temporal slopes → temporal_slopes.csv')
+        logger.info('Saved slope significance tests → temporal_slopes_significance.csv')
+        logger.info('\n' + df_tests.to_string(index=False))
+
+    return df_slopes, df_tests
+
+
 def compute_pca(df):
     logger.info(df.columns)
     df = df.dropna(axis=0)
@@ -989,10 +1176,121 @@ def main():
     # NOTE: uncomment always only one of the following lines (because we are doing inplace operations)
     predict_theurapeutic_decision(df_reg, df_reg_all, df_reg_norm, path_out)
 
-
     #compare_mjoa_between_therapeutic_decision(df_reg, path_out)
 
-   
+    # ─────────────────────────────────────────────────────────────────────────
+    # LONGITUDINAL ANALYSIS
+    # Replicate the baseline pipeline for each additional timepoint, then
+    # (optionally) compute per-subject metric slopes across timepoints.
+    # ─────────────────────────────────────────────────────────────────────────
+    if args.input_files:
+        tps_files = parse_input_files(args.input_files)
+        logger.info(f'\nLongitudinal analysis requested for timepoints: {list(tps_files.keys())}')
+
+        # Keep the already-computed baseline df for slope calculation
+        # (df_reg_all is indexed by participant_id at this point)
+        dfs_by_tp = {'bl': df_reg_all.copy()}
+
+        for tp, tp_file in tps_files.items():
+            if tp in ('bl', '', 'baseline'):
+                logger.info(f'Timepoint "{tp}" is already covered by the baseline run – skipping.')
+                continue
+
+            logger.info(f'\n{"="*60}\nTimepoint: {tp}\n{"="*60}')
+            tp_out = os.path.join(path_out, f'timepoint_{tp}')
+            os.makedirs(tp_out, exist_ok=True)
+
+            # Per-timepoint log file
+            fh_tp = logging.FileHandler(os.path.join(tp_out, f'log_stats_{tp}.txt'))
+            logging.root.addHandler(fh_tp)
+
+            # ── 1. Load morphometric metrics for this timepoint ──────────────
+            df_morphometrics_tp = read_metric_file(tp_file, list(dict_exclude_subj), df_participants)
+
+            # ── 2. Merge clinical / anatomical / electro (same as baseline) ──
+            if 'maximum_stenosis' in args.motion_file:
+                df_clinical_all_tp = merge_anatomical_morphological_final_for_pred(
+                    anatomical_df, motion_df, df_morphometrics_tp, add_motion=False)
+                final_df_tp = pd.merge(df_participants, df_clinical_all_tp,
+                                       on='participant_id', how='outer', sort=True)
+                final_df_tp = pd.merge(final_df_tp, motion_df,
+                                       on='participant_id', how='outer', sort=True)
+                final_df_tp = pd.merge(final_df_tp, electrophysiology_df,
+                                       on='participant_id', how='outer', sort=True)
+            else:
+                df_clinical_all_tp = merge_anatomical_morphological_final_for_pred(
+                    anatomical_df, motion_df, df_morphometrics_tp, add_motion=False)
+                final_df_tp = pd.merge(df_participants, df_clinical_all_tp,
+                                       on='participant_id', how='outer', sort=True)
+                final_df_tp = pd.merge(final_df_tp, electrophysiology_df,
+                                       on='participant_id', how='outer', sort=True)
+
+            # ── 3. Update aggregated aSCOR to the correct timepoint ──────────
+            final_df_tp = aggregate_ascore_for_timepoint(final_df_tp, anatomical_df, tp)
+
+            # ── 4. Encode categoricals (same as baseline) ────────────────────
+            final_df_tp = final_df_tp.replace({'sex': {'F': 0, 'M': 1}})
+            final_df_tp = final_df_tp.replace({'level': DICT_DISC_LABELS})
+            final_df_tp = final_df_tp.replace({'therapeutic_decision': {'conservative': 0, 'operative': 1}})
+            final_df_tp = final_df_tp.replace({'previous_surgery': {'no': 0, 'yes': 1}})
+
+            # ── 5. Select only columns relevant to this timepoint ────────────
+            final_df_tp = select_timepoint_columns(final_df_tp, tp)
+
+            # ── 6. Drop subjects missing the key MRI metric ──────────────────
+            if 'area_ratio_PAM50_normalized' in final_df_tp.columns:
+                final_df_tp.dropna(axis=0, subset=['area_ratio_PAM50_normalized'], inplace=True)
+            (final_df_tp.isna()).to_csv(os.path.join(tp_out, 'missing_data.csv'))
+
+            # ── 7. Build regression DataFrames (mirrors baseline main()) ─────
+            df_reg_tp = final_df_tp.copy()
+            df_reg_tp['myelopathy'] = df_reg_tp['myelopathy'].fillna(0.0)
+            df_reg_tp.loc[df_reg_tp['myelopathy'] != 0, 'myelopathy'] = 1.0
+            df_reg_tp['myelopathy'] = df_reg_tp['myelopathy'].astype(float)
+
+            cols_to_drop_tp = [c for c in COLS_DROP if c in df_reg_tp.columns]
+            df_reg_tp = df_reg_tp.drop(columns=cols_to_drop_tp)
+            df_reg_tp.set_index('participant_id', inplace=True)
+
+            df_reg_all_tp = df_reg_tp.copy()
+            df_reg_norm_tp = df_reg_tp.copy()
+            df_reg_tp.drop(columns=[c for c in METRICS_NORM if c in df_reg_tp.columns], inplace=True)
+            df_reg_norm_tp.drop(columns=[c for c in METRICS if c in df_reg_norm_tp.columns], inplace=True)
+
+            df_reg_all_tp.dropna(inplace=True)
+            logger.info(f'[{tp}] n subjects after dropna: {df_reg_all_tp.shape[0]}')
+
+            # ── 8. Mean ± std ────────────────────────────────────────────────
+            compute_mean_std(df_reg_all_tp, tp_out)
+
+            # ── 9. Correlation matrices ──────────────────────────────────────
+            corr_tp, pval_tp, corr_pval_tp = get_correlation_table(df_reg_all_tp)
+            corr_tp.to_csv(os.path.join(tp_out, 'corr_table.csv'))
+            pval_tp.to_csv(os.path.join(tp_out, 'corr_table_pvalue.csv'))
+            corr_pval_tp.to_csv(os.path.join(tp_out, 'corr_table_and_pvalue.csv'))
+
+            # ── 10. Predictive model (therapeutic decision) ──────────────────
+            if 'therapeutic_decision' in df_reg_all_tp.columns:
+                try:
+                    predict_theurapeutic_decision(
+                        df_reg_tp.dropna().copy(),
+                        df_reg_all_tp.copy(),
+                        df_reg_norm_tp.dropna().copy(),
+                        tp_out)
+                except Exception as e:
+                    logger.warning(f'[{tp}] predict_therapeutic_decision skipped: {e}')
+
+            # Store indexed df for temporal slope computation
+            dfs_by_tp[tp] = df_reg_all_tp.copy()
+
+            logging.root.removeHandler(fh_tp)
+            fh_tp.close()
+
+        # ── Temporal slopes across all available timepoints ──────────────────
+        if args.temporal and len(dfs_by_tp) > 1:
+            logger.info('\nComputing temporal slopes across timepoints...')
+            compute_temporal_slopes(dfs_by_tp, METRICS + METRICS_NORM, path_out=path_out)
+
 
 if __name__ == '__main__':
     main()
