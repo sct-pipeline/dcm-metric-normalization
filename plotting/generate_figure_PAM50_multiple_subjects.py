@@ -1711,7 +1711,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     print(f'Figure saved: {figure_fname}')
 
 
-def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
+def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir, structure):
     """
     Analyse the relationship between baseline area ('MEAN(area)'), separately for C2 and C3, and longitudinal
     repeated measures of mJOA scores (['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth']) usings
@@ -2315,19 +2315,20 @@ def main():
             print(f"Could not construct aSCOR file path: {e}")
 
     # Run longitudinal analysis
-    try:
-        results = analyze_longitudinal_mjoa_area(subjects_df, ascor_file_path, longitudinal_output_dir)
+    if structure != 'aSCOR':
+        try:
+            results = analyze_longitudinal_mjoa_area(subjects_df, ascor_file_path, longitudinal_output_dir, structure)
 
-        if results:
-            print(f"\nLongitudinal analysis completed successfully!")
-            print(f"Results saved to: {longitudinal_output_dir}")
-        else:
-            print("No results from longitudinal analysis.")
+            if results:
+                print(f"\nLongitudinal analysis completed successfully!")
+                print(f"Results saved to: {longitudinal_output_dir}")
+            else:
+                print("No results from longitudinal analysis.")
 
-    except Exception as e:
-        print(f"Error running longitudinal analysis: {e}")
-        import traceback
-        traceback.print_exc()
+        except Exception as e:
+            print(f"Error running longitudinal analysis: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == '__main__':
