@@ -2254,7 +2254,7 @@ def main():
     # Use basename from args.i to create figure name
     figure_basename = os.path.basename(args.i).replace('.csv', '')
     figure_path = os.path.join(path_out, figure_basename)
-    # create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, args.stratify)
+    create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, args.stratify)
 
     # Save age group compression table if age stratification selected
     if args.stratify == 'age':
