@@ -1960,7 +1960,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
             # time Var - The between-participant variance in rates of mJOA change over time (0.0035), indicating some individuals improve faster than others
 
             # Save detailed results
-            results_file = os.path.join(output_dir, f"mixed_effects_mjoa_area_{level_name}.txt")
+            results_file = os.path.join(output_dir, f"mixed_effects_mjoa_{structure}_area_{level_name}.txt")
             with open(results_file, 'w') as f:
                 f.write(f"Mixed-Effects Model Results: mJOA vs Area ({level_name})\n")
                 f.write("="*60 + "\n\n")
