@@ -1768,7 +1768,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
         level_grouped_ascor = level_data_acor[['participant_id', 'VertLevel', 'aSCOR']].dropna().groupby(['participant_id', 'VertLevel'], as_index=False).mean()
 
         # Merge back with clinical data (get one row per participant with baseline clinical data)
-        clinical_cols = ['participant_id', 'age', 'sex', 'Myelopathy', 'MCL'] + mjoa_columns
+        clinical_cols = ['participant_id', 'age', 'sex', 'Myelopathy', 'MCL', 'therapeutic_decision'] + mjoa_columns
         available_clinical_cols = [col for col in clinical_cols if col in level_data_area.columns]
         clinical_data = level_data_area[available_clinical_cols].drop_duplicates('participant_id')
 
@@ -1789,6 +1789,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
             sex = row.get('sex', 'unknown')
             myelopathy = row.get('Myelopathy', 'unknown')
             mcl = row.get('MCL', 'unknown')
+            therapeutic_decision = row.get('therapeutic_decision', 'unknown')
             ascor_value = row.get('aSCOR', np.nan)
 
             # Create rows for each time point
@@ -1806,6 +1807,7 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
                         'sex': sex,
                         'Myelopathy': myelopathy,
                         'mcl': mcl,
+                        'therapeutic_decision': therapeutic_decision,
                         'ascor': ascor_value,
                         'level': level_name
                     })
@@ -1862,8 +1864,11 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir):
         if long_df['mcl'].nunique() > 1 and 'unknown' not in long_df['mcl'].values:
             fixed_effects.append('C(mcl)')
 
-        if 'ascor_c' in long_df.columns and pd.to_numeric(long_df['ascor_c'], errors='coerce').notna().any():
-            fixed_effects.append('ascor_c')
+        if 'therapeutic_decision' in long_df.columns and long_df['therapeutic_decision'].nunique() > 1:
+            fixed_effects.append('C(therapeutic_decision)')
+
+        # if 'ascor_c' in long_df.columns and pd.to_numeric(long_df['ascor_c'], errors='coerce').notna().any():
+        #     fixed_effects.append('ascor_c')
 
         formula = f"mjoa_score ~ {' + '.join(fixed_effects)}"
 
@@ -2176,6 +2181,13 @@ def main():
     # Drop rows with num_of_stenosis == 4
     # ----
     subjects_df = drop_highest_stenosis(subjects_df)
+
+    # # ----
+    # # Keep only conservatively treated subjects (therapeutic_decision == 'conservative')
+    # # ----
+    # print(f"Number of unique subjects before therapeutic decision filtering: {len(subjects_df['participant_id'].unique())}")
+    # subjects_df = subjects_df[subjects_df['therapeutic_decision'] == 'conservative']
+    # print(f"Number of unique subjects after therapeutic decision filtering: {len(subjects_df['participant_id'].unique())}")
 
     # Save unique participant IDs to be reused by other scripts
     unique_participants = subjects_df['participant_id'].unique()
