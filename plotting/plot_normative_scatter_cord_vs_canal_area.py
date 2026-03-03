@@ -89,7 +89,7 @@ def plot_scatter_grid(df, output_dir):
     # Compute unique subject counts per sex for the master title
     total_n = df['participant_id'].nunique()
     # suptitle = f"Normative spinal cord vs spinal canal area per level (n={total_n})"
-    # fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
+    fig.suptitle(f"Spinal cord vs spinal canal area at C3 vert level", fontsize=TITLE_FONT_SIZE)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
@@ -169,8 +169,8 @@ def plot_scatter_grid_by_sex(df, output_dir):
     total_n = df['participant_id'].nunique()
     n_m = df[df['sex'] == 'M']['participant_id'].nunique()
     n_f = df[df['sex'] == 'F']['participant_id'].nunique()
-    suptitle = f"Normative spinal cord vs spinal canal area per level (n={total_n}; M={n_m}, F={n_f})"
-    fig.suptitle(suptitle, fontsize=TITLE_FONT_SIZE + 2)
+    # suptitle = f"Normative spinal cord vs spinal canal area per level (n={total_n}; M={n_m}, F={n_f})"
+    fig.suptitle(f"Spinal cord vs spinal canal area at C3 vert level", fontsize=TITLE_FONT_SIZE)
 
     for i, level in enumerate(VERTEBRAL_LEVELS):
         ax = axes[i]
@@ -179,18 +179,19 @@ def plot_scatter_grid_by_sex(df, output_dir):
             df_sex = df_level[df_level['sex'] == sex]
             x = df_sex['MEAN(area)_canal']
             y = df_sex['MEAN(area)_cord']
-            sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, label=f'{"Male" if sex=="M" else "Female"}')
+            sns.scatterplot(x=x, y=y, ax=ax, color=color, alpha=0.6, s=80)
             if len(x) > 1:
                 z = np.polyfit(x, y, 1)
                 pfit = np.poly1d(z)
                 x_vals = np.linspace(x.min(), x.max(), 100)
-                ax.plot(x_vals, pfit(x_vals), color=color, linewidth=2)
+                ax.plot(x_vals, pfit(x_vals), color=color, linewidth=5)
             r, p = spearmanr(x, y)
-            stats_text = (f"{sex}: r={r:.2f}, p{format_pvalue(p)} n={len(x) }")
+            sex_text = 'Males' if sex == 'M' else 'Females'
+            stats_text = (f"{sex_text}: r={r:.2f}, p{format_pvalue(p)} n={len(x) }")
             ax.text(0.98, 0.02 + 0.08 * (0 if sex == 'M' else 1), stats_text, transform=ax.transAxes,
                     verticalalignment='bottom', horizontalalignment='right',
-                    bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0.8),
-                    fontsize=TICKS_FONT_SIZE-4)
+                    bbox=dict(boxstyle='round', facecolor='lightgray', alpha=0),
+                    fontsize=TICKS_FONT_SIZE-4, color=color)
             results.append({
                 'level': LEVEL_TO_LABEL[level],
                 'sex': sex,
@@ -198,12 +199,16 @@ def plot_scatter_grid_by_sex(df, output_dir):
                 'p': p,
                 'n': len(x)
             })
-        ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
+        # ax.set_title(f"{LEVEL_TO_LABEL[level]}", fontsize=TITLE_FONT_SIZE)
         ax.set_xlabel('Canal Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.set_ylabel('Cord Area [mm²]', fontsize=LABELS_FONT_SIZE)
         ax.tick_params(axis='both', labelsize=TICKS_FONT_SIZE)
         ax.grid(True, alpha=0.3)
-        ax.legend()
+
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(True)
+        ax.spines['bottom'].set_visible(True)
     plt.tight_layout()
     fig_path = os.path.join(output_dir, 'normative_scatter_cord_vs_canal_area_perlevel_by_sex.png')
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
