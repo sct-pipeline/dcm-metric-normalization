@@ -87,7 +87,7 @@ STRATIFICATION_TO_TITLE = {
 
 # Allow per-score y-axis limits; extend/edit as needed
 SCORE_TO_YLIM = {
-    'mJOA': (11, 18.5),
+    'mJOA': (11.5, 18.5),
     'Nurick': (0, 5),
     'Pinprick total': (60, 115),
     'Pinprick cervical': (18, 30),
@@ -524,10 +524,10 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     width = max(5, int(2 * len(sessions)))
     fig, ax = plt.subplots(1, 1, figsize=(width, 4))
 
-    # # Apply custom y-limits if provided for this score
-    # ylim = _get_ylim_for_score(score_name)
-    # if ylim is not None:
-    #     ax.set_ylim(*ylim)
+    # Apply custom y-limits if provided for this score
+    ylim = _get_ylim_for_score(score_name)
+    if ylim is not None:
+        ax.set_ylim(*ylim)
 
     # Determine unique strata
     vals1 = list(plot_df['stratum1'].dropna().unique())
