@@ -18,7 +18,7 @@ Usage example:
         --structure cord \\
         --timepoints M0 M6 M12
 
-Authors: Kahina Baouche, 2026
+Authors: Kahina Baouche
 """
 
 import os
