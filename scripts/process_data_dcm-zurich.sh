@@ -43,10 +43,8 @@ segment_if_does_not_exist() {
   # Update global variable with segmentation file name
   FILESEG="${file}_label-SC_mask"
 
-  # Existing expected manual filename (keep it)
-  FILESEGMANUAL_OLD="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
 
-  # NEW: accept your existing filename
+  # New naming convention for manual spinal cord segmentation
   FILESEGMANUAL_NEW="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file}_label-SC_seg.nii.gz"
 
   echo
