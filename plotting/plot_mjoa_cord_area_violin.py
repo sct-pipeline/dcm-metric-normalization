@@ -12,7 +12,7 @@
 #       -metrics T2w_ax_cord_metrics_perlevel.csv
 #       -o output_directory
 #
-# Author: Jan Valosek, GitHub Copilot (Claude Sonnet 4)
+# Author: Jan Valosek, Kahina Baouche
 #
 
 import os
