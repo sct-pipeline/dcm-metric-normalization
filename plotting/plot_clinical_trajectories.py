@@ -24,6 +24,7 @@ import os
 import sys
 import argparse
 
+from matplotlib.lines import Line2D
 import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -633,7 +634,6 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
     ax.spines['right'].set_visible(False)
 
     # Build separate legends: one for colors (key1) and one for line styles (key2)
-    from matplotlib.lines import Line2D
     color_handles = [Line2D([0], [0], color=colors1[v], lw=2, marker='o', markersize=3, label=_get_display_label(v, key1)) for v in strata1]
     style_handles = [Line2D([0], [0], color='black', lw=2, linestyle=linestyles2[v], label=_short_label(key2, v)) for v in strata2]
 
