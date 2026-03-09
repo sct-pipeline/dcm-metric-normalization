@@ -6,25 +6,22 @@ Longitudinal statistics for the dcm-zurich dataset.
 Two complementary analyses are performed:
 
 1. **Per-timepoint analysis** (mirrors the baseline pipeline)
-   For each supplied timepoint (e.g. bl, 6m, 12m), the script:
+   For each supplied timepoint (e.g. bl, 6m, 12m, 24m, 36m, 48m, 60m), the script:
    - Loads morphometric MRI metrics from the corresponding CSV
    - Merges with clinical, anatomical, electrophysiological, and motion data
    - Selects the correct clinical/electro columns for that timepoint
    - Computes descriptive statistics (mean ± SD) and Spearman correlation matrices
    - Runs a stepwise logistic regression to predict therapeutic decision
-   Results are saved to <path-out>/timepoint_<tp>/
 
 2. **Temporal evolution analysis**  (across timepoints)
    For each metric, a per-subject linear slope (units / month) is estimated using
    ordinary least squares across all available timepoints.
    A one-sample t-test (H₀: mean slope = 0) quantifies group-level progression.
-   Results are saved to <path-out>/temporal_slopes.csv and
-   <path-out>/temporal_slopes_significance.csv.
 
 Usage example
 -------------
 python compute_stats_zurich_longitudinal.py \\
-    -input-files bl=metrics_bl.csv,6m=metrics_6m.csv,12m=metrics_12m.csv \\
+    -input-files bl=metrics_bl.csv,6m=metrics_6m.csv,12m=metrics_12m.csv,24m=metrics_24m.csv,36m=metrics_36m.csv,48m=metrics_48m.csv,60m=metrics_60m.csv \\
     -participants-file participants.tsv \\
     -clinical-file clinical_scores.xlsx \\
     -anatomical-file anatomical_data.xlsx \\
@@ -71,24 +68,34 @@ logging.root.addHandler(hdlr)
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
+# Raw morphometric metrics from CSV files
 METRICS = [
-    'area_ratio',
-    'diameter_AP_ratio',
-    'diameter_RL_ratio',
-    'eccentricity_ratio',
-    'solidity_ratio',
+    'MEAN(area)',
+    'MEAN(diameter_AP)',
+    'MEAN(diameter_RL)',
+    'MEAN(eccentricity)',
+    'MEAN(solidity)',
 ]
-METRICS_NORM = [m + '_PAM50_normalized' for m in METRICS]
+METRICS_NORM = []  # No normalized metrics in raw CSV data
 
 DICT_DISC_LABELS = {
     'C1/C2': 2, 'C2/C3': 3, 'C3/C4': 4,
     'C4/C5': 5, 'C5/C6': 6, 'C6/C7': 7,
 }
 
-# Mapping from timepoint label to months (extend as needed)
-MONTHS_MAP = {'bl': 0, 'baseline': 0, '': 0, '6m': 6, '12m': 12}
+# Mapping from timepoint label to months
+MONTHS_MAP = {
+    'bl': 0, 'baseline': 0, '': 0, 
+    'M0': 0,  # Baseline
+    '6m': 6, 'M6': 6,
+    '12m': 12, 'M12': 12,
+    '24m': 24, 'M24': 24,
+    '36m': 36, 'M36': 36,
+    '48m': 48, 'M48': 48,
+    '60m': 60, 'M60': 60
+}
 
-# Columns that carry no analysis value and must be dropped before regression
+# Columns that carry no analysis value dropped before regression
 COLS_DROP = [
     'pathology', 'record_id', 'record_id_y', 'record_id_x',
     'compression_level', 'date_previous_surgery', 'surgery_date',
@@ -97,7 +104,7 @@ COLS_DROP = [
     'slice(I->S)',
     'eccentricity_ratio_PAM50', 'diameter_RL_ratio_PAM50',
     'diameter_AP_ratio_PAM50', 'area_ratio_PAM50', 'solidity_ratio_PAM50',
-    # baseline-only electro (absent in non-baseline timepoints after column selection)
+    # baseline-only 
     'dSEP_C6_both_patho_bl', 'dSEP_C8_both_patho_bl',
     'CHEPS_C6_patho_bl', 'CHEPS_C8_patho_bl', 'CHEPS_T4_grading_patho_bl',
     'amp_max_sten_sag_or_ax1_or_ax2_bl', 'disp_max_sten_sag_or_ax1_or_ax2_mm_bl',
@@ -166,29 +173,30 @@ def parse_input_files(s):
 def select_timepoint_columns(df, tp):
     """
     Given a merged DataFrame that contains columns for all timepoints
-    (baseline, 6m, 12m), return a copy filtered to the requested timepoint.
+    (baseline, 6m, 12m, 24m, 36m, 48m, 60m), return a copy filtered to the requested timepoint.
 
     Column selection logic
     ----------------------
     - 'bl' / '' / 'baseline':
-        Keep columns that do NOT end with '_6m' or '_12m'.
-    - '6m':
-        Rename *_6m columns to their base name.
-        Drop *_12m, *_bl (baseline-specific clinical/electro), and any
-        base-named column that already has a 6m counterpart.
-    - '12m':  same logic for '_12m'.
+        Keep columns that do NOT end with any follow-up suffix (_6m, _12m, _24m, _36m, _48m, _60m).
+    - '6m' / '12m' / '24m' / '36m' / '48m' / '60m':
+        Rename *_{tp} columns to their base name.
+        Drop other timepoint suffixes, *_BL (baseline-specific clinical/electro), and any
+        base-named column that already has a timepoint counterpart.
 
-    MRI metric columns (area_ratio, ..., _PAM50_normalized) carry no
-    timepoint suffix and are always kept.
     """
     df = df.copy()
-    known_suffixes = ['_6m', '_12m']
+    known_suffixes = ['_6m', '_12m', '_24m', '_36m', '_48m', '_60m']
 
-    if tp in ('bl', '', 'baseline'):
+    if tp in ('bl', '', 'baseline', 'M0'):
+        # For baseline: keep only columns without any follow-up suffix, and rename _BL to base
         cols = [c for c in df.columns if not any(c.endswith(s) for s in known_suffixes)]
-        return df[cols]
+        df_result = df[cols].copy()
+        # Rename _BL columns to their base name (e.g., total_mjoa_BL -> total_mjoa)
+        rename_map = {c: c[:-3] for c in df_result.columns if c.endswith('_BL')}
+        return df_result.rename(columns=rename_map)
 
-    suffix = f'_{tp}'                                           # e.g. '_6m'
+    suffix = f'_{tp}'                                           # e.g. '_6m', '_24m'
     other_suffixes = [s for s in known_suffixes if s != suffix]
     tp_base_names = {c[: -len(suffix)] for c in df.columns if c.endswith(suffix)}
 
@@ -199,7 +207,7 @@ def select_timepoint_columns(df, tp):
             final_cols.append(c)
         elif any(c.endswith(s) for s in other_suffixes): # different follow-up tp → skip
             pass
-        elif c.endswith('_bl'):                          # baseline-specific column → skip
+        elif c.endswith('_BL'):                          # baseline-specific column → skip
             pass
         elif c in tp_base_names:                         # superseded by tp version → skip
             pass
@@ -223,7 +231,7 @@ def aggregate_ascore_for_timepoint(df, anatomical_df, tp):
         Must have 'participant_id' (column) and 'level' (numeric, disc labels).
     anatomical_df : pd.DataFrame
         Indexed by participant_id; contains 'aSCOR_C{n}' (bl) and
-        'aSCOR_C{n}_6m' / 'aSCOR_C{n}_12m' (follow-up).
+        'aSCOR_C{n}_6m' / 'aSCOR_C{n}_12m' / 'aSCOR_C{n}_24m' / etc. (follow-up).
     tp : str
         Timepoint label ('bl', '6m', '12m', …).
 
@@ -245,23 +253,26 @@ def aggregate_ascore_for_timepoint(df, anatomical_df, tp):
 
 
 # ===========================================================================
-# Statistics helpers (same logic as baseline, extracted as functions)
+# Statistics helpers (same logic as baseline)
 # ===========================================================================
 def compute_descriptive_stats(df, path_out):
     """
     Compute and save mean ± SD tables broken down by therapeutic decision and
-    level of maximum stenosis. Mirrors compute_mean_std() in the baseline script.
+    level of maximum stenosis (given for baseline and considered accurate for follow-up). Mirrors compute_mean_std() in the baseline script.
     """
     logger.info(f'  n subjects: {df.shape[0]}')
 
+    # Select only numeric columns for statistics
+    df_numeric = df.select_dtypes(include=[np.number])
+    
     # Overall mean / SD
-    mean_std_all = df.agg([np.mean, np.std])
+    mean_std_all = df_numeric.agg([np.mean, np.std])
     mean_std_all.to_csv(os.path.join(path_out, 'mean_std_all.csv'))
     logger.info(f'  Overall:\n{mean_std_all}')
 
     # By therapeutic decision
     if 'therapeutic_decision' in df.columns:
-        mean_std_by_td = df.groupby('therapeutic_decision', as_index=False).agg([np.mean, np.std])
+        mean_std_by_td = df.groupby('therapeutic_decision', as_index=False)[df_numeric.columns].agg([np.mean, np.std])
         mean_std_by_td.to_csv(os.path.join(path_out, 'mean_std_by_therapeutic.csv'))
         logger.info(f'  By therapeutic decision:\n{mean_std_by_td}')
 
@@ -273,7 +284,7 @@ def compute_descriptive_stats(df, path_out):
 
     # By level
     if 'level' in df.columns:
-        mean_std_by_level = df.groupby('level', as_index=False).agg([np.mean, np.std])
+        mean_std_by_level = df.groupby('level', as_index=False)[df_numeric.columns].agg([np.mean, np.std])
         mean_std_by_level.to_csv(os.path.join(path_out, 'mean_std_by_level.csv'))
         ratio = df['level'].value_counts(normalize=True) * 100
         logger.info(f'  Level distribution (%):\n{ratio}')
@@ -313,7 +324,7 @@ def compute_correlation_matrices(df, path_out):
     pvalues.to_csv(os.path.join(path_out, 'corr_table_pvalue.csv'))
 
     # Combined: coefficient + significance stars
-    stars = pvalues.applymap(
+    stars = pvalues.map(
         lambda x: ''.join(['*' for t in [0.001, 0.01, 0.05] if 0 < x <= t])
     )
     corr_with_stars = corr.round(2).astype(str) + stars
@@ -333,18 +344,13 @@ def compute_correlation_matrices(df, path_out):
 
 def compute_stepwise(y, X, threshold_in=0.05, threshold_out=0.05, method='logistic'):
     """
-    Bidirectional stepwise predictor selection based on p-values.
-    Identical to the baseline version; reproduced here for self-containment.
+    same as the baseline version.
 
     Parameters
-    ----------
     y      : pd.Series  — dependent variable
     X      : pd.DataFrame — candidate predictors
     method : 'logistic' or 'linear'
 
-    Returns
-    -------
-    included : list of selected predictor names
     """
     import random
     cols = list(X.columns)
@@ -444,8 +450,7 @@ def run_logistic_regression(df_no_norm, df_norm, df_all, path_out):
 # ===========================================================================
 def compute_temporal_slopes(dfs_by_tp, metrics, months_map=None, path_out=None):
     """
-    Estimate a per-subject linear slope (units / month) for each metric
-    across all supplied timepoints using ordinary least squares.
+    Estimate a per-subject linear slope (units / month) for each metric for all timepoints using ordinary least squares.
 
     Statistical test
     ----------------
@@ -467,17 +472,18 @@ def compute_temporal_slopes(dfs_by_tp, metrics, months_map=None, path_out=None):
     if months_map is None:
         months_map = MONTHS_MAP
 
-    # Only use timepoints that have a known numeric month value, sorted chronologically
+    # sorting chronologically
     tps_sorted = sorted(
         [(tp, months_map[tp]) for tp in dfs_by_tp if tp in months_map],
         key=lambda x: x[1],
     )
+    # verbose for degugging
     if len(tps_sorted) < 2:
         logger.warning('compute_temporal_slopes: fewer than 2 mapped timepoints – skipping.')
         return None, None
 
     logger.info(f'  Timepoints used for slope: {[(tp, f"{mo}m") for tp, mo in tps_sorted]}')
-    all_subjects = sorted(set.union(*[set(df.index) for df in dfs_by_tp.values()]))
+    all_subjects = sorted(set.union(*[set(df.index) for df in dfs_by_tp.values()]), key=str)
 
     rows = []
     for subj in all_subjects:
@@ -686,19 +692,28 @@ def run_timepoint_analysis(tp, tp_file, df_participants, clinical_df,
     )
 
     # 3. Update aSCOR to the right timepoint
-    final_df_tp = aggregate_ascore_for_timepoint(final_df_tp, anatomical_df, tp)
+    # Map M0 -> bl, M6 -> 6m, M12 -> 12m, etc.
+    tp_for_ascore = tp.replace('M0', 'bl').replace('M', '').lower()
+    if tp_for_ascore and tp_for_ascore[0].isdigit():
+        tp_for_ascore = tp_for_ascore + 'm' if not tp_for_ascore.endswith('m') else tp_for_ascore
+    final_df_tp = aggregate_ascore_for_timepoint(final_df_tp, anatomical_df, tp_for_ascore)
 
     # 4. Encode categoricals
     final_df_tp = encode_categoricals(final_df_tp)
 
     # 5. Filter to timepoint-appropriate columns
-    final_df_tp = select_timepoint_columns(final_df_tp, tp)
+    # Map M0 -> bl, M6 -> 6m, M12 -> 12m, etc.
+    tp_for_selection = tp.replace('M0', 'bl').replace('M', '').lower()
+    if tp_for_selection and tp_for_selection[0].isdigit():
+        # Convert 6 -> 6m, 12 -> 12m, etc. if not already suffixed
+        tp_for_selection = tp_for_selection + 'm' if not tp_for_selection.endswith('m') else tp_for_selection
+    final_df_tp = select_timepoint_columns(final_df_tp, tp_for_selection)
 
     # Drop subjects missing the core MRI metric
-    if 'area_ratio_PAM50_normalized' in final_df_tp.columns:
-        final_df_tp.dropna(axis=0, subset=['area_ratio_PAM50_normalized'], inplace=True)
+    if 'MEAN(area)' in final_df_tp.columns:
+        final_df_tp.dropna(axis=0, subset=['MEAN(area)'], inplace=True)
         final_df_tp.dropna(axis=0,
-                           subset=['area_ratio_PAM50_normalized', 'total_mjoa',
+                           subset=['MEAN(area)', 'total_mjoa',
                                    'therapeutic_decision', 'age', 'height'],
                            inplace=True)
 
@@ -708,7 +723,20 @@ def run_timepoint_analysis(tp, tp_file, df_participants, clinical_df,
 
     # 6. Build regression DataFrames
     df_all, df_no_norm, df_norm = prepare_regression_dfs(final_df_tp)
-    df_all.dropna(inplace=True)
+    
+    # Log column info before dropna
+    logger.info(f'  Columns in df_all: {len(df_all.columns)}')
+    logger.info(f'  Rows before dropna: {df_all.shape[0]}')
+    logger.info(f'  Missing values per column (top 10): {df_all.isna().sum().sort_values(ascending=False).head(10).to_dict()}')
+    
+    # Only drop rows with NaN in key columns, not all columns
+    key_cols = ['MEAN(area)', 'total_mjoa']
+    key_cols_exist = [c for c in key_cols if c in df_all.columns]
+    if key_cols_exist:
+        df_all.dropna(subset=key_cols_exist, inplace=True)
+    else:
+        logger.warning(f'  Key columns not found: {key_cols}. Available: {df_all.columns.tolist()[:20]}')
+    
     logger.info(f'  n subjects (after dropna): {df_all.shape[0]}')
 
     # 7. Descriptive statistics

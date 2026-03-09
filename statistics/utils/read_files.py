@@ -44,12 +44,17 @@ def read_metric_file(file_path, dict_exclude_subj, df_participants):
     list_participant_id = list()
     # Loop across rows
     for index, row in df_morphometrics.iterrows():
-        participant_id = fetch_participant_id(row['filename'])
+        # Handle both 'filename' and 'Filename' column names
+        filename = row.get('Filename', row.get('filename', ''))
+        participant_id = fetch_participant_id(filename)
         list_participant_id.append(participant_id)
     # Insert list of subIDs into pandas DF
     df_morphometrics.insert(1, "participant_id", list_participant_id)
-    # Delete column 'filename'
-    df_morphometrics.drop('filename', axis=1, inplace=True)
+    # Delete column 'filename' or 'Filename'
+    if 'filename' in df_morphometrics.columns:
+        df_morphometrics.drop('filename', axis=1, inplace=True)
+    if 'Filename' in df_morphometrics.columns:
+        df_morphometrics.drop('Filename', axis=1, inplace=True)
 
     # Merge df_participants['maximum_stenosis'] to df_morphometrics
     df_morphometrics = pd.merge(df_morphometrics, df_participants[['participant_id', 'maximum_stenosis']],
@@ -66,11 +71,38 @@ def read_metric_file(file_path, dict_exclude_subj, df_participants):
     unique_subjects = df_morphometrics['participant_id'].unique().tolist()
     # Loop across subjects
     for sub in unique_subjects:
+        # Check if subject exists in df_participants
+        if sub not in df_participants['participant_id'].values:
+            print(f'Subject {sub} not found in participants file, excluding')
+            df_morphometrics.drop(df_morphometrics.loc[df_morphometrics['participant_id'] == sub].index, inplace=True)
+            dict_exclude_subj.append(sub)
+            continue
+        
         # First, get the maximally compressed level
-        max_level = df_participants.loc[df_participants['participant_id'] == sub, 'maximum_stenosis'].to_list()[0]
+        max_level_list = df_participants.loc[df_participants['participant_id'] == sub, 'maximum_stenosis'].to_list()
+        if not max_level_list:
+            print(f'Maximum stenosis not found for {sub}, excluding')
+            df_morphometrics.drop(df_morphometrics.loc[df_morphometrics['participant_id'] == sub].index, inplace=True)
+            dict_exclude_subj.append(sub)
+            continue
+        max_level = max_level_list[0]
+        
         # Second, get all the compressed levels
-        all_compressed_levels = df_participants.loc[df_participants['participant_id'] == sub, 'stenosis'].to_list()[
-            0].split(', ')
+        stenosis_list = df_participants.loc[df_participants['participant_id'] == sub, 'stenosis'].to_list()
+        if not stenosis_list:
+            print(f'Stenosis not found for {sub}, excluding')
+            df_morphometrics.drop(df_morphometrics.loc[df_morphometrics['participant_id'] == sub].index, inplace=True)
+            dict_exclude_subj.append(sub)
+            continue
+        stenosis_value = stenosis_list[0]
+        
+        # Handle NaN or non-string values
+        if pd.isna(stenosis_value) or not isinstance(stenosis_value, str):
+            print(f'Stenosis value is missing or not a string for {sub}, excluding')
+            df_morphometrics.drop(df_morphometrics.loc[df_morphometrics['participant_id'] == sub].index, inplace=True)
+            dict_exclude_subj.append(sub)
+            continue
+        all_compressed_levels = stenosis_value.split(', ')
         # Third, get the index of the maximally compressed level
         idx_max = all_compressed_levels.index(max_level)
 
@@ -86,10 +118,11 @@ def read_metric_file(file_path, dict_exclude_subj, df_participants):
             dict_exclude_subj.append(sub)
         # If the maximally compressed level is in the axial FOV, keep only this row
         else:
-            # Get 'slice(I->S)' of df_sub with the maximally compressed level
-            slice_max = df_sub.loc[idx_max, 'slice(I->S)']
+            # Get 'Slice (I->S)' of df_sub with the maximally compressed level
+            slice_col = 'Slice (I->S)' if 'Slice (I->S)' in df_sub.columns else 'slice(I->S)'
+            slice_max = df_sub.loc[idx_max, slice_col]
             df_morphometrics = df_morphometrics.drop(df_morphometrics.loc[(df_morphometrics['participant_id'] == sub) &
-                                                          (df_morphometrics['slice(I->S)'] != slice_max)].index)
+                                                          (df_morphometrics[slice_col] != slice_max)].index)
 
     return df_morphometrics
 
@@ -104,6 +137,10 @@ def read_participants_file(file_path):
         participants_pd = pd.read_csv(file_path, sep='\t')
     else:
         raise FileNotFoundError(f'{file_path} not found')
+    
+    # Convert BIDS participant_id (sub-001) to numeric record_id (1) for merging with clinical data
+    if 'participant_id' in participants_pd.columns:
+        participants_pd['record_id'] = participants_pd['participant_id'].str.replace('sub-', '').astype(int)
 
     return participants_pd
 
@@ -119,43 +156,53 @@ def read_clinical_file(file_path):
         clinical_df = pd.read_excel(file_path)
     else:
         raise FileNotFoundError(f'{file_path} not found')
-    # mJOA
-    mjoa = 'total_mjoa'         # baseline
-    mjoa_6m = 'total_mjoa.1'    # 6 months
-    mjoa_12m = 'total_mjoa.2'   # 12 months
-
+    
+    # Map actual column names from the Excel file (_BL, _6mth, _12mth, _24mth, _36mth, _48mth, _60mth)
+    # to standardized names (_6m, _12m, _24m, _36m, _48m, _60m)
+    timepoint_suffixes = ['_BL', '_6mth', '_12mth', '_24mth', '_36mth', '_48mth', '_60mth']
+    
+    # Build column selection list dynamically for all available timepoints
+    cols_to_select = []
+    if 'record_id_BL' in clinical_df.columns:
+        cols_to_select.append('record_id_BL')
+    elif 'record_id' in clinical_df.columns:
+        cols_to_select.append('record_id')
+    
+    # mJOA total scores across timepoints
+    for suffix in timepoint_suffixes:
+        col_name = f'total_mjoa{suffix}'
+        if col_name in clinical_df.columns:
+            cols_to_select.append(col_name)
+    
     # mJOA subscores
-    motor_dysfunction_UE_bl = 'motor_dysfunction_UE_bl'         # baseline
-    motor_dysfunction_LE_bl = 'motor_dysfunction_LE_bl'         # baseline
-    sensory_dysfunction_LE_bl = 'sensory_dysfunction_LE_bl'     # baseline
-    sphincter_dysfunction_bl = 'sphincter_dysfunction_bl'       # baseline
-
-    # # ASIA/GRASSP - total
-    upper_etrem_motor_total = 'upper_extrem_motor_total'
-    lower_etrem_motor_total = 'lower_extrem_motor_total'
-    # ASIA/GRASSP - lt_cervical_tot
-    lt_cervical_tot = 'lt_cervical_tot'         # baseline
-    lt_cervical_tot_6m = 'lt_cervical_tot.1'    # 6 months
-    lt_cervical_tot_12m = 'lt_cervical_tot.2'   # 12 months
-    # ASIA/GRASSP - pp_cervical_tot
-    pp_cervical_tot = 'pp_cervical_tot'        # baseline
-    pp_cervical_tot_6m = 'pp_cervical_tot.1'   # 6 months
-    pp_cervical_tot_12m = 'pp_cervical_tot.2'  # 12 months
-    # ASIA/GRASSP - total_dorsal
-    total_dorsal = 'total_dorsal'        # baseline
-    total_dorsal_6m = 'total_dorsal.1'   # 6 months
-    total_dorsal_12m = 'total_dorsal.2'  # 12 months
-
-    # Read columns of interest from clinical file
-    clinical_df = clinical_df[['record_id', mjoa, mjoa_6m, mjoa_12m,
-                               motor_dysfunction_UE_bl, motor_dysfunction_LE_bl, sensory_dysfunction_LE_bl, sphincter_dysfunction_bl,
-                               upper_etrem_motor_total, lower_etrem_motor_total, lt_cervical_tot, lt_cervical_tot_6m, lt_cervical_tot_12m,
-                               pp_cervical_tot, pp_cervical_tot_6m, pp_cervical_tot_12m,
-                               total_dorsal, total_dorsal_6m, total_dorsal_12m]]
-
-    # Rename .1 to 6m and .2 to 12m
-    clinical_df.columns = clinical_df.columns.str.replace('.1', '_6m')
-    clinical_df.columns = clinical_df.columns.str.replace('.2', '_12m')
+    for subscore in ['motor_dysfunction_UE', 'motor_dysfunction_LE', 'sensory_dysfunction_UE', 'sphincter_dysfunction']:
+        for suffix in timepoint_suffixes:
+            col_name = f'{subscore}{suffix}'
+            if col_name in clinical_df.columns:
+                cols_to_select.append(col_name)
+    
+    # ASIA/GRASSP scores across timepoints
+    for metric in ['upper_extrem_motor_total', 'lower_extrem_motor_total', 'lt_cervical_tot', 'pp_cervical_tot', 'total_dorsal']:
+        for suffix in timepoint_suffixes:
+            col_name = f'{metric}{suffix}'
+            if col_name in clinical_df.columns:
+                cols_to_select.append(col_name)
+    
+    # Select available columns
+    clinical_df = clinical_df[[col for col in cols_to_select if col in clinical_df.columns]]
+    
+    # Standardize column names
+    # Rename record_id_BL to record_id for merging
+    if 'record_id_BL' in clinical_df.columns:
+        clinical_df.rename(columns={'record_id_BL': 'record_id'}, inplace=True)
+    
+    # Standardize timepoint suffixes: _BL stays as is, _6mth->_6m, _12mth->_12m, _24mth->_24m, etc.
+    clinical_df.columns = clinical_df.columns.str.replace('_6mth', '_6m')
+    clinical_df.columns = clinical_df.columns.str.replace('_12mth', '_12m')
+    clinical_df.columns = clinical_df.columns.str.replace('_24mth', '_24m')
+    clinical_df.columns = clinical_df.columns.str.replace('_36mth', '_36m')
+    clinical_df.columns = clinical_df.columns.str.replace('_48mth', '_48m')
+    clinical_df.columns = clinical_df.columns.str.replace('_60mth', '_60m')
 
     return clinical_df
 
@@ -164,7 +211,7 @@ def read_electrophysiology_file(file_path, df_participants):
     """
     Read electrophysiology data
     :param file_path: path to excel file
-        :param df_participants: Pandas DataFrame with participant data
+    :param df_participants: Pandas DataFrame with participant data
     :return electrophysiology_df: Pandas DataFrame with electrophysiology data
     """
     if os.path.isfile(file_path):
@@ -173,22 +220,49 @@ def read_electrophysiology_file(file_path, df_participants):
     else:
         raise FileNotFoundError(f'{file_path} not found')
 
-    # Electrophysiology data:
-    # - dermatomal SEP (dSEP) with stimulation at C6 and C8 (only few pathologic results)
-    # - dermatomal contact heat evoked potentials (CHEPS) with stimulation at C6, C8 and T4
-    electrophysiology_df = df_all[['record_id', 'dSEP_C6_both_patho_bl', 'dSEP_C8_both_patho_bl', 'CHEPS_C6_patho_bl', 'CHEPS_C8_patho_bl', 'CHEPS_T4_grading_patho_bl',
-                                   'dSEP_C6_both_patho_6mth', 'dSEP_C8_both_patho_6mth', 'CHEPS_C6_patho_6mth', 'CHEPS_C8_patho_6mth', 'CHEPS_T4_patho_6mth',
-                                   'dSEP_C6_both_patho_12mth', 'dSEP_C8_both_patho_12mth', 'CHEPS_C6_patho_12mth', 'CHEPS_C8_patho_12mth', 'CHEPS_T4_patho_12mth',
-                                   'CHEPS_C6_diff_6mth_bl', 'CHEPS_C6_diff_12mth_bl', 'CHEPS_C8_diff_6mth_bl', 'CHEPS_C8_diff_12mth_bl', 'CHEPS_T4_diff_6mth_bl', 'CHEPS_T4_diff_12mth_bl']]
-
-    # Rename 6mnt and 12mnt columns to 6m and 12m
+    # Build column selection dynamically
+    # Note: record_id also has _BL suffix
+    cols_to_select = []
+    if 'record_id_BL' in df_all.columns:
+        cols_to_select.append('record_id_BL')
+    elif 'record_id' in df_all.columns:
+        cols_to_select.append('record_id')
+    
+    # Electrophysiology data columns with actual suffixes from the Excel file
+    timepoint_suffixes = ['_BL', '_6mth', '_12mth', '_24mth', '_36mth', '_48mth', '_60mth']
+    electro_metrics = ['dSEP_C6_both_patho_bl', 'dSEP_C8_both_patho_bl', 
+                      'CHEPS_C6_patho', 'CHEPS_C8_patho', 'CHEPS_T4_grading_patho',
+                      'CHEPS_C6_diff', 'CHEPS_C8_diff', 'CHEPS_T4_diff']
+    
+    for metric in electro_metrics:
+        for suffix in timepoint_suffixes:
+            # Handle different naming patterns
+            for pattern in [f'{metric}{suffix}', f'{metric}_bl{suffix}']:
+                if pattern in df_all.columns:
+                    cols_to_select.append(pattern)
+    
+    # Select only columns that exist
+    electrophysiology_df = df_all[[col for col in cols_to_select if col in df_all.columns]]
+    
+    # Standardize column names
+    if 'record_id_BL' in electrophysiology_df.columns:
+        electrophysiology_df.rename(columns={'record_id_BL': 'record_id'}, inplace=True)
+    
+    # Standardize timepoint suffixes
     electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_6mth', '_6m')
     electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_12mth', '_12m')
-
-    # Merge dSEP and CHEPS
-    electrophysiology_df['dSEP_both_patho_bl'] = electrophysiology_df[["dSEP_C6_both_patho_bl", "dSEP_C8_both_patho_bl"]].sum(axis=1, min_count=1)
-    electrophysiology_df['CHEPS_patho_bl'] = electrophysiology_df[["CHEPS_C6_patho_bl", "CHEPS_C8_patho_bl", "CHEPS_T4_grading_patho_bl"]].sum(axis=1, min_count=1)
-    # Insert participant_id column from df_participants to electrophysiology_df based on record_id
+    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_24mth', '_24m')
+    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_36mth', '_36m')
+    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_48mth', '_48m')
+    electrophysiology_df.columns = electrophysiology_df.columns.str.replace('_60mth', '_60m')
+    
+    # Create combined metrics if individual components exist
+    if 'dSEP_C6_both_patho_bl_BL' in df_all.columns or 'dSEP_C8_both_patho_bl_BL' in df_all.columns:
+        available_cols = [c for c in ["dSEP_C6_both_patho_bl_BL", "dSEP_C8_both_patho_bl_BL"] if c in electrophysiology_df.columns]
+        if available_cols:
+            electrophysiology_df['dSEP_both_patho_BL'] = electrophysiology_df[available_cols].sum(axis=1, min_count=1)
+    
+    # Merge with participants to get participant_id
     electrophysiology_df = pd.merge(electrophysiology_df, df_participants[['record_id', 'participant_id']],
                                     on='record_id', how='outer', sort=True)
     electrophysiology_df = electrophysiology_df.set_index(['participant_id'])
@@ -297,6 +371,12 @@ def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_m
     final_df = df_morphometric.copy()
     # set index of participant to have the same index
     final_df = final_df.set_index(['participant_id'])
+    
+    # Check for duplicate indices and reset if necessary
+    if final_df.index.has_duplicates:
+        print(f'Warning: Duplicate participant IDs found in morphometric data. Resetting index.')
+        final_df = final_df.reset_index().drop_duplicates(subset=['participant_id']).set_index(['participant_id'])
+    
     # Loop through levels to get the corresponding motion or anatomical metric or the maximum compressed level
     levels = np.unique(final_df['level'].to_list())
     for level in levels:
