@@ -469,10 +469,6 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
             dodge_offsets[(myelopathy, treatment)] = offset
             combo_idx += 1
 
-    print(f"\nDodge offsets:")
-    for (myelo, treat), offset in dodge_offsets.items():
-        print(f"  ({myelo}, {treat}): {offset:.3f}")
-
     # Plot individual trajectories
     for group in GROUP_ORDER:
         group_data = df_long[df_long['group'] == group]
