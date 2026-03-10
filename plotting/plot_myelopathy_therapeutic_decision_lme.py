@@ -355,11 +355,13 @@ def fit_lme_model(df_long, score_name, log_file=None):
     # if df_model['myelopathy'].nunique() > 1 and 'unknown' not in df_model['myelopathy'].values:
     #     fixed_terms.append('C(myelopathy)')
     #
-    # if df_model['maximum_stenosis'].nunique() > 1 and 'unknown' not in df_model['maximum_stenosis'].values:
-    #     fixed_terms.append('C(maximum_stenosis)')
-    #
-    # if df_model['stenosis'].nunique() > 1 and 'unknown' not in df_model['stenosis'].values:
-    #     fixed_terms.append('C(stenosis)')
+    # MCL
+    if df_model['maximum_stenosis'].nunique() > 1 and 'unknown' not in df_model['maximum_stenosis'].values:
+        fixed_terms.append('C(maximum_stenosis)')
+
+    # single vs multi stenosis
+    if df_model['stenosis'].nunique() > 1 and 'unknown' not in df_model['stenosis'].values:
+        fixed_terms.append('C(stenosis)')
 
     formula = f"score ~ {' + '.join(fixed_terms)}"
 
