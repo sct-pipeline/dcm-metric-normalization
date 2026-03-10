@@ -175,6 +175,19 @@ def assign_group(row):
     return None
 
 
+def log_print(message, log_file=None):
+    """
+    Print message to console and optionally to log file.
+
+    :param message: Message to print
+    :param log_file: Optional file handle to write to
+    """
+    print(message)
+    if log_file is not None:
+        log_file.write(message + '\n')
+        log_file.flush()
+
+
 def prepare_longitudinal_data(df_clinical, df_morphometrics, level=3):
     """
     Prepare longitudinal dataset for LME analysis.
@@ -293,7 +306,7 @@ def prepare_longitudinal_data(df_clinical, df_morphometrics, level=3):
     return long_data_dict
 
 
-def fit_lme_model(df_long, score_name):
+def fit_lme_model(df_long, score_name, log_file=None):
     """
     Fit Linear Mixed-Effects Model for a clinical score.
 
@@ -303,6 +316,7 @@ def fit_lme_model(df_long, score_name):
 
     :param df_long: Long-format DataFrame
     :param score_name: Name of clinical score being analyzed
+    :param log_file: Optional file handle to write log outputs
     :return: Fitted model result and cleaned data
     """
 
@@ -357,16 +371,16 @@ def fit_lme_model(df_long, score_name):
     df_model = df_model.dropna(subset=drop_cols)
 
     if len(df_model) < 10:
-        print(f"Insufficient data for {score_name} (n={len(df_model)})")
+        log_print(f"Insufficient data for {score_name} (n={len(df_model)})", log_file)
         return None, None
 
-    print(f"\n{'='*80}")
-    print(f"Fitting LME Model for {score_name}")
-    print(f"{'='*80}")
-    print(f"Formula: {formula}")
-    print(f"Random effects: 1 + time | participant_id")
-    print(f"Participants: {df_model['participant_id'].nunique()}")
-    print(f"Observations: {len(df_model)}")
+    log_print(f"\n{'='*80}", log_file)
+    log_print(f"Fitting LME Model for {score_name}", log_file)
+    log_print(f"{'='*80}", log_file)
+    log_print(f"Formula: {formula}", log_file)
+    log_print(f"Random effects: 1 + time | participant_id", log_file)
+    log_print(f"Participants: {df_model['participant_id'].nunique()}", log_file)
+    log_print(f"Observations: {len(df_model)}", log_file)
 
     # Fit the model
     try:
@@ -383,17 +397,17 @@ def fit_lme_model(df_long, score_name):
             result = model.fit(method='lbfgs', maxiter=1000)
 
     except Exception as e:
-        print(f"Error fitting model for {score_name}: {e}")
+        log_print(f"Error fitting model for {score_name}: {e}", log_file)
         return None, None
 
     # Print results
-    print(f"\nModel converged: {result.converged}")
-    print(f"AIC: {result.aic:.2f}")
-    print(f"BIC: {result.bic:.2f}")
-    print(f"Log-Likelihood: {result.llf:.2f}")
+    log_print(f"\nModel converged: {result.converged}", log_file)
+    log_print(f"AIC: {result.aic:.2f}", log_file)
+    log_print(f"BIC: {result.bic:.2f}", log_file)
+    log_print(f"Log-Likelihood: {result.llf:.2f}", log_file)
 
-    print(f"\nFixed Effects:")
-    print("-" * 80)
+    log_print(f"\nFixed Effects:", log_file)
+    log_print("-" * 80, log_file)
     for param in result.params.index:
         coef = result.params[param]
         se = result.bse[param]
@@ -402,13 +416,13 @@ def fit_lme_model(df_long, score_name):
 
         sig = "***" if pval < 0.001 else "**" if pval < 0.01 else "*" if pval < 0.05 else ""
 
-        print(f"{param:40s}: β = {coef:7.4f} ± {se:6.4f}, p = {pval:7.4f}{sig:3s} "
-              f"[95% CI: {ci_lower:7.4f}, {ci_upper:7.4f}]")
+        log_print(f"{param:40s}: β = {coef:7.4f} ± {se:6.4f}, p = {pval:7.4f}{sig:3s} "
+              f"[95% CI: {ci_lower:7.4f}, {ci_upper:7.4f}]", log_file)
 
     return result, df_model
 
 
-def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_dir):
+def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_dir, log_file=None):
     """
     Create trajectory plot with LME-fitted lines.
 
@@ -422,10 +436,11 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
     :param score_name: Name of clinical score
     :param score_info: Dictionary with score metadata
     :param output_dir: Output directory for figures
+    :param log_file: Optional file handle to write log outputs
     """
 
-    print(f"\nCreating trajectory plot for {score_name}...")
-    print(f"  Model converged: {lme_result.converged if lme_result else 'N/A'}")
+    log_print(f"\nCreating trajectory plot for {score_name}...", log_file)
+    log_print(f"  Model converged: {lme_result.converged if lme_result else 'N/A'}", log_file)
 
     mpl.rcParams['font.family'] = 'Arial'
 
@@ -508,9 +523,9 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
     params = lme_result.params
 
     # Debug: print all available parameters
-    print(f"\nAvailable model parameters for {score_name}:")
+    log_print(f"\nAvailable model parameters for {score_name}:", log_file)
     for param_name in params.index:
-        print(f"  {param_name}: {params[param_name]:.4f}")
+        log_print(f"  {param_name}: {params[param_name]:.4f}", log_file)
 
     # Check for required parameters
     if 'Intercept' not in params.index:
@@ -521,8 +536,8 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
     baseline = params['Intercept']
     time_effect = params['time']
 
-    print(f"\nBaseline intercept: {baseline:.4f}")
-    print(f"Time effect: {time_effect:.4f}")
+    log_print(f"\nBaseline intercept: {baseline:.4f}", log_file)
+    log_print(f"Time effect: {time_effect:.4f}", log_file)
 
     # Group-specific coefficients
     group_coeffs = {
@@ -541,16 +556,16 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
         }
     }
 
-    print(f"\nGroup-specific coefficients:")
+    log_print(f"\nGroup-specific coefficients:", log_file)
     for group, coeffs in group_coeffs.items():
-        print(f"  {group}: baseline_effect={coeffs['baseline']:.4f}, time_effect={coeffs['time']:.4f}")
+        log_print(f"  {group}: baseline_effect={coeffs['baseline']:.4f}, time_effect={coeffs['time']:.4f}", log_file)
 
     fitted_any_group = False
     for group in GROUP_ORDER:
         group_data = df_long[df_long['group'] == group]
 
         if group_data.empty:
-            print(f"\nWarning: No data for group {group}, skipping")
+            log_print(f"\nWarning: No data for group {group}, skipping", log_file)
             continue
 
         # Calculate predictions manually from coefficients
@@ -579,13 +594,13 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
         # Count unique participants at 6-month
         n_subjects = group_data[group_data['time'] == 6]['participant_id'].nunique()
 
-        print(f"\nPlotting {group}:")
-        print(f"  n={n_subjects}")
-        print(f"  Baseline prediction: {predictions[0]:.4f}")
-        print(f"  6-month prediction: {predictions[1]:.4f}")
-        print(f"  Color: {GROUP_COLORS[group]}")
-        print(f"  Line style: {GROUP_LINE_STYLES[group]}")
-        print(f"  Dodge offset: {offset:.3f}")
+        log_print(f"\nPlotting {group}:", log_file)
+        log_print(f"  n={n_subjects}", log_file)
+        log_print(f"  Baseline prediction: {predictions[0]:.4f}", log_file)
+        log_print(f"  6-month prediction: {predictions[1]:.4f}", log_file)
+        log_print(f"  Color: {GROUP_COLORS[group]}", log_file)
+        log_print(f"  Line style: {GROUP_LINE_STYLES[group]}", log_file)
+        log_print(f"  Dodge offset: {offset:.3f}", log_file)
 
         # Plot fitted line with dodge offset applied to x-coordinates
         label = f"{GROUP_LABELS[group]} (n={n_subjects})"
@@ -823,32 +838,43 @@ def main():
         print("Error: No data available for analysis")
         return
 
-    # Fit LME models and create plots
-    lme_results = {}
+    # Create log file
+    log_file_path = os.path.join(args.outdir, 'lme_analysis_log.txt')
+    with open(log_file_path, 'w') as log_file:
+        log_print(f"LME Analysis Log", log_file)
+        log_print(f"{'='*80}", log_file)
+        log_print(f"Analysis started at C{args.level} vertebral level", log_file)
+        log_print(f"Output directory: {args.outdir}", log_file)
+        log_print(f"{'='*80}\n", log_file)
 
-    for score_name, df_long in long_data_dict.items():
-        # Fit model
-        result, df_model = fit_lme_model(df_long, score_name)
+        # Fit LME models and create plots
+        lme_results = {}
 
-        if result is not None:
-            lme_results[score_name] = result
+        for score_name, df_long in long_data_dict.items():
+            if score_name == 'mJOA':
+                # Fit model
+                result, df_model = fit_lme_model(df_long, score_name, log_file)
+                if result is not None:
+                    lme_results[score_name] = result
 
-            # Create trajectory plot
-            create_trajectory_plot(
-                df_model,
-                result,
-                score_name,
-                CLINICAL_SCORES[score_name],
-                args.outdir
-            )
+                    # Create trajectory plot
+                    create_trajectory_plot(
+                        df_model,
+                        result,
+                        score_name,
+                        CLINICAL_SCORES[score_name],
+                        args.outdir,
+                        log_file
+                    )
 
-    # Save results
-    if lme_results:
-        save_model_results(lme_results, args.outdir)
-        create_comparison_table(lme_results, args.outdir)
-    else:
-        print("\nWarning: No models were successfully fitted")
+        # Save results
+        if lme_results:
+            save_model_results(lme_results, args.outdir)
+            create_comparison_table(lme_results, args.outdir)
+        else:
+            print("\nWarning: No models were successfully fitted")
 
+    print(f"\nLog file saved to: {log_file_path}")
     print(f"\n{'='*80}")
     print("Analysis complete!")
     print(f"Results saved to: {args.outdir}")
