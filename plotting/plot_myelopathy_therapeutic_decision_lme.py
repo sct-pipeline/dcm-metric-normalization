@@ -330,9 +330,9 @@ def fit_lme_model(df_long, score_name, log_file=None):
         ordered=False
     )
 
-    # # Center baseline area
-    # if 'baseline_area' in df_model.columns:
-    #     df_model['baseline_area_c'] = df_model['baseline_area'] - df_model['baseline_area'].mean()
+    # Center baseline area
+    if 'baseline_area' in df_model.columns:
+        df_model['baseline_area_c'] = df_model['baseline_area'] - df_model['baseline_area'].mean()
 
     # Center age
     age_numeric = pd.to_numeric(df_model['age'], errors='coerce')
