@@ -188,6 +188,39 @@ def log_print(message, log_file=None):
         log_file.flush()
 
 
+def get_covariates_suffix(formula):
+    """
+    Extract covariates from formula and create a suffix string for filenames.
+
+    :param formula: Formula string used in the LME model
+    :return: String suffix with covariate names (e.g., "_cov-area_age_sex")
+    """
+    # Extract the right side of the formula (after ~)
+    if '~' not in formula:
+        return ""
+
+    right_side = formula.split('~')[1].strip()
+
+    # List of covariate terms we want to track (excluding group, time, and interactions)
+    covariates = []
+
+    if 'baseline_area_c' in right_side:
+        covariates.append('area')
+    if 'age_c' in right_side:
+        covariates.append('age')
+    if 'C(sex)' in right_side:
+        covariates.append('sex')
+    if 'C(maximum_stenosis)' in right_side:
+        covariates.append('MCL')
+    if 'C(stenosis)' in right_side:
+        covariates.append('stenosis')
+
+    if covariates:
+        return f"_cov-{'_'.join(covariates)}"
+    else:
+        return "_cov-none"
+
+
 def prepare_longitudinal_data(df_clinical, df_morphometrics, level=3):
     """
     Prepare longitudinal dataset for LME analysis.
@@ -317,7 +350,7 @@ def fit_lme_model(df_long, score_name, log_file=None):
     :param df_long: Long-format DataFrame
     :param score_name: Name of clinical score being analyzed
     :param log_file: Optional file handle to write log outputs
-    :return: Fitted model result and cleaned data
+    :return: Fitted model result, cleaned data, and formula string
     """
 
     # Center continuous variables
@@ -374,7 +407,7 @@ def fit_lme_model(df_long, score_name, log_file=None):
 
     if len(df_model) < 10:
         log_print(f"Insufficient data for {score_name} (n={len(df_model)})", log_file)
-        return None, None
+        return None, None, None
 
     log_print(f"\n{'='*80}", log_file)
     log_print(f"Fitting LME Model for {score_name}", log_file)
@@ -400,7 +433,7 @@ def fit_lme_model(df_long, score_name, log_file=None):
 
     except Exception as e:
         log_print(f"Error fitting model for {score_name}: {e}", log_file)
-        return None, None
+        return None, None, None
 
     # Print results
     log_print(f"\nModel converged: {result.converged}", log_file)
@@ -421,10 +454,10 @@ def fit_lme_model(df_long, score_name, log_file=None):
         log_print(f"{param:40s}: β = {coef:7.4f} ± {se:6.4f}, p = {pval:7.4f}{sig:3s} "
               f"[95% CI: {ci_lower:7.4f}, {ci_upper:7.4f}]", log_file)
 
-    return result, df_model
+    return result, df_model, formula
 
 
-def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_dir, log_file=None):
+def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_dir, covariates_suffix="", log_file=None):
     """
     Create trajectory plot with LME-fitted lines.
 
@@ -438,6 +471,7 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
     :param score_name: Name of clinical score
     :param score_info: Dictionary with score metadata
     :param output_dir: Output directory for figures
+    :param covariates_suffix: Suffix indicating covariates used (e.g., "_cov-area_age_sex")
     :param log_file: Optional file handle to write log outputs
     """
 
@@ -669,18 +703,19 @@ def create_trajectory_plot(df_long, lme_result, score_name, score_info, output_d
     plt.tight_layout()
 
     # Save figure
-    fname = os.path.join(output_dir, f'trajectory_lme_{score_name}.png')
+    fname = os.path.join(output_dir, f'trajectory_lme_{score_name}{covariates_suffix}.png')
     plt.savefig(fname, dpi=300, bbox_inches='tight')
     print(f"\nSaved trajectory plot: {fname}")
     plt.close()
 
 
-def save_model_results(lme_results, output_dir):
+def save_model_results(lme_results, output_dir, covariates_suffix=""):
     """
     Save LME model results to CSV files.
 
     :param lme_results: Dictionary of LME results (score_name -> result)
     :param output_dir: Output directory
+    :param covariates_suffix: Suffix indicating covariates used (e.g., "_cov-area_age_sex")
     """
 
     all_results = []
@@ -707,12 +742,12 @@ def save_model_results(lme_results, output_dir):
 
     if all_results:
         df_results = pd.DataFrame(all_results)
-        fname = os.path.join(output_dir, 'lme_results_all_scores.csv')
+        fname = os.path.join(output_dir, f'lme_results_all_scores{covariates_suffix}.csv')
         df_results.to_csv(fname, index=False)
         print(f"\nSaved model results to: {fname}")
 
         # Also save summary statistics
-        fname_summary = os.path.join(output_dir, 'lme_results_summary.txt')
+        fname_summary = os.path.join(output_dir, f'lme_results_summary{covariates_suffix}.txt')
         with open(fname_summary, 'w') as f:
             for score_name, result in lme_results.items():
                 if result is None:
@@ -727,7 +762,7 @@ def save_model_results(lme_results, output_dir):
         print(f"Saved detailed summary to: {fname_summary}")
 
 
-def create_comparison_table(lme_results, output_dir):
+def create_comparison_table(lme_results, output_dir, covariates_suffix=""):
     """
     Create a comparison table of group differences at 6 months.
 
@@ -735,6 +770,7 @@ def create_comparison_table(lme_results, output_dir):
 
     :param lme_results: Dictionary of LME results
     :param output_dir: Output directory
+    :param covariates_suffix: Suffix indicating covariates used (e.g., "_cov-area_age_sex")
     """
 
     comparison_data = []
@@ -786,7 +822,7 @@ def create_comparison_table(lme_results, output_dir):
 
     if comparison_data:
         df_comparison = pd.DataFrame(comparison_data)
-        fname = os.path.join(output_dir, 'group_comparison_6months.csv')
+        fname = os.path.join(output_dir, f'group_comparison_6months{covariates_suffix}.csv')
         df_comparison.to_csv(fname, index=False, float_format='%.3f')
         print(f"\nSaved group comparison table to: {fname}")
 
@@ -836,24 +872,33 @@ def main():
         print("Error: No data available for analysis")
         return
 
-    # Create log file
-    log_file_path = os.path.join(args.outdir, 'lme_analysis_log.txt')
-    with open(log_file_path, 'w') as log_file:
-        log_print(f"LME Analysis Log", log_file)
-        log_print(f"{'='*80}", log_file)
-        log_print(f"Analysis started at C{args.level} vertebral level", log_file)
-        log_print(f"Output directory: {args.outdir}", log_file)
-        log_print(f"{'='*80}\n", log_file)
+    # Fit LME models and create plots
+    lme_results = {}
+    covariates_suffix = ""  # Will be set after first model fit
 
-        # Fit LME models and create plots
-        lme_results = {}
+    for score_name, df_long in long_data_dict.items():
+        if score_name == 'mJOA':
+            # Fit model (first fit to get the formula for filename)
+            result, df_model, formula = fit_lme_model(df_long, score_name, log_file=None)
+            if result is not None:
+                # Generate covariates suffix from formula
+                covariates_suffix = get_covariates_suffix(formula)
+                lme_results[score_name] = result
 
-        for score_name, df_long in long_data_dict.items():
-            if score_name == 'mJOA':
-                # Fit model
-                result, df_model = fit_lme_model(df_long, score_name, log_file)
-                if result is not None:
-                    lme_results[score_name] = result
+                # Now create the log file with the covariates suffix
+                log_file_path = os.path.join(args.outdir, f'lme_analysis_log{covariates_suffix}.txt')
+
+                # Re-fit model with log file to capture output
+                with open(log_file_path, 'w') as log_file:
+                    log_print(f"LME Analysis Log", log_file)
+                    log_print(f"{'='*80}", log_file)
+                    log_print(f"Analysis started at C{args.level} vertebral level", log_file)
+                    log_print(f"Output directory: {args.outdir}", log_file)
+                    log_print(f"Covariates: {covariates_suffix}", log_file)
+                    log_print(f"{'='*80}\n", log_file)
+
+                    # Refit with logging
+                    result, df_model, formula = fit_lme_model(df_long, score_name, log_file)
 
                     # Create trajectory plot
                     create_trajectory_plot(
@@ -862,17 +907,20 @@ def main():
                         score_name,
                         CLINICAL_SCORES[score_name],
                         args.outdir,
+                        covariates_suffix,
                         log_file
                     )
 
-        # Save results
-        if lme_results:
-            save_model_results(lme_results, args.outdir)
-            create_comparison_table(lme_results, args.outdir)
-        else:
-            print("\nWarning: No models were successfully fitted")
+                print(f"\nLog file saved to: {log_file_path}")
+            else:
+                print(f"\nWarning: Model fitting failed for {score_name}")
 
-    print(f"\nLog file saved to: {log_file_path}")
+    # Save results
+    if lme_results:
+        save_model_results(lme_results, args.outdir, covariates_suffix)
+        create_comparison_table(lme_results, args.outdir, covariates_suffix)
+    else:
+        print("\nWarning: No models were successfully fitted")
     print(f"\n{'='*80}")
     print("Analysis complete!")
     print(f"Results saved to: {args.outdir}")
