@@ -425,6 +425,46 @@ def generate_option1_plots(df, output_dir, metrics=None):
 # Option 2: PAM50 Per-Slice Trajectories
 # ============================================================================
 
+def get_disc_junction_slices(df, margin=4):
+    """
+    Identify slices near vertebral disc junctions (level transitions) in PAM50 space.
+
+    The disc position corresponds to where VertLevel changes as slices are traversed
+    from inferior to superior. These transitions cause discontinuities in the plots.
+    Excludes `margin` slices on each side of each transition.
+
+    Returns:
+        set: Slice numbers to exclude
+    """
+    # Determine the most common VertLevel at each slice across all subjects
+    slice_levels = df.groupby('Slice (I->S)')['VertLevel'].agg(lambda x: x.mode()[0])
+    slice_levels_sorted = slice_levels.sort_index()
+
+    slices = slice_levels_sorted.index.tolist()
+    levels = slice_levels_sorted.values.tolist()
+
+    slices_to_exclude = set()
+    junction_info = []
+
+    for i in range(1, len(slices)):
+        if levels[i] != levels[i - 1]:
+            # Junction between slices[i-1] and slices[i]
+            junction_info.append(
+                (slices[i - 1], slices[i],
+                 VERT_LABELS.get(levels[i - 1], str(levels[i - 1])),
+                 VERT_LABELS.get(levels[i], str(levels[i])))
+            )
+            for j in range(max(0, i - margin), min(len(slices), i + margin)):
+                slices_to_exclude.add(slices[j])
+
+    if junction_info:
+        for s_before, s_after, lbl_before, lbl_after in junction_info:
+            print(f"  Disc junction {lbl_before}/{lbl_after}: "
+                  f"slices {s_before}-{s_after}, excluding ±{margin} slices")
+    print(f"  Total slices excluded near junctions: {len(slices_to_exclude)}")
+    return slices_to_exclude
+
+
 def plot_perslice_pam50_trajectories(df, metric, output_dir):
     """
     Plot trajectories for a single metric across PAM50 slices, colored by timepoint.
@@ -444,9 +484,11 @@ def plot_perslice_pam50_trajectories(df, metric, output_dir):
     # Create figure
     fig, ax = plt.subplots(figsize=FIG_SIZE_SINGLE)
     
-    # Get slice range (common across all timepoints)
-    all_slices = sorted(df['Slice (I->S)'].unique())
-    
+    # Get slice range, excluding slices near vertebral disc junctions
+    print("Identifying disc junction slices to exclude:")
+    slices_to_exclude = get_disc_junction_slices(df)
+    all_slices = sorted([s for s in df['Slice (I->S)'].unique() if s not in slices_to_exclude])
+
     # Plot for each timepoint
     for tp in timepoints:
         df_tp = df[df['timepoint'] == tp]
@@ -513,14 +555,10 @@ def plot_perslice_pam50_trajectories(df, metric, output_dir):
             mid_slice = int(np.median(slices))
             vert_positions[vert] = mid_slice
     
-    # Draw vertical lines for vertebral levels
-    ymin, ymax = ax.get_ylim()
+    # Draw vertical lines for vertebral levels (without text labels)
     for vert, slice_pos in vert_positions.items():
         if vert in VERT_LABELS:
             ax.axvline(slice_pos, color='gray', linestyle='--', alpha=0.3, linewidth=1)
-            ax.text(slice_pos, ymax, VERT_LABELS[vert], 
-                   horizontalalignment='center', verticalalignment='top',
-                   fontsize=TICK_FONT_SIZE, color='gray')
     
     # Formatting
     metric_name = METRIC_NAMES.get(metric, metric)
