@@ -79,6 +79,12 @@ TIMEPOINT_COLORS = {
     'M60': '#BDC3C7', 
 }
 
+# Chronological timepoint order
+TIMEPOINT_ORDER = ['M0', 'M6', 'M12', 'M24', 'M36', 'M48', 'M60']
+
+# Vertebral level order (C2 → C7)
+LEVEL_ORDER = ['C2', 'C3', 'C4', 'C5', 'C6', 'C7']
+
 # Font sizes
 TITLE_FONT_SIZE = 14
 LABEL_FONT_SIZE = 12
@@ -165,8 +171,8 @@ def create_boxplot_figure(df, metric, output_dir):
     """
     fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
     
-    # Get sorted timepoints
-    timepoints = sorted(df['timepoint'].unique())
+    # Get chronologically sorted timepoints
+    timepoints = [tp for tp in TIMEPOINT_ORDER if tp in df['timepoint'].unique()]
     timepoint_colors = {tp: TIMEPOINT_COLORS.get(tp, '#000000') for tp in timepoints}
     
     # Create boxplot with hue
@@ -175,6 +181,7 @@ def create_boxplot_figure(df, metric, output_dir):
         x='Level',
         y=metric,
         hue='timepoint',
+        order=LEVEL_ORDER,
         hue_order=timepoints,
         palette=timepoint_colors,
         ax=ax
@@ -215,8 +222,8 @@ def create_violin_figure(df, metric, output_dir):
     """
     fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
     
-    # Get sorted timepoints
-    timepoints = sorted(df['timepoint'].unique())
+    # Get chronologically sorted timepoints
+    timepoints = [tp for tp in TIMEPOINT_ORDER if tp in df['timepoint'].unique()]
     timepoint_colors = {tp: TIMEPOINT_COLORS.get(tp, '#000000') for tp in timepoints}
     
     # Create violin plot with hue
@@ -225,6 +232,7 @@ def create_violin_figure(df, metric, output_dir):
         x='Level',
         y=metric,
         hue='timepoint',
+        order=LEVEL_ORDER,
         hue_order=timepoints,
         palette=timepoint_colors,
         ax=ax,
@@ -254,15 +262,92 @@ def create_violin_figure(df, metric, output_dir):
     plt.close()
 
 
+def create_scatterplot_figure(df, metric, output_dir):
+    """
+    Create a strip/scatter plot showing individual subject data points across
+    vertebral levels, colour-coded by timepoint.
+
+    Using a strip plot (jittered scatter) makes subject availability per
+    timepoint visible: fewer dots = fewer subjects at that tp.
+
+    Parameters:
+        df: DataFrame with columns [subject, timepoint, VertLevel, Level, metric]
+        metric: Name of the metric to plot
+        output_dir: Directory to save the plot
+    """
+    fig, ax = plt.subplots(figsize=(FIG_WIDTH, FIG_HEIGHT))
+
+    # Get chronologically sorted timepoints
+    timepoints = [tp for tp in TIMEPOINT_ORDER if tp in df['timepoint'].unique()]
+    timepoint_colors = {tp: TIMEPOINT_COLORS.get(tp, '#000000') for tp in timepoints}
+
+    # Strip plot: individual points, jittered slightly within each group
+    sns.stripplot(
+        data=df,
+        x='Level',
+        y=metric,
+        hue='timepoint',
+        order=LEVEL_ORDER,
+        hue_order=timepoints,
+        palette=timepoint_colors,
+        ax=ax,
+        dodge=True,        # separate columns per timepoint
+        jitter=True,
+        size=3,
+        alpha=0.7,
+        linewidth=0.3,
+    )
+
+    # Overlay per-timepoint mean as a larger marker for readability
+    for i, level in enumerate(LEVEL_ORDER):
+        level_df = df[df['Level'] == level]
+        for j, tp in enumerate(timepoints):
+            tp_vals = level_df.loc[level_df['timepoint'] == tp, metric].dropna()
+            if tp_vals.empty:
+                continue
+            # Compute x position matching seaborn's dodge layout
+            n_tp = len(timepoints)
+            width = 0.8
+            step = width / n_tp
+            x_pos = i - width / 2 + step / 2 + j * step
+            ax.plot(x_pos, tp_vals.mean(),
+                    marker='D', color=timepoint_colors[tp],
+                    markersize=6, markeredgecolor='black',
+                    markeredgewidth=0.8, zorder=5)
+
+    # Formatting
+    metric_name = METRIC_NAMES.get(metric, metric)
+    ax.set_xlabel('Vertebral Level', fontsize=LABEL_FONT_SIZE, fontweight='bold')
+    ax.set_ylabel(metric_name, fontsize=LABEL_FONT_SIZE, fontweight='bold')
+    ax.set_title(
+        f'Scatter Plot: {metric_name} by Vertebral Level and Timepoint\n'
+        f'(dots = subjects, ◆ = mean)',
+        fontsize=TITLE_FONT_SIZE, fontweight='bold'
+    )
+
+    ax.tick_params(axis='both', labelsize=TICK_FONT_SIZE)
+    ax.legend(title='Timepoint', fontsize=TICK_FONT_SIZE, title_fontsize=TICK_FONT_SIZE,
+              loc='best', framealpha=0.95)
+    ax.grid(True, alpha=0.3, axis='y')
+
+    plt.tight_layout()
+
+    filename = f'scatterplot_{metric.replace("(", "").replace(")", "").replace(" ", "_")}.png'
+    filepath = os.path.join(output_dir, filename)
+    plt.savefig(filepath, dpi=300, bbox_inches='tight')
+    print(f"Saved: {filepath}")
+    plt.close()
+
+
 def generate_plots(df, output_dir, metrics=None, plot_type='both'):
     """
-    Generate boxplots and/or violin plots for all metrics.
-    
+    Generate boxplots, violin plots, and/or scatter plots for all metrics.
+
     Parameters:
         df: DataFrame with metric data
         output_dir: Directory to save plots
         metrics: List of metrics to plot (default: all available)
-        plot_type: 'boxplot', 'violinplot', or 'both'
+        plot_type: 'boxplot', 'violinplot', 'scatterplot', or 'both'
     """
     if metrics is None:
         # Auto-detect available metrics
@@ -284,6 +369,10 @@ def generate_plots(df, output_dir, metrics=None, plot_type='both'):
         if plot_type in ['violinplot', 'both']:
             print(f"    Creating violin plot...")
             create_violin_figure(df, metric, output_dir)
+
+        if plot_type in ['scatterplot']:
+            print(f"    Creating scatter plot...")
+            create_scatterplot_figure(df, metric, output_dir)
 
 
 # ============================================================================
@@ -312,7 +401,7 @@ def get_parser():
         help='List of timepoints to include (default: M0 M6 M12)'
     )
     parser.add_argument(
-        '--plot-type', default='both', choices=['boxplot', 'violinplot', 'both'],
+        '--plot-type', default='both', choices=['boxplot', 'violinplot', 'scatterplot', 'both'],
         help='Type of plots to generate (default: both)'
     )
     parser.add_argument(
