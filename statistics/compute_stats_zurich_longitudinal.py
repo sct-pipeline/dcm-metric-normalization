@@ -536,8 +536,9 @@ def plot_temporal_trajectories(dfs_by_tp, metrics, months_map=None, path_out=Non
                                 group_col='therapeutic_decision',
                                 group_labels={0: 'Conservative', 1: 'Operative'}):
     """
-    Line plots showing group-mean ± 95% CI metric trajectories over time,
+    Line plots showing group-mean ± STD metric trajectories over time,
     colour-coded by therapeutic decision (or any binary grouping variable).
+    Individual subject trajectories are shown as thin semi-transparent lines.
 
     One figure per metric; saved to <path_out>/trajectory_<metric>.png.
     """
@@ -554,12 +555,36 @@ def plot_temporal_trajectories(dfs_by_tp, metrics, months_map=None, path_out=Non
 
     palette = {0: '#2196F3', 1: '#F44336'}   # blue = conservative, red = operative
 
+    # Build a per-subject, per-timepoint lookup for individual trajectories
+    # {subject_id: {month: value}}
+    def build_subject_series(grp):
+        subject_series = {}
+        for tp, mo in tps_sorted:
+            df_tp = dfs_by_tp[tp]
+            if metric not in df_tp.columns or group_col not in df_tp.columns:
+                continue
+            df_grp = df_tp[df_tp[group_col] == grp][[metric]].dropna()
+            for subj, row in df_grp.iterrows():
+                subject_series.setdefault(subj, {})[mo] = row[metric]
+        return subject_series
+
     for metric in metrics:
-        fig, ax = plt.subplots(figsize=(6, 4))
+        fig, ax = plt.subplots(figsize=(8, 5))
         sns.set_style('ticks', {'axes.grid': True})
 
         for grp, label in group_labels.items():
-            means, cis, months = [], [], []
+            color = palette.get(grp, None)
+
+            # ── Individual subject trajectories (behind group mean) ──────────
+            subject_series = build_subject_series(grp)
+            for subj, tp_vals in subject_series.items():
+                xs = sorted(tp_vals.keys())
+                if len(xs) >= 2:
+                    ys = [tp_vals[x] for x in xs]
+                    ax.plot(xs, ys, color=color, lw=0.6, alpha=0.25, zorder=1)
+
+            # ── Group mean ± STD ─────────────────────────────────────────────
+            means, stds, months = [], [], []
             for tp, mo in tps_sorted:
                 df_tp = dfs_by_tp[tp]
                 if metric not in df_tp.columns or group_col not in df_tp.columns:
@@ -567,23 +592,27 @@ def plot_temporal_trajectories(dfs_by_tp, metrics, months_map=None, path_out=Non
                 vals = df_tp.loc[df_tp[group_col] == grp, metric].dropna()
                 if vals.empty:
                     continue
-                n = len(vals)
-                sem = vals.std() / np.sqrt(n)
-                ci = 1.96 * sem
                 means.append(vals.mean())
-                cis.append(ci)
+                stds.append(vals.std())
                 months.append(mo)
 
             if len(months) >= 2:
-                ax.errorbar(
-                    months, means, yerr=cis,
-                    marker='o', label=label,
-                    color=palette.get(grp, None), capsize=4, lw=2,
-                )
+                means_arr = np.array(means)
+                stds_arr  = np.array(stds)
+                # Shaded STD band
+                ax.fill_between(months,
+                                means_arr - stds_arr,
+                                means_arr + stds_arr,
+                                color=color, alpha=0.15, zorder=2)
+                # Mean line with markers
+                ax.plot(months, means_arr,
+                        marker='o', color=color, lw=2.5,
+                        markersize=7, label=label, zorder=3)
 
         ax.set_xlabel('Months post-baseline', fontsize=11)
         ax.set_ylabel(metric, fontsize=11)
-        ax.set_title(f'Temporal trajectory — {metric}', fontsize=12)
+        ax.set_title(f'Temporal trajectory — {metric}\n(mean ± STD + individual subjects)',
+                     fontsize=12)
         ax.legend(fontsize=10)
         sns.despine()
         plt.tight_layout()
@@ -628,6 +657,75 @@ def encode_categoricals(df):
     df = df.replace({'level': DICT_DISC_LABELS})
     df = df.replace({'therapeutic_decision': {'conservative': 0, 'operative': 1}})
     df = df.replace({'previous_surgery': {'no': 0, 'yes': 1}})
+    return df
+
+
+def assign_timepoint_aware_labels(df, tp):
+    """
+    Override 'therapeutic_decision' with a time-aware binary label.
+
+    Classification logic:
+      1. Compute months_to_surgery = (surgery_date - baseline_scan_date) in months.
+      2. At timepoint M_N, a subject is **operative** if months_to_surgery <= N,
+         i.e. surgery occurred within N months of baseline.
+      3. If no surgery_date is recorded the subject is classified as conservative.
+      4. If no baseline scan date is available, fall back to the static label.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Merged per-timepoint DataFrame. Must contain 'surgery_date',
+        'date_of_scan', and 'therapeutic_decision' columns.
+    tp : str
+        Timepoint label (e.g. 'M6', 'M12', 'M24').
+
+    Returns
+    -------
+    pd.DataFrame with updated 'therapeutic_decision' column.
+    """
+    if 'surgery_date' not in df.columns or 'date_of_scan' not in df.columns:
+        logger.warning(
+            '  assign_timepoint_aware_labels: surgery_date or date_of_scan '
+            'not found – skipping time-aware labelling.')
+        return df
+
+    months_threshold = MONTHS_MAP.get(tp, 0)
+    df = df.copy()
+
+    baseline_dates = pd.to_datetime(df['date_of_scan'], errors='coerce')
+    surgery_dates  = pd.to_datetime(df['surgery_date'],  errors='coerce')
+
+    # months_to_surgery: number of months between baseline scan and surgery
+    # Positive  → surgery after baseline
+    # Zero/Neg  → surgery on or before baseline
+    months_to_surgery = (
+        (surgery_dates - baseline_dates).dt.days / (365.25 / 12)
+    )
+
+    n_updated = 0
+    for idx in df.index:
+        baseline_date = baseline_dates.loc[idx]
+        surg_date     = surgery_dates.loc[idx]
+        mts           = months_to_surgery.loc[idx]   # NaN if either date missing
+
+        if pd.isna(baseline_date):
+            # No baseline scan date – keep original static label
+            continue
+
+        if pd.isna(surg_date):
+            # No surgery date recorded – classify as conservative
+            df.loc[idx, 'therapeutic_decision'] = 0
+        else:
+            # Operative if surgery occurred within months_threshold of baseline
+            df.loc[idx, 'therapeutic_decision'] = int(mts <= months_threshold)
+        n_updated += 1
+
+    n_op   = (df['therapeutic_decision'] == 1).sum()
+    n_cons = (df['therapeutic_decision'] == 0).sum()
+    logger.info(
+        f'  Time-aware labels [{tp}, surgery within {months_threshold} months of baseline]: '
+        f'conservative={n_cons}, operative={n_op} '
+        f'(updated {n_updated} subjects)')
     return df
 
 
@@ -700,6 +798,10 @@ def run_timepoint_analysis(tp, tp_file, df_participants, clinical_df,
 
     # 4. Encode categoricals
     final_df_tp = encode_categoricals(final_df_tp)
+
+    # 4b. Time-aware therapeutic decision:
+    #     operative only if surgery was performed on or before this timepoint
+    final_df_tp = assign_timepoint_aware_labels(final_df_tp, tp)
 
     # 5. Filter to timepoint-appropriate columns
     # Map M0 -> bl, M6 -> 6m, M12 -> 12m, etc.
