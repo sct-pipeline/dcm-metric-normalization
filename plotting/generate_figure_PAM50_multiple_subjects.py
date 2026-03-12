@@ -123,19 +123,19 @@ MJOA_COLORS = {
 METRICS_YLIMITS = {
     'spinal_cord': {
         'MEAN(diameter_AP)': (5, 9),
-        'MEAN(area)': (35, 90),
-        'MEAN(diameter_RL)': (8, 15.5),
+        'MEAN(area)': (40, 90),
+        'MEAN(diameter_RL)': (9, 15.5),
         'MEAN(eccentricity)': (0.53, 0.91),
         'MEAN(solidity)': (89, 100),
-        'MEAN(compression_ratio)': (0.35, 0.86)
+        'MEAN(compression_ratio)': (0.40, 0.86)
     },
     'canal': {
-        'MEAN(diameter_AP)': (7, 15.5),
-        'MEAN(area)': (100, 250),
-        'MEAN(diameter_RL)': (15, 26),
+        'MEAN(diameter_AP)': (8, 15.5),
+        'MEAN(area)': (110, 250),
+        'MEAN(diameter_RL)': (16, 26),
         'MEAN(eccentricity)': (0.4, 0.8),
         'MEAN(solidity)': (89, 100),
-        'MEAN(compression_ratio)': (0.35, 0.75)
+        'MEAN(compression_ratio)': (0.4, 0.75)
     },
     'aSCOR': {
         'aSCOR': (0.15, 0.5)
@@ -1618,7 +1618,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
 
         # Y-axis limits for bottom row
         if metric in METRICS_YLIMITS[structure]:
-            ax_violin.set_ylim(METRICS_YLIMITS[structure][metric][0]*0.8, METRICS_YLIMITS[structure][metric][1]*1.1)
+            ax_violin.set_ylim(METRICS_YLIMITS[structure][metric][0], METRICS_YLIMITS[structure][metric][1]*1.1)
 
         # Remove xlabel
         ax_violin.set_xlabel('', fontsize=LABELS_FONT_SIZE)     # 'Vertebral level'
