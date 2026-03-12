@@ -2064,8 +2064,6 @@ def print_mjoa_by_sex(subjects_df):
         return
 
     print(f"Total participants with sex data: {len(participants_df)}")
-    print(f"  - Males: {len(participants_df[participants_df['sex'] == 'M'])}")
-    print(f"  - Females: {len(participants_df[participants_df['sex'] == 'F'])}")
 
     # Analyze each mJOA timepoint
     for mjoa_col in mjoa_columns:
@@ -2279,6 +2277,25 @@ def main():
     # Print mJOA scores by sex
     # ----
     print_mjoa_by_sex(subjects_df)
+
+    # ----
+    # Demog
+    # ----
+    demog_df = subjects_df.drop_duplicates('participant_id')
+    # Print total number of unique subjects in clinical file
+    print(f'Total number of unique subjects in clinical file for analysis: {len(demog_df["participant_id"].unique())}')
+    # Print mean + std of age
+    print(f'Mean age: {demog_df["age"].mean():.2f} ± {demog_df["age"].std():.2f}')
+    # Print number of males and females
+    print(f'Sex distribution: {demog_df["sex"].value_counts().to_dict()}')
+    # Therapeutic decision distribution
+    print(f'Therapeutic decision distribution: {demog_df["therapeutic_decision"].value_counts().to_dict()}')
+    # Myelopathy distribution
+    print(f'Myelopathy distribution: {demog_df["Myelopathy"].value_counts().to_dict()}')
+    # Print myelopathy distribution by therapeutic decision
+    print(f"Myelopathy distribution by therapeutic decision:")
+    myelo_therapeutic_dist = demog_df.groupby('therapeutic_decision')['Myelopathy'].value_counts().unstack(fill_value=0)
+    print(myelo_therapeutic_dist)
 
     # ----
     # Longitudinal analysis of mJOA scores with baseline cord area
