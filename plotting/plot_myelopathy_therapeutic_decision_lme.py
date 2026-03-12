@@ -363,6 +363,14 @@ def fit_lme_model(df_long, score_name, log_file=None):
         ordered=False
     )
 
+    # # Set reference category for sex (ensure M is the reference to prevent shift in intercept in figures)
+    # if 'sex' in df_model.columns and df_model['sex'].nunique() > 1:
+    #     df_model['sex'] = pd.Categorical(
+    #         df_model['sex'],
+    #         categories=['M', 'F'],
+    #         ordered=False
+    #     )
+
     # Center baseline area
     if 'baseline_area' in df_model.columns:
         df_model['baseline_area_c'] = df_model['baseline_area'] - df_model['baseline_area'].mean()
@@ -856,6 +864,44 @@ def main():
     # Filter data
     df_clinical = df_clinical[df_clinical['participant_id'].isin(participant_ids)].copy()
     df_morphometrics = df_morphometrics[df_morphometrics['participant_id'].isin(participant_ids)].copy()
+
+    # ----
+    # Logging
+    # ----
+    # Print total number of unique subjects in clinical file
+    print(f'Total number of unique subjects in clinical file for analysis: {len(df_clinical["participant_id"].unique())}')
+    # Print mean + std of age
+    print(f'Mean age: {df_clinical["age"].mean():.2f} ± {df_clinical["age"].std():.2f}')
+    # Print number of males and females
+    print(f'Sex distribution: {df_clinical["sex"].value_counts().to_dict()}')
+    # Therapeutic decision distribution
+    print(f'Therapeutic decision distribution: {df_clinical["therapeutic_decision"].value_counts().to_dict()}')
+    # Myelopathy distribution
+    print(f'Myelopathy distribution: {df_clinical["Myelopathy"].value_counts().to_dict()}')
+    # Print myelopathy distribution by therapeutic decision
+    print(f"Myelopathy distribution by therapeutic decision:")
+    myelo_therapeutic_dist = df_clinical.groupby('therapeutic_decision')['Myelopathy'].value_counts().unstack(fill_value=0)
+    print(myelo_therapeutic_dist)
+    no_vals = myelo_therapeutic_dist.get('no', pd.Series(dtype=int))
+    yes_vals = myelo_therapeutic_dist.get('yes', pd.Series(dtype=int))
+    # conservative vs operative
+    groups = ['conservative', 'operative']
+    fig, ax = plt.subplots(figsize=(8, 6))
+    ax.bar(groups, no_vals, label="T2w-", color="green")
+    ax.bar(groups, yes_vals, bottom=no_vals, label="T2w+", color="red")
+    ax.set_ylabel("Number of subjects", fontsize=LABEL_FONT_SIZE+3)
+    # Increase x-axis tick labels
+    ax.set_xticklabels(groups, fontsize=LABEL_FONT_SIZE+3)
+    # Increase legend font
+    ax.legend(title="T2w hyperintensity", fontsize=LABEL_FONT_SIZE+3, title_fontsize=LABEL_FONT_SIZE+3)
+    for i, (n_no, n_yes) in enumerate(zip(no_vals, yes_vals)):
+        ax.text(i, n_no / 2, str(n_no), ha="center", va="center", fontsize=16)
+        ax.text(i, n_no + n_yes / 2, str(n_yes), ha="center", va="center", fontsize=16)
+    plt.tight_layout()
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    plt.savefig(os.path.join(args.outdir, 'myelopathy_distribution_by_therapeutic_decision.png'), dpi=300)
+    plt.close()
 
     print(f"\nIncluded {len(participant_ids)} participants")
     print(f"Clinical data: {len(df_clinical)} rows")
