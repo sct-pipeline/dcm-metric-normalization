@@ -745,6 +745,14 @@ def main():
     # Keep only requested participants
     df_clinical = df_clinical[df_clinical['participant_id'].isin(participant_ids)].copy()
 
+    # Print total number of unique subjects in clinical file
+    print(f'Total number of unique subjects in clinical file for analysis: {len(df_clinical["participant_id"].unique())}')
+    # Print total number of unique subjects with both BL and 6mth data for each score
+    for score, cfg in SCORES.items():
+        cols = cfg['columns']
+        count_complete = df_clinical.dropna(subset=cols)['participant_id'].nunique()
+        print(f'  {score}: {count_complete} subjects with complete data across sessions')
+
     # Rename myelopathy values from 0 to 'no' and 1 to 'yes' to match MYELOPATHY_COLORS
     df_clinical['myelopathy'] = df_clinical['myelopathy'].map({0: 'no', 1: 'yes'})
 
