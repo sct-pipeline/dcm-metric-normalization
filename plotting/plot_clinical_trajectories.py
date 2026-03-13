@@ -616,7 +616,7 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
             for v2 in strata2:
                 n = plot_df[(plot_df['session_numeric'] == s) & (plot_df['stratum1'] == v1) & (plot_df['stratum2'] == v2)]['participant_id'].nunique()
                 if n > 0:
-                    print(f'{score_name}: session {lab}: {key1}={v1}, {key2}={v2}, n={n}')
+                    print(f'{score_name}: session {lab}: {_get_display_label(v1,key1)}, {key2}={v2}, n={n}')
         #             parts.append(f"{_short_label(key1, v1)}/{_short_label(key2, v2)}={n}")
         # parts_join = "\n".join(parts)
         # tick_labels.append(f"{lab}\n{parts_join}" if parts_join else lab)
