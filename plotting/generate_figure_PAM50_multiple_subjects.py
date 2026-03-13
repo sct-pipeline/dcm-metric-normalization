@@ -355,7 +355,7 @@ def read_clinical_file(clinical_file):
 
     # specifying separately as this list is being returned by this function
     clinical_columns = [
-        'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth',
+        'total_mjoa_BL', 'total_mjoa_6mth',# 'total_mjoa_12mth',
         'motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth', 'motor_dysfunction_UE_12mth_12mth',
         'motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth', 'motor_dysfunction_LE_12mth_12mth',
         'sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth', 'sensory_dysfunction_UE_12mth_12mth',
@@ -369,7 +369,8 @@ def read_clinical_file(clinical_file):
         'record_id_BL', 'age_BL', 'sex_BL', 'maximum_stenosis', 'myelopathy',
         'c2_stenosis_no_yes', 'c3_stenosis_no_yes',
         'c4_stenosis_no_yes', 'c5_stenosis_no_yes', 'c6_stenosis_no_yes', 'c7_stenosis_no_yes',
-        'surg_timepoint___2_12mth', 'surg_timepoint___3_12mth'
+        'surg_timepoint___2_12mth',
+        # 'surg_timepoint___2_12mth', 'surg_timepoint___3_12mth'
         ]
 
     columns_to_read += clinical_columns
@@ -487,7 +488,8 @@ def read_clinical_file(clinical_file):
         # 0: conservative, 1: operative
         # Set therapeutic_decision based on surgery timepoints
         df_clinical['therapeutic_decision'] = df_clinical.apply(
-            lambda row: 'operative' if (row['surg_timepoint___2_12mth'] == 1 or row['surg_timepoint___3_12mth'] == 1) else 'conservative',
+            # lambda row: 'operative' if (row['surg_timepoint___2_12mth'] == 1 or row['surg_timepoint___3_12mth'] == 1) else 'conservative',
+            lambda row: 'operative' if (row['surg_timepoint___2_12mth'] == 1) else 'conservative',
             axis=1)
         # Fill missing values with 'NA'
         df_clinical['therapeutic_decision'] = df_clinical['therapeutic_decision'].fillna('NA')
@@ -1748,8 +1750,9 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir, str
     baseline_ascor_df = df_ascor[(df_ascor['VertLevel'].isin([2, 3])) & (df_ascor['session_id'] == 'ses-M0')].copy()
 
     # Prepare longitudinal mJOA data
-    mjoa_columns = ['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth']
-    time_points = [0, 6, 12]  # months
+    # mjoa_columns = ['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth']
+    mjoa_columns = ['total_mjoa_BL', 'total_mjoa_6mth']
+    time_points = [0, 6]#, 12]  # months
 
     results = {}
 
@@ -2047,7 +2050,8 @@ def analyze_longitudinal_mjoa_area(subjects_df, path_ascor_file, output_dir, str
 def print_mjoa_by_sex(subjects_df):
     print("mJOA SCORES BY SEX ANALYSIS")
     print("=" * 80)
-    mjoa_columns = ['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth']
+    # mjoa_columns = ['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth']
+    mjoa_columns = ['total_mjoa_BL', 'total_mjoa_6mth']
     # Get unique participants only (to avoid duplicate counting)
     participants_df = subjects_df[['participant_id', 'sex'] + mjoa_columns].drop_duplicates('participant_id')
 
