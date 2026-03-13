@@ -781,7 +781,8 @@ def main():
             plot_score_trajectory_stratified(df_single, score, cfg['y_label'], args.outdir, title_key)
         else:
             # Dual stratification
-            plot_score_trajectory_stratified_multi(plot_df, score, cfg['y_label'], args.outdir, strat_keys)
+            if score == 'mJOA':
+                plot_score_trajectory_stratified_multi(plot_df, score, cfg['y_label'], args.outdir, strat_keys)
 
 
 if __name__ == '__main__':
