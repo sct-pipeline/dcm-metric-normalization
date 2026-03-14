@@ -8,6 +8,11 @@ t2_ax_canal_seg:
 - sub-137/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
 - sub-147/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
 - sub-149/ses-M0    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-099/ses-M6    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-099/ses-M12    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-099/ses-M24    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-099/ses-M36    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
+- sub-099/ses-M48    # flow void artifacts --> hard to correct the canal seg, even at C2; cord seg looks good
 
 t2_ax:
 - sub-042/ses-M0    # missing T2w ax image
