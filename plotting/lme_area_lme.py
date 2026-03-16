@@ -16,7 +16,7 @@ The script applies the same subject filtering as generate_figure_PAM50_multiple_
 - Drops subjects with 4 stenosis levels
 
 Example usage:
-python plotting/analyze_longitudinal_mjoa_area_lme.py \
+python plotting/lme_area_lme.py \
     -clinical-file data/clinical_scores.xlsx \
     -morphometrics-file data/morphometrics.csv \
     -ascor-file data/T2w_ax_aSCOR_metrics_perslice_PAM50.csv \

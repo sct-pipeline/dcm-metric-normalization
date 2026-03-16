@@ -11,7 +11,7 @@ This script uses Linear Mixed-Effects Models (LME) to:
 3. Model both baseline and 6-month timepoints with random effects for participants
 
 Example usage:
-python plotting/plot_myelopathy_therapeutic_decision_lme.py \
+python plotting/lme_myelopathy_therapeutic_decision_single_variable.py \
     -clinical-file data/clinical_scores.xlsx \
     -morphometrics-file data/morphometrics.csv \
     -participants-to-use data/participants.txt \
