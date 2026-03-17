@@ -1995,40 +1995,6 @@ def main():
     myelo_therapeutic_dist = demog_df.groupby('therapeutic_decision')['Myelopathy'].value_counts().unstack(fill_value=0)
     print(myelo_therapeutic_dist)
 
-    # ----
-    # Longitudinal analysis of mJOA scores with baseline cord area
-    # ----
-    if structure == 'spinal_cord':
-        structure = 'cord'
-
-    print("\n" + "="*80)
-    print("RUNNING LONGITUDINAL mJOA-AREA ANALYSIS")
-    print("="*80)
-
-    # Output directory for longitudinal analysis results
-    longitudinal_output_dir = os.path.join(path_out, f"longitudinal_mjoa_{structure}_area_analysis")
-
-    # Get aSCOR file path (from command line or auto-construct)
-    ascor_file_path = getattr(args, 'ascor_file', None)
-    if ascor_file_path:
-        ascor_file_path = os.path.expandvars(ascor_file_path)
-        if not os.path.exists(ascor_file_path):
-            print(f"Warning: Specified aSCOR file not found: {ascor_file_path}")
-            ascor_file_path = None
-    else:
-        # Try to auto-construct aSCOR file path
-        try:
-            input_dir = os.path.dirname(args.i)
-            ascor_filename = os.path.basename(args.i).replace(f'{structure}_metrics', 'aSCOR_metrics')
-            potential_ascor_path = os.path.join(input_dir, ascor_filename)
-            if os.path.exists(potential_ascor_path):
-                ascor_file_path = potential_ascor_path
-                print(f"Auto-detected aSCOR file: {ascor_file_path}")
-            else:
-                print(f"No aSCOR file found at: {potential_ascor_path}")
-        except Exception as e:
-            print(f"Could not construct aSCOR file path: {e}")
-
 
 if __name__ == '__main__':
     main()
