@@ -35,7 +35,7 @@ from generate_figure_PAM50_multiple_subjects import (read_clinical_file, MYELOPA
 # Plot fonts
 LABEL_FONT_SIZE = 14
 TICK_FONT_SIZE = 10
-TITLE_FONT_SIZE = 16
+TITLE_FONT_SIZE = 10
 
 # Default scores to plot: name -> list of column names in expected order
 SCORES = {
@@ -628,10 +628,12 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
 
     ax.set_xticks(sessions)
     ax.set_xticklabels(tick_labels, fontsize=TICK_FONT_SIZE)
-
     ax.set_ylabel(y_label, fontsize=LABEL_FONT_SIZE)
-    # ax.set_title(f"{score_name} across sessions by {STRATIFICATION_TO_TITLE.get(key1, key1)} and {STRATIFICATION_TO_TITLE.get(key2, key2)}",
-    #              fontsize=TITLE_FONT_SIZE)
+
+    num_of_subjects = plot_df['participant_id'].nunique()
+    ax.set_title(f"{score_name} across {len(sessions)} sessions for {num_of_subjects} subjects "
+                 f"(having data for all {len(sessions)} sessions)",
+                 fontsize=TITLE_FONT_SIZE, pad=15)
 
     ax.tick_params(axis='y', labelsize=TICK_FONT_SIZE)
     ax.spines['top'].set_visible(False)
