@@ -21,7 +21,6 @@ python plotting/plot_clinical_trajectories.py \
 """
 
 import os
-import sys
 import argparse
 
 from matplotlib.lines import Line2D
@@ -29,7 +28,8 @@ import pandas as pd
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 
-from generate_figure_PAM50_multiple_subjects import (read_clinical_file, MYELOPATHY_COLORS, AGE_GROUP_COLORS, SEX_COLORS_PATIENTS,
+from utils import read_clinical_file
+from generate_figure_PAM50_multiple_subjects import (MYELOPATHY_COLORS, AGE_GROUP_COLORS, SEX_COLORS_PATIENTS,
                                                      THERAPEUTIC_DECISION_COLORS, MCL_COLORS, MJOA_COLORS, NORMATIVE_C2_COLORS)
 
 # Plot fonts

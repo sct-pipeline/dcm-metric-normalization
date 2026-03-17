@@ -34,13 +34,10 @@ import pandas as pd
 from statsmodels.regression.mixed_linear_model import MixedLM
 
 # Import utilities from existing scripts
+from utils import read_clinical_file, read_morphometrics_file, read_exclude_file_and_exclude_subjects, drop_highest_stenosis
 from generate_figure_PAM50_multiple_subjects import (
-    read_clinical_file,
-    read_morphometrics_file,
     merge_morphometrics_and_clinical_data,
-    read_exclude_file_and_exclude_subjects,
     read_c2c3_file_and_apply_exclusions,
-    drop_highest_stenosis
 )
 
 

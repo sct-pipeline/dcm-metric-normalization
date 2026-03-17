@@ -31,10 +31,7 @@ from statsmodels.regression.mixed_linear_model import MixedLM
 from statsmodels.tools.sm_exceptions import ConvergenceWarning
 
 # Import utilities from existing scripts
-from generate_figure_PAM50_multiple_subjects import (
-    read_clinical_file,
-    read_morphometrics_file
-)
+from utils import read_clinical_file, read_morphometrics_file
 
 # Plot fonts
 LABEL_FONT_SIZE = 14
