@@ -1901,7 +1901,7 @@ def main():
 
     # Save unique participant IDs to be reused by other scripts
     unique_participants = subjects_df['participant_id'].unique()
-    unique_participants_file = os.path.join(path_out, 'unique_participants_ids.txt')
+    unique_participants_file = os.path.join(path_out, f'unique_participants_ids_{len(unique_participants)}.txt')
     os.makedirs(path_out, exist_ok=True)
     with open(unique_participants_file, 'w') as f:
         for pid in unique_participants:
