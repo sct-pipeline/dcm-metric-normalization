@@ -521,6 +521,13 @@ def read_clinical_file(clinical_file, sessions=2):
         df_clinical['therapeutic_decision'] = df_clinical['therapeutic_decision'].fillna('NA')
 
         # ----
+        # Surgery before baseline
+        # ----
+        df_clinical['surgery_before_baseline'] = df_clinical['surg_timepoint___1_12mth'].apply(
+            lambda x: 'yes' if x == 1 else ('no' if x == 0 else 'NA')
+        )
+
+        # ----
         # age
         # ----
         # rename age_BL to age
@@ -577,8 +584,8 @@ def merge_morphometrics_and_clinical_data(subjects_df, df_clinical, clinical_col
     """
     subjects_df = subjects_df.merge(
         df_clinical[['participant_id', 'maximum_stenosis', 'stenosis_levels', 'highest_stenosis', 'num_of_stenosis',
-                     'single_vs_multi_stenosis', 'Myelopathy', 'therapeutic_decision', 'age', 'age_group', 'sex',
-                     'mJOA_severity_bl'] + clinical_columns],
+                     'single_vs_multi_stenosis', 'Myelopathy', 'therapeutic_decision', 'surgery_before_baseline',
+                     'age', 'age_group', 'sex', 'mJOA_severity_bl'] + clinical_columns],
         on='participant_id', how='inner'
     )
 
@@ -1876,7 +1883,14 @@ def main():
     # Drop rows with highest_stenosis == C2/C3 or C3/C4
     # Drop rows with num_of_stenosis == 4
     # ----
-    subjects_df = drop_highest_stenosis(subjects_df)
+    # subjects_df = drop_highest_stenosis(subjects_df)
+
+    # ----
+    # Print number of subjects with surgery before baseline
+    # ----
+    print(f"Number of unique subjects before dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['surgery_before_baseline'] != 'yes']
+    print(f"Number of unique subjects after dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
 
     # # ----
     # # Keep only conservatively treated subjects (therapeutic_decision == 'conservative')
