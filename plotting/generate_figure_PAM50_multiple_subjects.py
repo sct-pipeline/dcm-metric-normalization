@@ -344,35 +344,62 @@ def read_morphometrics_file(csv_file):
     return subjects_df
 
 
-def read_clinical_file(clinical_file):
+def read_clinical_file(clinical_file, sessions=2):
     """
     Read clinical Excel file with mJOA scores.
     :param clinical_file: path to Excel file with clinical scores (must contain 'total_mjoa_BL' column)
+    :param sessions: number of sessions to read (e.g., 2 for baseline and 6 month follow up; 3 for baseline, 6 month and 12 month follow up)
     :return: pandas dataframe with clinical data
     :returns: list of clinical columns
     """
 
-    # specifying separately as this list is being returned by this function
-    clinical_columns = [
-        'total_mjoa_BL', 'total_mjoa_6mth',# 'total_mjoa_12mth',
-        'motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth', 'motor_dysfunction_UE_12mth_12mth',
-        'motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth', 'motor_dysfunction_LE_12mth_12mth',
-        'sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth', 'sensory_dysfunction_UE_12mth_12mth',
-        'sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth', 'sphincter_dysfunction_12mth_12mth',
-        'UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth', 'UEPP_C4_T1_12mth',
-        'UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth', 'UELT_C4_T1_12mth_12mth',
-        'upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'
-    ]
+    # 2 sessions: baseline and 6 month follow up
+    if sessions == 2:
+        clinical_columns = [
+            'total_mjoa_BL', 'total_mjoa_6mth',
+            'motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth',
+            'motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth',
+            'sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth',
+            'sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth',
+            'UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth',
+            'UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth',
+            'upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth',
+        ]
+        surgery_columns = [
+            'surg_timepoint___1_12mth',  # surgery before baseline
+            'surg_timepoint___2_12mth',  # between baseline and 6 month follow up
+        ]
+        print(f'Number of sessions: {sessions}. Reading baseline and 6 month follow up clinical data.')
+    # 3 sessions: baseline, 6 month and 12 month follow up
+    elif sessions == 3:
+        clinical_columns = [
+            'total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth',
+            'motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth', 'motor_dysfunction_UE_12mth_12mth',
+            'motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth', 'motor_dysfunction_LE_12mth_12mth',
+            'sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth', 'sensory_dysfunction_UE_12mth_12mth',
+            'sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth', 'sphincter_dysfunction_12mth_12mth',
+            'UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth', 'UEPP_C4_T1_12mth',
+            'UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth', 'UELT_C4_T1_12mth_12mth',
+            'upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'
+        ]
+        surgery_columns = [
+        'surg_timepoint___1_12mth',     # surgery before baseline
+        'surg_timepoint___2_12mth',     # between baseline and 6 month follow up
+        'surg_timepoint___3_12mth'      # between 6 month and 12 month follow up
+        ]
+        print(f'Number of sessions: {sessions}. Reading baseline, 6 month and 12 month follow up clinical data.')
+    # Exit if sessions is not 2 or 3
+    else:
+        print("Error: sessions must be either 2 or 3.")
+        sys.exit(1)
 
     columns_to_read = [
         'record_id_BL', 'age_BL', 'sex_BL', 'maximum_stenosis', 'myelopathy',
         'c2_stenosis_no_yes', 'c3_stenosis_no_yes',
         'c4_stenosis_no_yes', 'c5_stenosis_no_yes', 'c6_stenosis_no_yes', 'c7_stenosis_no_yes',
-        'surg_timepoint___2_12mth',
-        # 'surg_timepoint___2_12mth', 'surg_timepoint___3_12mth'
         ]
 
-    columns_to_read += clinical_columns
+    columns_to_read += clinical_columns + surgery_columns
 
     # Get only baseline clinical columns (i.e., columns ending with _bl or _BL)
     baseline_clinical_columns = [col for col in clinical_columns if col.endswith('_bl') or col.endswith('_BL')]

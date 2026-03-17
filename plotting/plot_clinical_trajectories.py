@@ -40,42 +40,41 @@ TITLE_FONT_SIZE = 16
 # Default scores to plot: name -> list of column names in expected order
 SCORES = {
     'mJOA': {
-        'columns': ['total_mjoa_BL', 'total_mjoa_6mth'],
+        'columns': ['total_mjoa_BL', 'total_mjoa_6mth', 'total_mjoa_12mth'],
         'y_label': 'mJOA'
     },
     'Motor Dysfunction UE': {
-        'columns': ['motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth'],
+        'columns': ['motor_dysfunction_UE_bl_BL', 'motor_dysfunction_UE_6mth_6mth', 'motor_dysfunction_UE_12mth_12mth'],
         'y_label': 'Motor Dysfunction UE'
     },
     'Motor Dysfunction LE': {
-        'columns': ['motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth'],
+        'columns': ['motor_dysfunction_LE_bl_BL', 'motor_dysfunction_LE_6mth_6mth', 'motor_dysfunction_LE_12mth_12mth'],
         'y_label': 'Motor Dysfunction LE'
     },
     'Sensory Dysfunction UE': {
-        'columns': ['sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth'],
+        'columns': ['sensory_dysfunction_UE_bl_BL', 'sensory_dysfunction_UE_6mth_6mth', 'sensory_dysfunction_UE_12mth_12mth'],
         'y_label': 'Sensory Dysfunction UE'
     },
     'Sphincter Dysfunction': {
-        'columns': ['sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth'],
+        'columns': ['sphincter_dysfunction_bl_BL', 'sphincter_dysfunction_6mth_6mth', 'sphincter_dysfunction_12mth_12mth'],
         'y_label': 'Motor Dysfunction LE'
     },
     'Pinprick UE': {
-        'columns': ['UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth'],
+        'columns': ['UEPP_C4_T1_bl', 'UEPP_C4_T1_6mth', 'UEPP_C4_T1_12mth'],
         'y_label': 'Pinprick UE'
     },
     'Lightouch UE': {
-        'columns': ['UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth'],
+        'columns': ['UELT_C4_T1_bl_BL', 'UELT_C4_T1_6mth_6mth', 'UELT_C4_T1_12mth_12mth'],
         'y_label': 'Lightouch UE'
     },
     'Total Motor Score UE': {
-        'columns': ['upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth'],
+        'columns': ['upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'],
         'y_label': 'Total Motor Score UE'
     },
 }
 
 # Session labels to display (same length and order as each score's columns)
-# SESSION_LABELS_DEFAULT = ['BL', '6 mth', '12 mth']
-SESSION_LABELS_DEFAULT = ['Baseline', '6-month']
+SESSION_LABELS_DEFAULT = ['Baseline', '6-month', '12-month']
 
 STRATIFICATION_TO_TITLE = {
     'myelopathy': 'myelopathy',
@@ -104,6 +103,11 @@ def get_parser():
                    help='Path to Excel file with clinical scores (columns like total_mjoa_bl, nurick_bl, ...)')
     p.add_argument('-participants-to-use', required=True, type=str,
                    help='Path to text file with participant IDs to include (one ID per line)')
+    p.add_argument('-sessions', required=False, type=int,
+                   help='Number of sessions to include. '
+                        '2 sessions: baseline and 6 month follow up. '
+                        '3 sessions: baseline, 6 month follow up, and 12 month follow up.',
+                   choices=[2, 3], default=3)
     p.add_argument('-o', '--outdir', required=True, type=str,
                    help='Output directory for figures')
     # Stratification option: can provide one or two columns separated by comma
@@ -441,7 +445,7 @@ def plot_score_trajectory_stratified(plot_df: pd.DataFrame, score_name: str, y_l
             g_sorted = g.sort_values('session_numeric')
             if len(g_sorted) > 1:
                 ax.plot(g_sorted['session_numeric'], g_sorted['score'],
-                        color=colors[val], alpha=0.3, linewidth=0.5, linestyle='solid', zorder=3)
+                        color=colors[val], alpha=0.2, linewidth=0.4, linestyle='solid', zorder=3)
 
         # Mean ± SD per session for this stratum
         stats = _compute_session_stats(gdf)
@@ -595,7 +599,7 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
                 g_sorted = g.sort_values('session_numeric')
                 if len(g_sorted) > 1:
                     ax.plot(g_sorted['session_numeric'] + offset, g_sorted['score'],
-                            color=colors1[v1], alpha=0.3, linewidth=0.3, linestyle=linestyles2[v2], zorder=3)
+                            color=colors1[v1], alpha=0.2, linewidth=0.2, linestyle=linestyles2[v2], zorder=3)
 
             # Mean ± SD per session for this combo
             stats = _compute_session_stats(gdf)
@@ -657,7 +661,7 @@ def plot_score_trajectory_stratified_multi(plot_df: pd.DataFrame, score_name: st
 
     fig.tight_layout()
     os.makedirs(outdir, exist_ok=True)
-    out_path = os.path.join(outdir, f"clinical_score_trajectory_{score_name.replace(' ', '_')}_by_{key1}_and_{key2}.png")
+    out_path = os.path.join(outdir, f"clinical_score_trajectory_{score_name.replace(' ', '_')}_by_{key1}_and_{key2}_{len(sessions)}_sessions_{num_of_subjects}_subjects.png")
     fig.savefig(out_path, dpi=300, bbox_inches='tight')
     plt.close(fig)
     print(f'Clinical trajectory figure saved to {out_path}')
@@ -738,7 +742,11 @@ def _get_display_label(value, stratify_by):
 def main():
     args = get_parser().parse_args()
 
-    df_clinical, _ = read_clinical_file(os.path.abspath(args.clinical_file))
+    # 2 sessions: baseline and 6 month follow up
+    # 3 sessions: baseline, 6 month and 12 month follow up
+    num_of_sessions = args.sessions
+
+    df_clinical, _ = read_clinical_file(os.path.abspath(args.clinical_file), sessions=num_of_sessions)
     # Read txt file with participant IDs to include
     with open(args.participants_to_use, 'r') as f:
         participant_ids = [line.strip() for line in f if line.strip()]
@@ -749,7 +757,7 @@ def main():
     print(f'Total number of unique subjects in clinical file for analysis: {len(df_clinical["participant_id"].unique())}')
     # Print total number of unique subjects with both BL and 6mth data for each score
     for score, cfg in SCORES.items():
-        cols = cfg['columns']
+        cols = cfg['columns'][:num_of_sessions]
         count_complete = df_clinical.dropna(subset=cols)['participant_id'].nunique()
         print(f'  {score}: {count_complete} subjects with complete data across sessions')
 
@@ -764,7 +772,8 @@ def main():
     for score in SCORES.keys():
         cfg = SCORES[score]
 
-        plot_df = build_long_df_for_score(df_clinical, score, cfg['columns'], SESSION_LABELS_DEFAULT, stratify_by=strat_keys)
+        plot_df = build_long_df_for_score(df_clinical, score, cfg['columns'][:num_of_sessions], SESSION_LABELS_DEFAULT[:num_of_sessions],
+                                          stratify_by=strat_keys)
         if plot_df.empty:
             print(f"No data available for {score} with complete sessions: {cfg['columns']}")
             continue
