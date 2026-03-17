@@ -1875,6 +1875,13 @@ def main():
     subjects_df = read_exclude_file_and_exclude_subjects(subjects_df, exclude_file)
 
     # ----
+    # Print number of subjects with surgery before baseline
+    # ----
+    print(f"Number of unique subjects before dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
+    subjects_df = subjects_df[subjects_df['surgery_before_baseline'] != 'yes']
+    print(f"Number of unique subjects after dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
+
+    # ----
     # Read text file with levels to use (C3 or C2,C3 or exclude)
     # ----
     subjects_df = read_c2c3_file_and_apply_exclusions(subjects_df, c2c3_file)
@@ -1884,13 +1891,6 @@ def main():
     # Drop rows with num_of_stenosis == 4
     # ----
     # subjects_df = drop_highest_stenosis(subjects_df)
-
-    # ----
-    # Print number of subjects with surgery before baseline
-    # ----
-    print(f"Number of unique subjects before dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
-    subjects_df = subjects_df[subjects_df['surgery_before_baseline'] != 'yes']
-    print(f"Number of unique subjects after dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
 
     # # ----
     # # Keep only conservatively treated subjects (therapeutic_decision == 'conservative')
