@@ -123,6 +123,12 @@ def get_parser():
         help='Path to text file with participant IDs to include (one ID per line)'
     )
     parser.add_argument(
+        '-sessions', required=False, type=int,
+        help='Number of sessions to include. '
+             '2 sessions: baseline and 6 month follow up. '
+             '3 sessions: baseline, 6 month follow up, and 12 month follow up.',
+        choices=[2, 3], default=3)
+    parser.add_argument(
         '-o', '--outdir',
         required=True,
         type=str,
@@ -210,7 +216,7 @@ def get_covariates_suffix(formula):
         return "_cov-none"
 
 
-def prepare_longitudinal_data(df_clinical, df_morphometrics, level=3):
+def prepare_longitudinal_data(df_clinical, df_morphometrics, level=3, sessions=2):
     """
     Prepare longitudinal dataset for LME analysis.
 
@@ -222,6 +228,7 @@ def prepare_longitudinal_data(df_clinical, df_morphometrics, level=3):
     :param df_clinical: Clinical data with baseline and 6-month scores
     :param df_morphometrics: Morphometric data with spinal cord area
     :param level: Vertebral level for baseline area (2 or 3)
+    :param sessions: Number of sessions to include (2 or 3). If 3, will include 12-month follow-up if available.
     :return: Dictionary of DataFrames, one per clinical score
     """
 
@@ -314,6 +321,25 @@ def prepare_longitudinal_data(df_clinical, df_morphometrics, level=3):
                     'maximum_stenosis': maximum_stenosis,
                     'stenosis': stenosis
                 })
+
+            # 12-month timepoint (if sessions=3)
+            if sessions == 3:
+                score_12m = row.get(followup_col.replace('6mth', '12mth'), np.nan)
+                if not pd.isna(score_12m):
+                    long_data.append({
+                        'participant_id': participant_id,
+                        'group': group,
+                        'myelopathy': myelopathy,
+                        'therapeutic_decision': therapeutic_decision,
+                        'time': 2,  # 12 months
+                        'time_label': '12-month',
+                        'score': float(score_12m),
+                        'baseline_area': baseline_area,
+                        'age': age,
+                        'sex': sex,
+                        'maximum_stenosis': maximum_stenosis,
+                        'stenosis': stenosis
+                    })
 
         if not long_data:
             print(f"Warning: No data for {score_name}")
@@ -825,9 +851,13 @@ def main():
     # Create output directory
     os.makedirs(args.outdir, exist_ok=True)
 
+    # 2 sessions: baseline and 6 month follow up
+    # 3 sessions: baseline, 6 month and 12 month follow up
+    num_of_sessions = args.sessions
+
     # Read data
     print("Reading clinical data...")
-    df_clinical, _ = read_clinical_file(os.path.abspath(args.clinical_file))
+    df_clinical, _ = read_clinical_file(os.path.abspath(args.clinical_file), sessions=num_of_sessions)
 
     print("Reading morphometric data...")
     df_morphometrics = read_morphometrics_file(os.path.abspath(args.morphometrics_file))
@@ -884,7 +914,7 @@ def main():
 
     # Prepare longitudinal data
     print(f"\nPreparing longitudinal data (using C{args.level} baseline area)...")
-    long_data_dict = prepare_longitudinal_data(df_clinical, df_morphometrics, level=args.level)
+    long_data_dict = prepare_longitudinal_data(df_clinical, df_morphometrics, level=args.level, sessions=num_of_sessions)
 
     if not long_data_dict:
         print("Error: No data available for analysis")
