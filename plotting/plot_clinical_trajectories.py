@@ -688,49 +688,6 @@ def _normalize_normative_c2(value):
         return 'Above normative mean C2 cord area'
     return s
 
-def merge_stratification(df_clinical: pd.DataFrame, participants_file: str | None, stratify_by: list[str] | str | None) -> pd.DataFrame:
-    """Merge one or two stratification columns from participants.tsv into clinical dataframe when needed."""
-    keys = _parse_stratify_arg(stratify_by) if isinstance(stratify_by, str) or stratify_by is None else list(stratify_by)
-    if len(keys) == 0:
-        return df_clinical
-
-    df_out = df_clinical.copy()
-
-    if not participants_file or not os.path.isfile(participants_file):
-        if any(k not in df_out.columns for k in keys):
-            print(f"Warning: participants file not provided or not found; cannot fetch {keys}.")
-        return df_out
-
-    try:
-        df_part = pd.read_csv(participants_file, sep='\t')
-    except Exception as e:
-        print(f"Warning: failed to read participants TSV: {e}")
-        return df_out
-
-    if 'participant_id' not in df_part.columns:
-        print("Warning: 'participant_id' missing in participants.tsv; cannot merge stratification.")
-        return df_out
-
-    # Prepare subset with available keys
-    available = [k for k in keys if k in df_part.columns and k not in df_out.columns]
-    if len(available) == 0:
-        # Nothing to merge (either not found, or already present)
-        missing = [k for k in keys if (k not in df_part.columns and k not in df_out.columns)]
-        if missing:
-            print(f"Warning: {missing} not found in participants.tsv; cannot merge these.")
-        return df_out
-
-    df_sub = df_part[['participant_id'] + available].copy()
-
-    # Special handling
-    for k in available:
-        if k == 'normative_mean_c2':
-            df_sub[k] = df_sub[k].apply(_normalize_normative_c2)
-
-    merged = df_out.merge(df_sub, on='participant_id', how='left')
-    return merged
-
-
 def _get_display_label(value, stratify_by):
     """Map internal stratification values to display labels for figures."""
     if stratify_by == 'myelopathy':
