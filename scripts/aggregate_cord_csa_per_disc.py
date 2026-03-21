@@ -44,6 +44,24 @@ DISCS = {
     'C6/C7': (7, 6),
 }
 
+# Metrics to extract from the selected slice (the one with minimum CSA)
+METRICS = [
+    'MEAN(area)',
+    'MEAN(diameter_AP)',
+    'MEAN(diameter_RL)',
+    'MEAN(eccentricity)',
+    'MEAN(solidity)',
+]
+
+# Short column name suffix for each metric
+METRIC_SUFFIX = {
+    'MEAN(area)':         'area',
+    'MEAN(diameter_AP)':  'diameter_AP',
+    'MEAN(diameter_RL)':  'diameter_RL',
+    'MEAN(eccentricity)': 'eccentricity',
+    'MEAN(solidity)':     'solidity',
+}
+
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -129,15 +147,18 @@ def find_disc_slices(df_sub):
     """For a single subject's DataFrame (sorted by slice I→S), find the two
     slices that bracket each target disc.
 
+    Slice selection is based on minimum CSA (MEAN(area)). All other metrics
+    are taken from that same selected slice.
+
     Returns a dict keyed by disc name with value
-        {'csa': float, 'slice_inf': int, 'slice_sup': int}
+        {'slice_inf': int, 'slice_sup': int, 'slice_used': int,
+         '<metric_suffix>': float, ...}
     or None when the disc transition is not found in the data.
     """
     df_sub = df_sub.sort_values('Slice (I->S)').reset_index(drop=True)
     results = {}
 
     for disc, (level_inf, level_sup) in DISCS.items():
-        # Rows belonging to each vertebral level
         rows_inf = df_sub[df_sub['VertLevel'] == level_inf]
         rows_sup = df_sub[df_sub['VertLevel'] == level_sup]
 
@@ -150,19 +171,28 @@ def find_disc_slices(df_sub):
         # First slice of the superior level (lowest slice index within that level)
         row_first_sup = rows_sup.loc[rows_sup['Slice (I->S)'].idxmin()]
 
-        csa_inf = row_last_inf['MEAN(area)']
-        csa_sup = row_first_sup['MEAN(area)']
-
         slice_inf = int(row_last_inf['Slice (I->S)'])
         slice_sup = int(row_first_sup['Slice (I->S)'])
-        slice_used = slice_inf if csa_inf <= csa_sup else slice_sup
 
-        results[disc] = {
-            'csa': min(csa_inf, csa_sup),
-            'slice_inf': slice_inf,
-            'slice_sup': slice_sup,
-            'slice_used': slice_used,
-        }
+        # Select the slice with the smaller CSA
+        csa_inf = row_last_inf['MEAN(area)']
+        csa_sup = row_first_sup['MEAN(area)']
+        row_selected = row_last_inf if csa_inf <= csa_sup else row_first_sup
+        slice_used = int(row_selected['Slice (I->S)'])
+
+        entry = {'slice_inf': slice_inf, 'slice_sup': slice_sup, 'slice_used': slice_used}
+
+        # Extract all metrics from the selected slice
+        for col in METRICS:
+            suffix = METRIC_SUFFIX[col]
+            entry[suffix] = row_selected[col]
+
+        # Compute compression ratio from the selected slice
+        ap = row_selected['MEAN(diameter_AP)']
+        rl = row_selected['MEAN(diameter_RL)']
+        entry['compression_ratio'] = ap / rl if rl != 0 else float('nan')
+
+        results[disc] = entry
 
     return results
 
@@ -213,39 +243,49 @@ def main():
         subject, session = extract_sub_ses(filename)
         disc_data = find_disc_slices(df_sub)
 
-        row = {'Filename': os.path.basename(filename), 'subject': subject, 'session': session}
+        out_row = {'Filename': os.path.basename(filename), 'subject': subject, 'session': session}
         for disc in DISCS:
             info = disc_data.get(disc)
             if info is None:
-                row[disc] = float('nan')
-                row[f'{disc}_slice_inf'] = float('nan')
-                row[f'{disc}_slice_sup'] = float('nan')
-                row[f'{disc}_slice_used'] = float('nan')
+                for suffix in list(METRIC_SUFFIX.values()) + ['compression_ratio']:
+                    out_row[f'{disc}_{suffix}'] = float('nan')
+                out_row[f'{disc}_slice_inf'] = float('nan')
+                out_row[f'{disc}_slice_sup'] = float('nan')
+                out_row[f'{disc}_slice_used'] = float('nan')
                 logger.warning(f"  {subject}/{session}: disc {disc} not found")
             else:
-                row[disc] = info['csa']
-                row[f'{disc}_slice_inf'] = info['slice_inf']
-                row[f'{disc}_slice_sup'] = info['slice_sup']
-                row[f'{disc}_slice_used'] = info['slice_used']
+                for suffix in METRIC_SUFFIX.values():
+                    out_row[f'{disc}_{suffix}'] = info[suffix]
+                out_row[f'{disc}_compression_ratio'] = info['compression_ratio']
+                out_row[f'{disc}_slice_inf'] = info['slice_inf']
+                out_row[f'{disc}_slice_sup'] = info['slice_sup']
+                out_row[f'{disc}_slice_used'] = info['slice_used']
 
-        records.append(row)
+        records.append(out_row)
 
     out_df = pd.DataFrame(records)
 
-    # Reorder columns: Filename, subject, session, then alternating CSA/slices per disc
+    # Reorder columns: Filename, subject, session, then per disc: metrics, slices
     col_order = ['Filename', 'subject', 'session']
+    metric_suffixes = list(METRIC_SUFFIX.values()) + ['compression_ratio']
     for disc in DISCS:
-        col_order += [disc, f'{disc}_slice_inf', f'{disc}_slice_sup', f'{disc}_slice_used']
+        for suffix in metric_suffixes:
+            col_order.append(f'{disc}_{suffix}')
+        col_order += [f'{disc}_slice_inf', f'{disc}_slice_sup', f'{disc}_slice_used']
     out_df = out_df[col_order]
+
+    # Cast slice columns to nullable integer (preserves NaN without promoting to float)
+    slice_cols = [c for c in out_df.columns if c.endswith(('_slice_inf', '_slice_sup', '_slice_used'))]
+    out_df[slice_cols] = out_df[slice_cols].astype('Int64')
 
     out_path = os.path.join(args.o, 'T2w_ax_cord_CSA_per_disc.csv')
     out_df.to_csv(out_path, index=False)
     logger.info(f"\nSaved {len(out_df)} subjects → {out_path}")
 
-    # Print a quick summary
+    # Print a quick summary (area only)
     logger.info("\nCSA summary (mean ± std across subjects):")
     for disc in DISCS:
-        col = out_df[disc].dropna()
+        col = out_df[f'{disc}_area'].dropna()
         logger.info(f"  {disc}: {col.mean():.2f} ± {col.std():.2f}  (n={len(col)})")
 
 
