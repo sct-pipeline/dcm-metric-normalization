@@ -414,8 +414,8 @@ def fit_lme_model(df_long, score_name, log_file=None):
     ]
 
     # Add covariates if available
-    if 'baseline_area_c' in df_model.columns and df_model['baseline_area_c'].notna().any():
-        fixed_terms.append('baseline_area_c')
+    # if 'baseline_area_c' in df_model.columns and df_model['baseline_area_c'].notna().any():
+    #     fixed_terms.append('baseline_area_c')
 
     if 'age_c' in df_model.columns and df_model['age_c'].notna().any():
         fixed_terms.append('age_c')
