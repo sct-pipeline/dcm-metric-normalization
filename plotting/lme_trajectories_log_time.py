@@ -736,7 +736,7 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
         ('yes', 'conservative'): (COLOR_T2W_PLUS,  '--', 'T2w+ / Conservative'),
         ('yes', 'operative'):    (COLOR_T2W_PLUS,  '-',  'T2w+ / Operative'),
     }
-    fig, ax = plt.subplots(figsize=(7, 4.5))
+    fig, ax = plt.subplots(figsize=(6, 4))
     for (myelo, td), (color, ls, label) in group_spec.items():
         gdf = df_long[
             (df_long['myelopathy'] == myelo) &
