@@ -153,8 +153,12 @@ def read_clinical_file(clinical_file, sessions=2):
             'upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth',
         ]
         surgery_columns = [
-            'surg_timepoint___1_12mth',  # surgery before baseline
-            'surg_timepoint___2_12mth',  # between baseline and 6 month follow up
+            'surg_timepoint___1_12mth',  # surgery before baseline (used for exclusion)
+            'surg_date_before_6mth',     # surgery date between baseline and 6 month follow up
+        ]
+        date_columns = [
+            'orthopedics_assessment_date_BL',
+            'orthopedics_assessment_date_6mth',
         ]
         print(f'Number of sessions: {sessions}. Reading baseline and 6 month follow up clinical data.')
     # 3 sessions: baseline, 6 month and 12 month follow up
@@ -170,9 +174,14 @@ def read_clinical_file(clinical_file, sessions=2):
             'upper_extrem_motor_total_BL', 'upper_extrem_motor_total_6mth', 'upper_extrem_motor_total_12mth'
         ]
         surgery_columns = [
-        'surg_timepoint___1_12mth',     # surgery before baseline
-        'surg_timepoint___2_12mth',     # between baseline and 6 month follow up
-        'surg_timepoint___3_12mth'      # between 6 month and 12 month follow up
+            'surg_timepoint___1_12mth',   # surgery before baseline (used for exclusion)
+            'surg_date_before_6mth',      # surgery date between baseline and 6 month follow up
+            'surg_date_before_12mth',     # surgery date between 6 month and 12 month follow up
+        ]
+        date_columns = [
+            'orthopedics_assessment_date_BL',
+            'orthopedics_assessment_date_6mth',
+            'orthopedics_assessment_date_12mth',
         ]
         print(f'Number of sessions: {sessions}. Reading baseline, 6 month and 12 month follow up clinical data.')
     # Exit if sessions is not 2 or 3
@@ -186,7 +195,7 @@ def read_clinical_file(clinical_file, sessions=2):
         'c4_stenosis_no_yes', 'c5_stenosis_no_yes', 'c6_stenosis_no_yes', 'c7_stenosis_no_yes',
         ]
 
-    columns_to_read += clinical_columns + surgery_columns
+    columns_to_read += clinical_columns + surgery_columns + date_columns
 
     # Get only baseline clinical columns (i.e., columns ending with _bl or _BL)
     baseline_clinical_columns = [col for col in clinical_columns if col.endswith('_bl') or col.endswith('_BL')]
@@ -297,22 +306,30 @@ def read_clinical_file(clinical_file, sessions=2):
         # ----
         # therapeutic_decision
         # ----
-        # 'surg_timepoint___2_12mth': between baseline and 6 month follow up
-        # 'surg_timepoint___3_12mth': between 6 month and 12 month follow up
-        # 0: conservative, 1: operative
-        # Set therapeutic_decision based on surgery timepoints
+        # 'surg_date_before_6mth': surgery date between baseline and 6 month follow up (non-null = surgery happened)
+        # 'surg_date_before_12mth': surgery date between 6 month and 12 month follow up (non-null = surgery happened)
+        # If a date is present, surgery happened; if no date, no surgery.
+        # Set therapeutic_decision based on surgery date columns
         df_clinical['therapeutic_decision'] = df_clinical.apply(
-            # lambda row: 'operative' if (row['surg_timepoint___2_12mth'] == 1 or row['surg_timepoint___3_12mth'] == 1) else 'conservative',
-            lambda row: 'operative' if (row['surg_timepoint___2_12mth'] == 1) else 'conservative',
+            lambda row: 'operative' if pd.notna(row['surg_date_before_6mth']) else 'conservative',
             axis=1)
         # Fill missing values with 'NA'
         df_clinical['therapeutic_decision'] = df_clinical['therapeutic_decision'].fillna('NA')
 
-        # Exclude subjects with surgery between 6m and 12m follow up (i.e., surg_timepoint___3_12mth == 1)
+        # Exclude subjects with surgery ONLY between 6m and 12m follow up.
+        # Subjects who already had surgery before 6m (surg_date_before_6mth non-null)
+        # are kept regardless of surg_date_before_12mth, because their therapeutic
+        # decision (operative) is already captured by the 6m column.
         if sessions == 3:
-            print(f"Number of subjects before excluding those with surgery between 6 month and 12 month follow up: {len(df_clinical['participant_id'].unique())}")
-            df_clinical = df_clinical[df_clinical['surg_timepoint___3_12mth'] != 1]
-            print(f"Number of subjects after excluding those with surgery between 6 month and 12 month follow up: {len(df_clinical['participant_id'].unique())}")
+            only_6m_to_12m = (
+                df_clinical['surg_date_before_12mth'].notna() &
+                df_clinical['surg_date_before_6mth'].isna()
+            )
+            print(f"Number of subjects before excluding those with surgery only between "
+                  f"6 month and 12 month follow up: {len(df_clinical['participant_id'].unique())}")
+            df_clinical = df_clinical[~only_6m_to_12m]
+            print(f"Number of subjects after excluding those with surgery only between "
+                  f"6 month and 12 month follow up: {len(df_clinical['participant_id'].unique())}")
 
         # ----
         # Surgery before baseline
