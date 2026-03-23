@@ -425,7 +425,8 @@ def fit_lme_model(df_long, score_name, log_file=None):
 
     # MCL
     if df_model['maximum_stenosis'].nunique() > 1 and 'unknown' not in df_model['maximum_stenosis'].values:
-        fixed_terms.append('C(maximum_stenosis)')
+        fixed_terms.append('C(maximum_stenosis, Treatment(reference="C3/C4"))')
+        # fixed_terms.append('C(maximum_stenosis)')
 
     # single vs multi stenosis
     if df_model['stenosis'].nunique() > 1 and 'unknown' not in df_model['stenosis'].values:
