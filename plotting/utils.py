@@ -308,6 +308,12 @@ def read_clinical_file(clinical_file, sessions=2):
         # Fill missing values with 'NA'
         df_clinical['therapeutic_decision'] = df_clinical['therapeutic_decision'].fillna('NA')
 
+        # Exclude subjects with surgery between 6m and 12m follow up (i.e., surg_timepoint___3_12mth == 1)
+        if sessions == 3:
+            print(f"Number of subjects before excluding those with surgery between 6 month and 12 month follow up: {len(df_clinical['participant_id'].unique())}")
+            df_clinical = df_clinical[df_clinical['surg_timepoint___3_12mth'] != 1]
+            print(f"Number of subjects after excluding those with surgery between 6 month and 12 month follow up: {len(df_clinical['participant_id'].unique())}")
+
         # ----
         # Surgery before baseline
         # ----
