@@ -98,6 +98,7 @@ DATE_COL_BL    = 'orthopedics_assessment_date_BL'
 DATE_COL_6MTH  = 'orthopedics_assessment_date_6mth'
 DATE_COL_12MTH = 'orthopedics_assessment_date_12mth'
 
+XLIM = (0, 365)  # x-axis limits for all plots
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CLI
@@ -598,16 +599,100 @@ def _plot_surgery_markers(ax, df_long, color='#555555', alpha=0.8):
                 color=color, alpha=alpha, zorder=5, linestyle='none')
 
 
+def _plot_surgery_on_curve(ax, df_surg, result, i_param_names, s_param_names,
+                           color, alpha=0.7, markersize=7):
+    """
+    Plot each operative patient's surgery date as an 'x' marker positioned on
+    the population-level LME fitted curve at that patient's surgery day.
+
+    Parameters
+    ----------
+    df_surg       : DataFrame – one row per operative patient with surg_days.
+    i_param_names : list of fixed-effect param names contributing to intercept.
+    s_param_names : list of fixed-effect param names contributing to slope.
+    """
+    if result is None:
+        return
+    surg_rows = df_surg[df_surg['surg_days'].notna()].drop_duplicates('participant_id')
+    if len(surg_rows) == 0:
+        return
+
+    p     = result.params
+    i_adj = sum(_get(p, pn) for pn in i_param_names)
+    s_adj = sum(_get(p, pn) for pn in s_param_names)
+
+    for _, row in surg_rows.iterrows():
+        surg_day = row['surg_days']
+        if surg_day <= 0 or surg_day > 365:
+            continue
+        y_fitted = _predict_on_days(p, i_adj, s_adj, np.array([surg_day]))[0]
+        ax.plot(surg_day, y_fitted, 'x',
+                color=color, alpha=alpha, markersize=markersize,
+                markeredgewidth=1.5, zorder=7, linestyle='none')
+
+
+def _compute_prediction_ci(result, days_arr, i_param_names, s_param_names):
+    """
+    Compute the 95% fixed-effect confidence band for the population-level
+    LME prediction (shows uncertainty in the mean trajectory, not in
+    individual outcomes).
+
+    For each time point t the predicted value is a linear combination of the
+    fixed-effect parameters:
+        ŷ(t) = Σ cᵢ(t) · βᵢ
+    The pointwise SE is  sqrt(c(t)^T · Cov(β) · c(t)).
+
+    Parameters
+    ----------
+    result        : MixedLM result object
+    days_arr      : array-like of raw days (x-axis values)
+    i_param_names : param names that contribute +1 to the intercept
+                    (group dummy variables, e.g. ['C(myelopathy)[T.yes]'])
+    s_param_names : param names that contribute log(t+1) to the slope
+                    (interaction terms, e.g. ['C(myelopathy)[T.yes]:time_log'])
+
+    Returns
+    -------
+    y_lower, y_upper : np.ndarray  (95% CI bounds at each day)
+    """
+    param_names = result.params.index.tolist()
+    param_idx   = {p: i for i, p in enumerate(param_names)}
+    cov         = result.cov_params().values
+    days_arr    = np.asarray(days_arr, dtype=float)
+    n_pts       = len(days_arr)
+    n_params    = len(param_names)
+    lt          = log_time(days_arr)      # log(t+1) vector, shape (n_pts,)
+
+    # Build contrast matrix  C  (n_pts × n_params)
+    C = np.zeros((n_pts, n_params))
+    C[:, param_idx['Intercept']] = 1.0
+    if 'time_log' in param_idx:
+        C[:, param_idx['time_log']] = lt
+    for pname in i_param_names:
+        if pname in param_idx:
+            C[:, param_idx[pname]] = 1.0
+    for pname in s_param_names:
+        if pname in param_idx:
+            C[:, param_idx[pname]] = lt
+
+    y_hat = C @ result.params.values
+    # Pointwise variance: diag(C Σ C^T) via einsum (avoids allocating n×n matrix)
+    var = np.einsum('ij,jk,ik->i', C, cov, C)
+    se  = np.sqrt(np.maximum(var, 0.0))
+    return y_hat - 1.96 * se, y_hat + 1.96 * se
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Plotting – Models A, B, C  (raw-days x-axis; curved LME lines)
 #
 # Key design:
 #   X-axis    : raw days from baseline  (linear scale, easy to read)
-#   Spaghetti : each patient's (time_days, score) points connected
+#   CI band   : 95% fixed-effect CI ribbon around the population mean curve
+#   Error bars: observed mean ± SD at each canonical timepoint (BL, 6m, 12m)
 #   LME curve : score = b0 + b1*log(days+1) evaluated on dense days_smooth
 #               -> produces a curved (logarithmic) line, not a straight line
-#               -> rapid early change that decelerates over time (cf. Image 2)
-#   Surgery   : 'x' marker on each operative patient's trajectory at surg_days
+#               -> rapid early change that decelerates over time
+#   Surgery   : rug tick marks at the bottom spine for each operative patient
 # ──────────────────────────────────────────────────────────────────────────────
 def _plot_group_spaghetti(ax, gdf, color, linestyle='-'):
     """Plot thin individual trajectories on raw-days x-axis."""
@@ -642,34 +727,60 @@ def _plot_obs_errorbars(ax, gdf, present_labels, tick_days, color):
 
 def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
     """
-    Spaghetti + LME-fitted trajectories, stratified by T2w hyperintensity.
+    95% CI band + LME curve, stratified by T2w hyperintensity.
     X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
     Colors: T2w- green, T2w+ red.
+    Surgery dates marked with 'x' on the fitted curve at each patient's surgery day.
     """
     mpl.rcParams['font.family'] = 'Arial'
-    days_smooth = np.linspace(0, 365, 300)
+    days_smooth = np.linspace(XLIM[0], XLIM[1], 300)
     fig, ax = plt.subplots(figsize=(6, 4))
+
     groups = {
-        'no':  {'color': COLOR_T2W_MINUS, 'label': 'T2w−'},
-        'yes': {'color': COLOR_T2W_PLUS,  'label': 'T2w+'},
+        'no':  {'color': COLOR_T2W_MINUS, 'label': 'T2w−',
+                'i_params': [],
+                's_params': []},
+        'yes': {'color': COLOR_T2W_PLUS,  'label': 'T2w+',
+                'i_params': ['C(myelopathy)[T.yes]'],
+                's_params': ['C(myelopathy)[T.yes]:time_log']},
     }
+
+    log_print(f"\n{score_name} – Model A  (T2w hyperintensity):", log_file)
     for myelo, ginfo in groups.items():
         gdf   = df_long[df_long['myelopathy'] == myelo]
         color = ginfo['color']
         n     = gdf['participant_id'].nunique()
-        _plot_group_spaghetti(ax, gdf, color)
-        _plot_surgery_markers(ax, df_long, color=color, alpha=0.6)
+        log_print(f"  {ginfo['label']:<10s}: n = {n}", log_file)
+
+        # 95% CI band around the population mean
+        if result is not None:
+            y_lo, y_hi = _compute_prediction_ci(
+                result, days_smooth, ginfo['i_params'], ginfo['s_params'])
+            ax.fill_between(days_smooth, y_lo, y_hi, color=color, alpha=0.15, linewidth=0)
+
+        # LME population mean curve
         p     = result.params if result is not None else None
-        i_adj = _get(p, 'C(myelopathy)[T.yes]')          if (p is not None and myelo == 'yes') else 0.0
-        s_adj = _get(p, 'C(myelopathy)[T.yes]:time_log')  if (p is not None and myelo == 'yes') else 0.0
+        i_adj = sum(_get(p, pn) for pn in ginfo['i_params']) if p is not None else 0.0
+        s_adj = sum(_get(p, pn) for pn in ginfo['s_params']) if p is not None else 0.0
         _plot_lme_curve(ax, result, days_smooth, i_adj, s_adj, color, '-', ginfo['label'], n)
-    ax.set_xlim(0, 365)
+
+        # Surgery markers on the fitted curve
+        surg_df = gdf[gdf['surg_days'].notna()].drop_duplicates('participant_id')
+        _plot_surgery_on_curve(ax, surg_df, result, ginfo['i_params'], ginfo['s_params'], color)
+
+    ax.set_xlim(XLIM[0], XLIM[1])
     ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
     ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
         ax.set_ylim(cfg['ylim'])
-    ax.legend(fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
+
+    surg_handle = Line2D([0], [0], color='gray', marker='x', linestyle='none',
+                         markersize=6, markeredgewidth=1.5, label='Surgery date')
+    handles, labels_leg = ax.get_legend_handles_labels()
+    ax.legend(handles + [surg_handle], labels_leg + ['Surgery date'],
+              fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
+
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
     ax.set_title(f'{score_name} stratified by T2w hyperintensity', fontsize=TITLE_FONT_SIZE)
@@ -682,35 +793,62 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
 
 def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
     """
-    Spaghetti + LME trajectories, stratified by therapeutic decision.
+    95% CI band + LME trajectories, stratified by therapeutic decision.
     X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
     Colors: conservative blue, operative orange.
+    Surgery dates marked with 'x' on the operative fitted curve.
     """
     mpl.rcParams['font.family'] = 'Arial'
-    days_smooth = np.linspace(0, 365, 300)
+    days_smooth = np.linspace(XLIM[0], XLIM[1], 300)
     fig, ax = plt.subplots(figsize=(6, 4))
+
     groups = {
-        'conservative': {'color': COLOR_CONSERVATIVE, 'label': 'Conservative'},
-        'operative':    {'color': COLOR_OPERATIVE,    'label': 'Operative (surgery)'},
+        'conservative': {'color': COLOR_CONSERVATIVE, 'label': 'Conservative',
+                         'i_params': [],
+                         's_params': []},
+        'operative':    {'color': COLOR_OPERATIVE,    'label': 'Operative (surgery)',
+                         'i_params': ['C(therapeutic_decision)[T.operative]'],
+                         's_params': ['C(therapeutic_decision)[T.operative]:time_log']},
     }
+
+    log_print(f"\n{score_name} – Model B  (therapeutic decision):", log_file)
     for td, ginfo in groups.items():
         gdf   = df_long[df_long['therapeutic_decision'] == td]
         color = ginfo['color']
         n     = gdf['participant_id'].nunique()
-        _plot_group_spaghetti(ax, gdf, color)
-        if td == 'operative':
-            _plot_surgery_markers(ax, df_long, color='#333333', alpha=0.6)
+        log_print(f"  {ginfo['label']:<25s}: n = {n}", log_file)
+
+        # 95% CI band around the population mean
+        if result is not None:
+            y_lo, y_hi = _compute_prediction_ci(
+                result, days_smooth, ginfo['i_params'], ginfo['s_params'])
+            ax.fill_between(days_smooth, y_lo, y_hi, color=color, alpha=0.15, linewidth=0)
+
+        # LME population mean curve
         p     = result.params if result is not None else None
-        i_adj = _get(p, 'C(therapeutic_decision)[T.operative]')          if (p is not None and td == 'operative') else 0.0
-        s_adj = _get(p, 'C(therapeutic_decision)[T.operative]:time_log')  if (p is not None and td == 'operative') else 0.0
+        i_adj = sum(_get(p, pn) for pn in ginfo['i_params']) if p is not None else 0.0
+        s_adj = sum(_get(p, pn) for pn in ginfo['s_params']) if p is not None else 0.0
         _plot_lme_curve(ax, result, days_smooth, i_adj, s_adj, color, '-', ginfo['label'], n)
-    ax.set_xlim(0, 365)
+
+        # Surgery markers on the operative fitted curve
+        if td == 'operative':
+            surg_df = gdf[gdf['surg_days'].notna()].drop_duplicates('participant_id')
+            _plot_surgery_on_curve(ax, surg_df, result,
+                                   ginfo['i_params'], ginfo['s_params'], color)
+
+    ax.set_xlim(XLIM[0], XLIM[1])
     ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
     ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
         ax.set_ylim(cfg['ylim'])
-    ax.legend(fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
+
+    surg_handle = Line2D([0], [0], color=COLOR_OPERATIVE, marker='x', linestyle='none',
+                         markersize=6, markeredgewidth=1.5, label='Surgery date')
+    handles, labels_leg = ax.get_legend_handles_labels()
+    ax.legend(handles + [surg_handle], labels_leg + ['Surgery date'],
+              fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
+
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
     ax.set_title(f'{score_name} stratified by therapeutic decision', fontsize=TITLE_FONT_SIZE)
@@ -723,50 +861,78 @@ def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
 
 def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
     """
-    Combined model: 4 groups (myelopathy x treatment).
-    X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
+    Combined model: 4 groups (myelopathy × treatment).
+    95% CI band + LME curves.
     Color encodes T2w status; linestyle encodes treatment.
+    Surgery dates marked with 'x' on the operative fitted curves (colored by T2w group).
     """
     mpl.rcParams['font.family'] = 'Arial'
-    days_smooth = np.linspace(0, 365, 300)
-    # (myelopathy, treatment) -> (color, linestyle, display label)
+    days_smooth = np.linspace(XLIM[0], XLIM[1], 300)
+
+    # (myelopathy, treatment) -> (color, linestyle, label, i_params, s_params)
     group_spec = {
-        ('no',  'conservative'): (COLOR_T2W_MINUS, '--', 'T2w− / Conservative'),
-        ('no',  'operative'):    (COLOR_T2W_MINUS, '-',  'T2w− / Operative'),
-        ('yes', 'conservative'): (COLOR_T2W_PLUS,  '--', 'T2w+ / Conservative'),
-        ('yes', 'operative'):    (COLOR_T2W_PLUS,  '-',  'T2w+ / Operative'),
+        ('no',  'conservative'): (COLOR_T2W_MINUS, '--', 'T2w− / Conservative',
+                                  [], []),
+        ('no',  'operative'):    (COLOR_T2W_MINUS, '-',  'T2w− / Operative',
+                                  ['C(therapeutic_decision)[T.operative]'],
+                                  ['C(therapeutic_decision)[T.operative]:time_log']),
+        ('yes', 'conservative'): (COLOR_T2W_PLUS,  '--', 'T2w+ / Conservative',
+                                  ['C(myelopathy)[T.yes]'],
+                                  ['C(myelopathy)[T.yes]:time_log']),
+        ('yes', 'operative'):    (COLOR_T2W_PLUS,  '-',  'T2w+ / Operative',
+                                  ['C(myelopathy)[T.yes]',
+                                   'C(therapeutic_decision)[T.operative]',
+                                   'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]'],
+                                  ['C(myelopathy)[T.yes]:time_log',
+                                   'C(therapeutic_decision)[T.operative]:time_log',
+                                   'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]:time_log']),
     }
+
     fig, ax = plt.subplots(figsize=(6, 4))
-    for (myelo, td), (color, ls, label) in group_spec.items():
+
+    log_print(f"\n{score_name} – Model C  (T2w hyperintensity × therapeutic decision):", log_file)
+    for (myelo, td), (color, ls, label, i_params, s_params) in group_spec.items():
         gdf = df_long[
             (df_long['myelopathy'] == myelo) &
             (df_long['therapeutic_decision'] == td)
         ]
         n = gdf['participant_id'].nunique()
+        log_print(f"  {label:<30s}: n = {n}", log_file)
         if n == 0:
             continue
-        _plot_group_spaghetti(ax, gdf, color, linestyle=ls)
-        if td == 'operative':
-            _plot_surgery_markers(ax, df_long, color=color, alpha=0.6)
+
+        # 95% CI band around the population mean
+        # Conservative (--): dashed boundary lines + very light fill to distinguish
+        # from the overlapping operative solid ribbon of the same T2w color.
         if result is not None:
-            p = result.params
-            i_adj, s_adj = 0.0, 0.0
-            if myelo == 'yes':
-                i_adj += _get(p, 'C(myelopathy)[T.yes]')
-                s_adj += _get(p, 'C(myelopathy)[T.yes]:time_log')
-            if td == 'operative':
-                i_adj += _get(p, 'C(therapeutic_decision)[T.operative]')
-                s_adj += _get(p, 'C(therapeutic_decision)[T.operative]:time_log')
-            if myelo == 'yes' and td == 'operative':
-                i_adj += _get(p, 'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]')
-                s_adj += _get(p, 'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]:time_log')
+            y_lo, y_hi = _compute_prediction_ci(result, days_smooth, i_params, s_params)
+            if ls == '--':
+                print('no ribbon fill for conservative groups to avoid confusion with overlapping operative ribbon of the same color')
+                # ax.fill_between(days_smooth, y_lo, y_hi, color=color, alpha=0.05, linewidth=0)
+                # ax.plot(days_smooth, y_lo, color=color, linestyle='--', linewidth=0.7, alpha=0.45)
+                # ax.plot(days_smooth, y_hi, color=color, linestyle='--', linewidth=0.7, alpha=0.45)
+            else:
+                ax.fill_between(days_smooth, y_lo, y_hi, color=color, alpha=0.15, linewidth=0)
+
+        # LME population mean curve
+        if result is not None:
+            p     = result.params
+            i_adj = sum(_get(p, pn) for pn in i_params)
+            s_adj = sum(_get(p, pn) for pn in s_params)
             _plot_lme_curve(ax, result, days_smooth, i_adj, s_adj, color, ls, label, n)
-    ax.set_xlim(0, 365)
+
+        # Surgery markers on the operative fitted curve, colored by T2w group
+        if td == 'operative':
+            surg_df = gdf[gdf['surg_days'].notna()].drop_duplicates('participant_id')
+            _plot_surgery_on_curve(ax, surg_df, result, i_params, s_params, color)
+
+    ax.set_xlim(XLIM[0], XLIM[1])
     ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
     ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
         ax.set_ylim(cfg['ylim'])
+
     c_handles = [
         Line2D([0], [0], color=COLOR_T2W_MINUS, lw=2, label='T2w−'),
         Line2D([0], [0], color=COLOR_T2W_PLUS,  lw=2, label='T2w+'),
@@ -774,6 +940,8 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
     l_handles = [
         Line2D([0], [0], color='black', lw=2, linestyle='--', label='Conservative'),
         Line2D([0], [0], color='black', lw=2, linestyle='-',  label='Operative'),
+        Line2D([0], [0], color='gray',  marker='x', linestyle='none',
+               markersize=6, markeredgewidth=1.5, label='Surgery date'),
     ]
     leg1 = ax.legend(handles=c_handles, loc='lower left',
                      bbox_to_anchor=(0.01, 0.01), fontsize=TICK_FONT_SIZE,
@@ -782,9 +950,10 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
     ax.legend(handles=l_handles, loc='lower right',
               bbox_to_anchor=(0.99, 0.01), fontsize=TICK_FONT_SIZE,
               frameon=True, framealpha=0.85, title='Treatment')
+
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
-    ax.set_title(f'{score_name} stratified by both T2w hyperintensity and therapeutic decision',
+    ax.set_title(f'{score_name} – stratified by T2w hyperintensity and therapeutic decision',
                  fontsize=TITLE_FONT_SIZE)
     plt.tight_layout()
     fname = os.path.join(outdir, f'lme_log_time_C_combined_{score_name}.png')
