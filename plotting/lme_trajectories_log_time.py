@@ -672,7 +672,7 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
     ax.legend(fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
-    ax.set_title(f'{score_name} – stratified by T2w hyperintensity', fontsize=TITLE_FONT_SIZE)
+    ax.set_title(f'{score_name} stratified by T2w hyperintensity', fontsize=TITLE_FONT_SIZE)
     plt.tight_layout()
     fname = os.path.join(outdir, f'lme_log_time_A_myelopathy_{score_name}.png')
     fig.savefig(fname, dpi=300, bbox_inches='tight')
@@ -713,7 +713,7 @@ def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
     ax.legend(fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
-    ax.set_title(f'{score_name} – stratified by therapeutic decision', fontsize=TITLE_FONT_SIZE)
+    ax.set_title(f'{score_name} stratified by therapeutic decision', fontsize=TITLE_FONT_SIZE)
     plt.tight_layout()
     fname = os.path.join(outdir, f'lme_log_time_B_therapeutic_{score_name}.png')
     fig.savefig(fname, dpi=300, bbox_inches='tight')
@@ -784,7 +784,7 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
               frameon=True, framealpha=0.85, title='Treatment')
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
-    ax.set_title(f'{score_name} – combined model (T2w × therapeutic decision)',
+    ax.set_title(f'{score_name} stratified by both T2w hyperintensity and therapeutic decision',
                  fontsize=TITLE_FONT_SIZE)
     plt.tight_layout()
     fname = os.path.join(outdir, f'lme_log_time_C_combined_{score_name}.png')
