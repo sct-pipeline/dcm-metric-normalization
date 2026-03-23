@@ -647,9 +647,6 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
     Colors: T2w- green, T2w+ red.
     """
     mpl.rcParams['font.family'] = 'Arial'
-    present_labels = [l for l in ['Baseline', '6-month', '12-month']
-                      if l in df_long['time_label'].unique()]
-    max_days    = df_long['time_days'].max()
     days_smooth = np.linspace(0, 365, 300)
     fig, ax = plt.subplots(figsize=(6, 4))
     groups = {
@@ -690,9 +687,6 @@ def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
     Colors: conservative blue, operative orange.
     """
     mpl.rcParams['font.family'] = 'Arial'
-    present_labels = [l for l in ['Baseline', '6-month', '12-month']
-                      if l in df_long['time_label'].unique()]
-    max_days    = df_long['time_days'].max()
     days_smooth = np.linspace(0, 365, 300)
     fig, ax = plt.subplots(figsize=(6, 4))
     groups = {
@@ -734,9 +728,6 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
     Color encodes T2w status; linestyle encodes treatment.
     """
     mpl.rcParams['font.family'] = 'Arial'
-    present_labels = [l for l in ['Baseline', '6-month', '12-month']
-                      if l in df_long['time_label'].unique()]
-    max_days    = df_long['time_days'].max()
     days_smooth = np.linspace(0, 365, 300)
     # (myelopathy, treatment) -> (color, linestyle, display label)
     group_spec = {
