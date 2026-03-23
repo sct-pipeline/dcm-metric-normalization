@@ -130,8 +130,13 @@ def log_time(days):
     """
     Logarithmic time transform: log(days + 1).
     Baseline (day 0) maps to 0; preserves zero-origin.
+    NaN inputs → NaN outputs (no RuntimeWarning).
     """
-    return np.log(np.asarray(days, dtype=float) + 1.0)
+    arr = np.asarray(days, dtype=float)
+    out = np.full_like(arr, np.nan)
+    valid = ~np.isnan(arr)
+    out[valid] = np.log(arr[valid] + 1.0)
+    return out.item() if out.ndim == 0 else out
 
 
 def days_from_log(t_log):
@@ -203,10 +208,22 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce')
 
+    # Diagnostic: show how many subjects have a surgery date at this point
+    # (i.e., after read_clinical_file exclusions but before any further filtering)
     if SURG_COL_BEFORE_6MTH in df.columns:
+        n_with_surg_date = df[SURG_COL_BEFORE_6MTH].notna().sum()
+        print(f"\n── Surgery diagnostic ──────────────────────────────────")
+        print(f"  Subjects entering prepare_data           : {df['participant_id'].nunique()}")
+        print(f"  Non-null {SURG_COL_BEFORE_6MTH}  : {n_with_surg_date}")
+        if 'therapeutic_decision' in df.columns:
+            print(f"  therapeutic_decision=='operative' (from read_clinical_file): "
+                  f"{(df['therapeutic_decision'] == 'operative').sum()}")
         df['therapeutic_decision'] = df[SURG_COL_BEFORE_6MTH].apply(
             lambda x: 'operative' if pd.notna(x) else 'conservative'
         )
+        print(f"  therapeutic_decision=='operative' (re-derived from date col) : "
+              f"{(df['therapeutic_decision'] == 'operative').sum()}")
+        print(f"────────────────────────────────────────────────────────\n")
     else:
         print(f"Warning: {SURG_COL_BEFORE_6MTH} not found; "
               "using existing 'therapeutic_decision' column.")
@@ -309,14 +326,18 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
         df_long = df_long[df_long['participant_id'].isin(vc[vc >= 2].index)].copy()
 
         # descriptive summary
+        n_operative     = df_long[df_long['therapeutic_decision'] == 'operative']['participant_id'].nunique()
+        n_surg_days_ok  = df_long[df_long['surg_days'].notna()]['participant_id'].nunique()
         print(f"\n{score_name}:")
-        print(f"  Participants with ≥2 timepoints : {df_long['participant_id'].nunique()}")
-        print(f"  Total observations              : {len(df_long)}")
-        print(f"  Operative (surgery BL→6mth)     : "
-              f"{(df_long['therapeutic_decision'] == 'operative').sum()} obs")
-        print(f"  T2w+ (myelopathy)               : "
-              f"{(df_long['myelopathy'] == 'yes').sum()} obs")
-        print(f"  Days range (BL→last visit)      : "
+        print(f"  Participants with ≥2 timepoints  : {df_long['participant_id'].nunique()}")
+        print(f"  Total observations               : {len(df_long)}")
+        print(f"  Operative subjects               : {n_operative}  "
+              f"({(df_long['therapeutic_decision'] == 'operative').sum()} obs)")
+        print(f"  Of which surg_days non-null      : {n_surg_days_ok}  "
+              f"(these get surgery markers)")
+        print(f"  T2w+ (myelopathy)                : "
+              f"{df_long[df_long['myelopathy'] == 'yes']['participant_id'].nunique()} subjects")
+        print(f"  Days range (BL→last visit)       : "
               f"{df_long['time_days'].min():.0f}–{df_long['time_days'].max():.0f}")
 
         long_data_dict[score_name] = df_long
@@ -343,10 +364,22 @@ def _build_and_fit(df_model, formula, score_name, log_file=None):
         log_print(f"  ERROR fitting {score_name}: {e}", log_file)
         return None
 
+    # AIC/BIC: statsmodels MixedLM with re_formula sometimes returns NaN for these.
+    # Compute manually: AIC = -2*llf + 2*k;  BIC = -2*llf + k*log(n)
+    # k = number of free parameters (fixed effects + variance components)
+    llf = result.llf
+    k   = len(result.params)         # fixed effects + random-effect variance components
+    n   = len(df_model)              # number of observations
+    aic = -2 * llf + 2 * k
+    bic = -2 * llf + k * np.log(n)
+    aic_str = f"{aic:.2f}" if not np.isnan(result.aic) else f"{aic:.2f} (manual; statsmodels returned NaN)"
+    bic_str = f"{bic:.2f}" if not np.isnan(result.bic) else f"{bic:.2f} (manual; statsmodels returned NaN)"
+
     log_print(f"  Converged : {result.converged}", log_file)
-    log_print(f"  AIC       : {result.aic:.2f}", log_file)
-    log_print(f"  BIC       : {result.bic:.2f}", log_file)
-    log_print(f"  LogLik    : {result.llf:.2f}", log_file)
+    log_print(f"  AIC       : {aic_str}", log_file)
+    log_print(f"  BIC       : {bic_str}", log_file)
+    log_print(f"  LogLik    : {llf:.2f}", log_file)
+    log_print(f"  k (params): {k}   n (obs): {n}", log_file)
     log_print("  Fixed effects:", log_file)
     for param in result.params.index:
         coef = result.params[param]
@@ -358,6 +391,10 @@ def _build_and_fit(df_model, formula, score_name, log_file=None):
             f"    {param:55s}: β={coef:8.4f} ±{se:6.4f}  p={pval:7.4f}{sig:3s}  "
             f"95%CI=[{ci[0]:8.4f}, {ci[1]:8.4f}]", log_file
         )
+
+    # Store manual AIC/BIC on the result object for downstream use
+    result._aic_manual = aic
+    result._bic_manual = bic
     return result
 
 
@@ -386,7 +423,7 @@ def _prep_df(df_long, extra_terms, log_file=None):
     if 'age_c' in df_model.columns and df_model['age_c'].notna().any():
         cov_terms.append('age_c')
     if df_model['sex'].nunique() > 1 and 'unknown' not in df_model['sex'].values:
-        cov_terms.append('C(sex)')
+        cov_terms.append('C(sex, Treatment(reference="M"))')
     if (df_model['maximum_stenosis'].nunique() > 1 and
             'unknown' not in df_model['maximum_stenosis'].values):
         cov_terms.append('C(maximum_stenosis, Treatment(reference="C3/C4"))')
@@ -394,11 +431,12 @@ def _prep_df(df_long, extra_terms, log_file=None):
             'unknown' not in df_model['stenosis'].values):
         cov_terms.append('C(stenosis)')
 
-    all_terms  = list(extra_terms) + cov_terms
-    drop_cols  = ['score', 'time_log', 'myelopathy', 'therapeutic_decision']
-    df_model   = df_model.dropna(subset=drop_cols)
+    drop_cols = ['score', 'time_log', 'myelopathy', 'therapeutic_decision']
+    df_model  = df_model.dropna(subset=drop_cols)
 
-    return df_model, all_terms
+    # Return only the covariate terms (not the interaction/structural terms that
+    # were passed in as extra_terms — those are concatenated by the caller).
+    return df_model, cov_terms
 
 
 def fit_model_A(df_long, score_name, log_file=None):
@@ -457,51 +495,64 @@ def fit_model_C(df_long, score_name, log_file=None):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# X-axis helpers (log-time ↔ display labels)
+# X-axis helpers  (raw-days axis; log-time used only inside the model)
 # ──────────────────────────────────────────────────────────────────────────────
 def build_xticks(df_long, present_labels):
     """
-    Compute x-tick positions (in log-time) and labels for canonical timepoints.
-    Tick position = median log-time per label (robust to date variability).
+    Compute x-tick positions in *raw days* for each canonical timepoint.
+    Tick position = median actual days per label (robust to date variability).
+
+    Returns
+    -------
+    tick_days   : list of float  – positions on the raw-days axis
+    tick_labels : list of str    – human-readable labels
+    med_days    : pd.Series      – median days per time_label (used for error bars)
     """
-    med_log  = df_long.groupby('time_label')['time_log'].median()
-    med_days = df_long.groupby('time_label')['time_days'].median()
-    positions = []
-    labels    = []
+    med_days    = df_long.groupby('time_label')['time_days'].median()
+    tick_days   = []
+    tick_labels = []
     for lbl in present_labels:
-        if lbl not in med_log:
+        if lbl not in med_days:
             continue
-        t_log  = med_log[lbl]
         t_days = med_days[lbl]
-        t_mon  = t_days / 30.4
-        positions.append(t_log)
-        if lbl == 'Baseline':
-            labels.append('Baseline\n(day 0)')
-        else:
-            labels.append(f'{lbl}\n(~{t_mon:.0f} mo / day {t_days:.0f})')
-    return positions, labels, med_log, med_days
+        tick_days.append(t_days)
+        tick_labels.append(f'{int(round(t_days))}')   # plain day number only
+    return tick_days, tick_labels, med_days
 
 
-def add_log_time_xaxis(ax, df_long, present_labels):
-    """Apply log-time x-ticks and a secondary real-time axis annotation."""
-    tick_pos, tick_lbl, med_log, _ = build_xticks(df_long, present_labels)
-    ax.set_xticks(tick_pos)
-    ax.set_xticklabels(tick_lbl, fontsize=TICK_FONT_SIZE)
-    ax.set_xlabel('Time since baseline  [log(days + 1) scale]', fontsize=LABEL_FONT_SIZE)
-
-
-# ──────────────────────────────────────────────────────────────────────────────
-# Predicted trajectory from LME parameters
-# ──────────────────────────────────────────────────────────────────────────────
-def _predict(params, intercept_adj, slope_adj, t_log_arr):
+def setup_days_xaxis(ax, df_long, present_labels):
     """
-    Linear prediction from LME fixed-effect parameters.
-    intercept_adj / slope_adj are group-specific adjustments on top of
-    the reference-group baseline + time_log coefficient.
+    Apply raw-day x-ticks.  X-axis label notes the log transformation was
+    used for fitting only, keeping it transparent for the reader.
+    """
+    tick_days, tick_labels, _ = build_xticks(df_long, present_labels)
+    ax.set_xticks(tick_days)
+    ax.set_xticklabels(tick_labels, fontsize=TICK_FONT_SIZE)
+    ax.set_xlabel('Days from baseline  [log-time model, linear axis]',
+                  fontsize=LABEL_FONT_SIZE)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Prediction helpers
+# ──────────────────────────────────────────────────────────────────────────────
+def _predict_on_days(params, intercept_adj, slope_adj, days_arr):
+    """
+    Population-level prediction on a raw-days array.
+
+    The LME model is linear in log-time:  score = β₀ + β₁·log(days+1)
+    On a raw-days x-axis this produces the characteristic curved shape:
+    rapid early change that decelerates over time.
+
+    Parameters
+    ----------
+    params        : pd.Series  – fixed-effect params from MixedLM result
+    intercept_adj : float      – group-specific intercept adjustment (Δβ₀)
+    slope_adj     : float      – group-specific slope adjustment (Δβ₁)
+    days_arr      : array-like – raw days from baseline (x-axis values)
     """
     β0 = params.get('Intercept', 0) + intercept_adj
     β1 = params.get('time_log', 0)  + slope_adj
-    return β0 + β1 * t_log_arr
+    return β0 + β1 * log_time(np.asarray(days_arr, dtype=float))
 
 
 def _get(params, key, default=0.0):
@@ -511,98 +562,120 @@ def _get(params, key, default=0.0):
 # ──────────────────────────────────────────────────────────────────────────────
 # Surgery event markers
 # ──────────────────────────────────────────────────────────────────────────────
-def _plot_surgery_markers(ax, df_long, color='#555555', alpha=0.5):
+def _plot_surgery_markers(ax, df_long, color='#555555', alpha=0.8):
     """
-    Draw a thin vertical rug tick at each surgical patient's surgery log-time.
-    Only drawn for the 'operative' group and when surg_log is available.
+    Draw a marker directly on each surgical patient's trajectory line at their
+    surgery day, using linear interpolation between the surrounding timepoints.
+
+    Strategy: for each operative patient with a valid surg_days, linearly
+    interpolate their score at surg_days between the two flanking observations,
+    then plot a filled circle at (surg_days, interpolated_score).
     """
-    surgical = df_long[
+    surgical_pids = df_long[
         (df_long['therapeutic_decision'] == 'operative') &
-        df_long['surg_log'].notna()
-    ]
-    plotted_pids = set()
-    for _, row in surgical.iterrows():
-        pid = row['participant_id']
-        if pid in plotted_pids:
+        df_long['surg_days'].notna()
+    ]['participant_id'].unique()
+
+    for pid in surgical_pids:
+        pdata = df_long[df_long['participant_id'] == pid].sort_values('time_days')
+        if len(pdata) < 2:
             continue
-        plotted_pids.add(pid)
-        ax.axvline(
-            x=row['surg_log'],
-            ymin=0.0, ymax=0.04,    # short tick at bottom of axes
-            color=color,
-            alpha=alpha,
-            linewidth=0.8,
-            zorder=2,
-        )
+
+        surg_day = pdata['surg_days'].iloc[0]
+
+        # Skip if surgery falls outside the plotted x range
+        if surg_day <= 0 or surg_day > 365:
+            continue
+
+        days   = pdata['time_days'].values
+        scores = pdata['score'].values
+
+        # Linear interpolation between the two timepoints flanking the surgery day
+        score_at_surg = np.interp(surg_day, days, scores)
+
+        ax.plot(surg_day, score_at_surg,
+                marker='x', markersize=5, markeredgewidth=1.2,
+                color=color, alpha=alpha, zorder=5, linestyle='none')
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Plotting – Model A (myelopathy)
+# Plotting – Models A, B, C  (raw-days x-axis; curved LME lines)
+#
+# Key design:
+#   X-axis    : raw days from baseline  (linear scale, easy to read)
+#   Spaghetti : each patient's (time_days, score) points connected
+#   LME curve : score = b0 + b1*log(days+1) evaluated on dense days_smooth
+#               -> produces a curved (logarithmic) line, not a straight line
+#               -> rapid early change that decelerates over time (cf. Image 2)
+#   Surgery   : 'x' marker on each operative patient's trajectory at surg_days
 # ──────────────────────────────────────────────────────────────────────────────
+def _plot_group_spaghetti(ax, gdf, color, linestyle='-'):
+    """Plot thin individual trajectories on raw-days x-axis."""
+    for pid, pdata in gdf.groupby('participant_id'):
+        pdata_s = pdata.sort_values('time_days')
+        if len(pdata_s) >= 2:
+            ax.plot(pdata_s['time_days'], pdata_s['score'],
+                    color=color, linestyle=linestyle,
+                    alpha=ALPHA_SPAGHETTI, linewidth=LW_SPAGHETTI, zorder=3)
+
+
+def _plot_lme_curve(ax, result, days_smooth, i_adj, s_adj, color, linestyle, label, n):
+    """Plot the LME population-level curve on raw-days x-axis (curved, not straight)."""
+    if result is None:
+        return
+    p     = result.params
+    y_hat = _predict_on_days(p, i_adj, s_adj, days_smooth)
+    ax.plot(days_smooth, y_hat,
+            color=color, linestyle=linestyle, linewidth=LW_LME,
+            label=f'{label} (n={n})', zorder=6)
+
+
+def _plot_obs_errorbars(ax, gdf, present_labels, tick_days, color):
+    """Plot observed mean +/- SD at each canonical timepoint (raw-day position)."""
+    for lbl, t_day in zip(present_labels, tick_days):
+        obs = gdf[gdf['time_label'] == lbl]['score']
+        if len(obs) > 0:
+            ax.errorbar(t_day, obs.mean(), yerr=obs.std(),
+                        fmt='o', color=color, markersize=MARKER_SIZE,
+                        capsize=3, capthick=1.2, linewidth=1.2, zorder=7)
+
+
 def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
     """
     Spaghetti + LME-fitted trajectories, stratified by T2w hyperintensity.
+    X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
     Colors: T2w- green, T2w+ red.
     """
     mpl.rcParams['font.family'] = 'Arial'
-
     present_labels = [l for l in ['Baseline', '6-month', '12-month']
                       if l in df_long['time_label'].unique()]
-    tick_pos, tick_lbl, med_log, _ = build_xticks(df_long, present_labels)
-
-    t_smooth = np.linspace(0, df_long['time_log'].max() * 1.05, 300)
-
+    max_days    = df_long['time_days'].max()
+    days_smooth = np.linspace(0, 365, 300)
     fig, ax = plt.subplots(figsize=(6, 4))
-
     groups = {
         'no':  {'color': COLOR_T2W_MINUS, 'label': 'T2w−'},
         'yes': {'color': COLOR_T2W_PLUS,  'label': 'T2w+'},
     }
-
     for myelo, ginfo in groups.items():
         gdf   = df_long[df_long['myelopathy'] == myelo]
         color = ginfo['color']
         n     = gdf['participant_id'].nunique()
-
-        # individual spaghetti
-        for pid, pdata in gdf.groupby('participant_id'):
-            pdata_s = pdata.sort_values('time_log')
-            if len(pdata_s) >= 2:
-                ax.plot(pdata_s['time_log'], pdata_s['score'],
-                        color=color, alpha=ALPHA_SPAGHETTI,
-                        linewidth=LW_SPAGHETTI, zorder=3)
-
-        # surgery markers (only where relevant)
-        _plot_surgery_markers(ax, gdf, color=color, alpha=0.6)
-
-        # LME predicted trajectory
-        if result is not None:
-            p = result.params
-            i_adj = _get(p, 'C(myelopathy)[T.yes]') if myelo == 'yes' else 0.0
-            s_adj = _get(p, 'C(myelopathy)[T.yes]:time_log') if myelo == 'yes' else 0.0
-            y_hat = _predict(p, i_adj, s_adj, t_smooth)
-            ax.plot(t_smooth, y_hat,
-                    color=color, linewidth=LW_LME,
-                    label=f'{ginfo["label"]} (n={n})', zorder=6)
-
-        # observed mean ± SD at each canonical timepoint
-        for t_pos in tick_pos:
-            obs = gdf[np.isclose(gdf['time_log'], t_pos, atol=0.3)]['score']
-            if len(obs) > 0:
-                ax.errorbar(t_pos, obs.mean(), yerr=obs.std(),
-                            fmt='o', color=color, markersize=MARKER_SIZE,
-                            capsize=3, capthick=1.2, linewidth=1.2, zorder=7)
-
-    add_log_time_xaxis(ax, df_long, present_labels)
+        _plot_group_spaghetti(ax, gdf, color)
+        _plot_surgery_markers(ax, df_long, color=color, alpha=0.6)
+        p     = result.params if result is not None else None
+        i_adj = _get(p, 'C(myelopathy)[T.yes]')          if (p is not None and myelo == 'yes') else 0.0
+        s_adj = _get(p, 'C(myelopathy)[T.yes]:time_log')  if (p is not None and myelo == 'yes') else 0.0
+        _plot_lme_curve(ax, result, days_smooth, i_adj, s_adj, color, '-', ginfo['label'], n)
+    ax.set_xlim(0, 365)
+    ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
+    ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
         ax.set_ylim(cfg['ylim'])
-
     ax.legend(fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
     ax.set_title(f'{score_name} – stratified by T2w hyperintensity', fontsize=TITLE_FONT_SIZE)
-
     plt.tight_layout()
     fname = os.path.join(outdir, f'lme_log_time_A_myelopathy_{score_name}.png')
     fig.savefig(fname, dpi=300, bbox_inches='tight')
@@ -610,74 +683,43 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
     log_print(f"Saved: {fname}", log_file)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Plotting – Model B (therapeutic decision)
-# ──────────────────────────────────────────────────────────────────────────────
 def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
     """
     Spaghetti + LME trajectories, stratified by therapeutic decision.
+    X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
     Colors: conservative blue, operative orange.
     """
     mpl.rcParams['font.family'] = 'Arial'
-
     present_labels = [l for l in ['Baseline', '6-month', '12-month']
                       if l in df_long['time_label'].unique()]
-    tick_pos, tick_lbl, med_log, _ = build_xticks(df_long, present_labels)
-
-    t_smooth = np.linspace(0, df_long['time_log'].max() * 1.05, 300)
-
+    max_days    = df_long['time_days'].max()
+    days_smooth = np.linspace(0, 365, 300)
     fig, ax = plt.subplots(figsize=(6, 4))
-
     groups = {
         'conservative': {'color': COLOR_CONSERVATIVE, 'label': 'Conservative'},
         'operative':    {'color': COLOR_OPERATIVE,    'label': 'Operative (surgery)'},
     }
-
     for td, ginfo in groups.items():
         gdf   = df_long[df_long['therapeutic_decision'] == td]
         color = ginfo['color']
         n     = gdf['participant_id'].nunique()
-
-        # spaghetti
-        for pid, pdata in gdf.groupby('participant_id'):
-            pdata_s = pdata.sort_values('time_log')
-            if len(pdata_s) >= 2:
-                ax.plot(pdata_s['time_log'], pdata_s['score'],
-                        color=color, alpha=ALPHA_SPAGHETTI,
-                        linewidth=LW_SPAGHETTI, zorder=3)
-
-        # surgery markers (operative group only)
+        _plot_group_spaghetti(ax, gdf, color)
         if td == 'operative':
-            _plot_surgery_markers(ax, gdf, color='#333333', alpha=0.5)
-
-        # LME predicted
-        if result is not None:
-            p     = result.params
-            i_adj = _get(p, 'C(therapeutic_decision)[T.operative]') if td == 'operative' else 0.0
-            s_adj = _get(p, 'C(therapeutic_decision)[T.operative]:time_log') if td == 'operative' else 0.0
-            y_hat = _predict(p, i_adj, s_adj, t_smooth)
-            ax.plot(t_smooth, y_hat,
-                    color=color, linewidth=LW_LME,
-                    label=f'{ginfo["label"]} (n={n})', zorder=6)
-
-        # observed mean ± SD
-        for t_pos in tick_pos:
-            obs = gdf[np.isclose(gdf['time_log'], t_pos, atol=0.3)]['score']
-            if len(obs) > 0:
-                ax.errorbar(t_pos, obs.mean(), yerr=obs.std(),
-                            fmt='o', color=color, markersize=MARKER_SIZE,
-                            capsize=3, capthick=1.2, linewidth=1.2, zorder=7)
-
-    add_log_time_xaxis(ax, df_long, present_labels)
+            _plot_surgery_markers(ax, df_long, color='#333333', alpha=0.6)
+        p     = result.params if result is not None else None
+        i_adj = _get(p, 'C(therapeutic_decision)[T.operative]')          if (p is not None and td == 'operative') else 0.0
+        s_adj = _get(p, 'C(therapeutic_decision)[T.operative]:time_log')  if (p is not None and td == 'operative') else 0.0
+        _plot_lme_curve(ax, result, days_smooth, i_adj, s_adj, color, '-', ginfo['label'], n)
+    ax.set_xlim(0, 365)
+    ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
+    ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
         ax.set_ylim(cfg['ylim'])
-
     ax.legend(fontsize=TICK_FONT_SIZE, frameon=True, framealpha=0.85)
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
     ax.set_title(f'{score_name} – stratified by therapeutic decision', fontsize=TITLE_FONT_SIZE)
-
     plt.tight_layout()
     fname = os.path.join(outdir, f'lme_log_time_B_therapeutic_{score_name}.png')
     fig.savefig(fname, dpi=300, bbox_inches='tight')
@@ -685,32 +727,25 @@ def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
     log_print(f"Saved: {fname}", log_file)
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Plotting – Model C (combined, 4-group)
-# ──────────────────────────────────────────────────────────────────────────────
 def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
     """
-    Combined model: 4 groups (myelopathy × treatment).
+    Combined model: 4 groups (myelopathy x treatment).
+    X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
     Color encodes T2w status; linestyle encodes treatment.
     """
     mpl.rcParams['font.family'] = 'Arial'
-
     present_labels = [l for l in ['Baseline', '6-month', '12-month']
                       if l in df_long['time_label'].unique()]
-    tick_pos, tick_lbl, med_log, _ = build_xticks(df_long, present_labels)
-
-    t_smooth = np.linspace(0, df_long['time_log'].max() * 1.05, 300)
-
-    # group spec: (myelopathy, treatment) → color, linestyle
+    max_days    = df_long['time_days'].max()
+    days_smooth = np.linspace(0, 365, 300)
+    # (myelopathy, treatment) -> (color, linestyle, display label)
     group_spec = {
         ('no',  'conservative'): (COLOR_T2W_MINUS, '--', 'T2w− / Conservative'),
         ('no',  'operative'):    (COLOR_T2W_MINUS, '-',  'T2w− / Operative'),
         ('yes', 'conservative'): (COLOR_T2W_PLUS,  '--', 'T2w+ / Conservative'),
         ('yes', 'operative'):    (COLOR_T2W_PLUS,  '-',  'T2w+ / Operative'),
     }
-
     fig, ax = plt.subplots(figsize=(7, 4.5))
-
     for (myelo, td), (color, ls, label) in group_spec.items():
         gdf = df_long[
             (df_long['myelopathy'] == myelo) &
@@ -719,59 +754,28 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
         n = gdf['participant_id'].nunique()
         if n == 0:
             continue
-
-        # spaghetti
-        for pid, pdata in gdf.groupby('participant_id'):
-            pdata_s = pdata.sort_values('time_log')
-            if len(pdata_s) >= 2:
-                ax.plot(pdata_s['time_log'], pdata_s['score'],
-                        color=color, linestyle=ls,
-                        alpha=ALPHA_SPAGHETTI, linewidth=LW_SPAGHETTI, zorder=3)
-
-        # surgery event markers
+        _plot_group_spaghetti(ax, gdf, color, linestyle=ls)
         if td == 'operative':
-            _plot_surgery_markers(ax, gdf, color=color, alpha=0.7)
-
-        # LME prediction (3-way model)
+            _plot_surgery_markers(ax, df_long, color=color, alpha=0.6)
         if result is not None:
             p = result.params
-            # intercept adjustments
-            i_adj = 0.0
+            i_adj, s_adj = 0.0, 0.0
             if myelo == 'yes':
                 i_adj += _get(p, 'C(myelopathy)[T.yes]')
-            if td == 'operative':
-                i_adj += _get(p, 'C(therapeutic_decision)[T.operative]')
-            if myelo == 'yes' and td == 'operative':
-                i_adj += _get(p, 'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]')
-
-            # slope adjustments
-            s_adj = 0.0
-            if myelo == 'yes':
                 s_adj += _get(p, 'C(myelopathy)[T.yes]:time_log')
             if td == 'operative':
+                i_adj += _get(p, 'C(therapeutic_decision)[T.operative]')
                 s_adj += _get(p, 'C(therapeutic_decision)[T.operative]:time_log')
             if myelo == 'yes' and td == 'operative':
+                i_adj += _get(p, 'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]')
                 s_adj += _get(p, 'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]:time_log')
-
-            y_hat = _predict(p, i_adj, s_adj, t_smooth)
-            ax.plot(t_smooth, y_hat,
-                    color=color, linestyle=ls, linewidth=LW_LME,
-                    label=f'{label} (n={n})', zorder=6)
-
-        # observed mean ± SD at canonical timepoints
-        for t_pos in tick_pos:
-            obs = gdf[np.isclose(gdf['time_log'], t_pos, atol=0.3)]['score']
-            if len(obs) > 0:
-                ax.errorbar(t_pos, obs.mean(), yerr=obs.std(),
-                            fmt='o', color=color, markersize=MARKER_SIZE,
-                            capsize=3, capthick=1.2, linewidth=1.2, zorder=7)
-
-    add_log_time_xaxis(ax, df_long, present_labels)
+            _plot_lme_curve(ax, result, days_smooth, i_adj, s_adj, color, ls, label, n)
+    ax.set_xlim(0, 365)
+    ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
+    ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
         ax.set_ylim(cfg['ylim'])
-
-    # Two-part legend: color legend (T2w) + linestyle legend (treatment)
     c_handles = [
         Line2D([0], [0], color=COLOR_T2W_MINUS, lw=2, label='T2w−'),
         Line2D([0], [0], color=COLOR_T2W_PLUS,  lw=2, label='T2w+'),
@@ -787,12 +791,10 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
     ax.legend(handles=l_handles, loc='lower right',
               bbox_to_anchor=(0.99, 0.01), fontsize=TICK_FONT_SIZE,
               frameon=True, framealpha=0.85, title='Treatment')
-
     ax.spines[['top', 'right']].set_visible(False)
     ax.tick_params(labelsize=TICK_FONT_SIZE)
     ax.set_title(f'{score_name} – combined model (T2w × therapeutic decision)',
                  fontsize=TITLE_FONT_SIZE)
-
     plt.tight_layout()
     fname = os.path.join(outdir, f'lme_log_time_C_combined_{score_name}.png')
     fig.savefig(fname, dpi=300, bbox_inches='tight')
@@ -812,6 +814,8 @@ def save_results_csv(results_dict, outdir):
     for (score, model_lbl), res in results_dict.items():
         if res is None:
             continue
+        aic = getattr(res, '_aic_manual', res.aic)
+        bic = getattr(res, '_bic_manual', res.bic)
         for param in res.params.index:
             rows.append({
                 'score':       score,
@@ -823,8 +827,8 @@ def save_results_csv(results_dict, outdir):
                 'p_value':     res.pvalues[param],
                 'ci_lower':    res.conf_int().loc[param, 0],
                 'ci_upper':    res.conf_int().loc[param, 1],
-                'aic':         res.aic,
-                'bic':         res.bic,
+                'aic':         aic,
+                'bic':         bic,
                 'log_lik':     res.llf,
                 'converged':   res.converged,
             })
