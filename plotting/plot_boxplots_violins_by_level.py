@@ -267,6 +267,10 @@ def create_scatterplot_figure(df, metric, output_dir):
     Create a strip/scatter plot showing individual subject data points across
     vertebral levels, colour-coded by timepoint.
 
+    Outliers are detected independently for each (Level, timepoint) group using
+    the IQR rule: values < Q1 - 1.5*IQR or > Q3 + 1.5*IQR. Their `subject` IDs
+    are annotated on the plot.
+
     Using a strip plot (jittered scatter) makes subject availability per
     timepoint visible: fewer dots = fewer subjects at that tp.
 
@@ -315,13 +319,70 @@ def create_scatterplot_figure(df, metric, output_dir):
                     markersize=6, markeredgecolor='black',
                     markeredgewidth=0.8, zorder=5)
 
+    # Detect outliers per (Level, timepoint) and annotate subject IDs
+    outlier_count = 0
+    for i, level in enumerate(LEVEL_ORDER):
+        for j, tp in enumerate(timepoints):
+            group_df = df[(df['Level'] == level) & (df['timepoint'] == tp)].copy()
+            group_df = group_df.dropna(subset=[metric])
+            if group_df.empty:
+                continue
+
+            # Need at least 4 samples to compute a meaningful IQR fence
+            if len(group_df) < 4:
+                continue
+
+            q1 = group_df[metric].quantile(0.25)
+            q3 = group_df[metric].quantile(0.75)
+            iqr = q3 - q1
+            lower_fence = q1 - 1.5 * iqr
+            upper_fence = q3 + 1.5 * iqr
+
+            outliers_df = group_df[(group_df[metric] < lower_fence) | (group_df[metric] > upper_fence)]
+            if outliers_df.empty:
+                continue
+
+            n_tp = len(timepoints)
+            width = 0.8
+            step = width / n_tp
+            x_pos = i - width / 2 + step / 2 + j * step
+
+            # Highlight outlier markers
+            ax.scatter(
+                np.full(len(outliers_df), x_pos),
+                outliers_df[metric].values,
+                facecolors='none',
+                edgecolors='red',
+                s=65,
+                linewidths=1.2,
+                zorder=6,
+                label='Outlier' if outlier_count == 0 else None,
+            )
+
+            # Annotate subject IDs
+            for _, row in outliers_df.iterrows():
+                subject_id = row.get('subject', None)
+                if pd.isna(subject_id) or subject_id is None:
+                    subject_id = 'NA'
+
+                ax.annotate(
+                    str(subject_id),
+                    xy=(x_pos, row[metric]),
+                    xytext=(4, 4),
+                    textcoords='offset points',
+                    fontsize=8,
+                    color='darkred',
+                    zorder=7,
+                )
+                outlier_count += 1
+
     # Formatting
     metric_name = METRIC_NAMES.get(metric, metric)
     ax.set_xlabel('Vertebral Level', fontsize=LABEL_FONT_SIZE, fontweight='bold')
     ax.set_ylabel(metric_name, fontsize=LABEL_FONT_SIZE, fontweight='bold')
     ax.set_title(
         f'Scatter Plot: {metric_name} by Vertebral Level and Timepoint\n'
-        f'(dots = subjects, ◆ = mean)',
+        f'(dots = subjects, ◆ = mean, red circles = outliers with subject IDs)',
         fontsize=TITLE_FONT_SIZE, fontweight='bold'
     )
 
@@ -332,10 +393,11 @@ def create_scatterplot_figure(df, metric, output_dir):
 
     plt.tight_layout()
 
-    filename = f'scatterplot_{metric.replace("(", "").replace(")", "").replace(" ", "_")}.png'
+    filename = f'scatterplot_{metric.replace("(", "").replace(")", "").replace(" ", "_")}_withoutlierID.png'
     filepath = os.path.join(output_dir, filename)
     plt.savefig(filepath, dpi=300, bbox_inches='tight')
     print(f"Saved: {filepath}")
+    print(f"Outliers annotated for {metric}: {outlier_count}")
     plt.close()
 
 
