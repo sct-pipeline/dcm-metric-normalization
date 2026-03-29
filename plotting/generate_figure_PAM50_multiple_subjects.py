@@ -29,6 +29,7 @@ import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import statsmodels.formula.api as smf
+from scipy.stats import mannwhitneyu
 
 from utils import (read_clinical_file, read_morphometrics_file, read_exclude_file_and_exclude_subjects,
                    drop_highest_stenosis,
@@ -97,6 +98,13 @@ NORMATIVE_C2_COLORS = {
     'Below normative mean C2 cord area': '#d62728',      # red
 }
 
+# Color mapping for three-group comparison: DCM T2w+, DCM T2w-, HC
+HC_COMPARISON_COLORS = {
+    'DCM T2w+': '#d62728',   # red
+    'DCM T2w-': '#2ca02c',   # green
+    'HC': '#7f7f7f',        # gray
+}
+
 THERAPEUTIC_DECISION_COLORS = {
     'operative': '#d62728',         # red
     'conservative': '#2ca02c',      # green
@@ -161,9 +169,14 @@ def get_parser():
                         help="Excel file with clinical scores (must contain 'total_mjoa_BL' column) and demographic data")
     parser.add_argument('-ascor-file', required=False, type=str,
                         help="CSV file with aSCOR metrics (for longitudinal analysis as covariate)")
+    parser.add_argument('-path-HC-spinegeneric', required=False, type=str,
+                        default='$HOME/code/PAM50-normalized-metrics',
+                        help="Base path to spine-generic multi-subject HC data "
+                             "(expects <base>/<structure>/spine-generic_multi-subject/*.csv). "
+                             "Used for myelopathy_with_hc stratification.")
     parser.add_argument('-stratify', required=False, type=str, default=None,
                         choices=['mcl', 'highest_stenosis', 'num_of_stenosis', 'single_vs_multi_stenosis', 'num_of_stenosis_including_C2C3', 'myelopathy',
-                                 'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
+                                 'myelopathy_with_hc', 'mjoa', 'therapeutic_decision', 'age', 'sex', 'normative_mean_c2', 'None'],
                         help="Stratification method:"
                              "'mcl' for Maximum Compression Level; "
                              "'highest_stenosis' for the highest stenosis level; "
@@ -800,7 +813,43 @@ def _save_mjoa_compression_table_formatted(table_df, output_csv_path):
         f.write('\n\n'); block4.to_csv(f, index=False)
     print(f"Publication-ready mJOA table (with percentages) saved: {output_csv_path}")
 
-def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, stratify_type=None):
+def load_hc_spinegeneric_perlevel(base_path, structure, vert_levels):
+    """
+    Load HC normative data from spine-generic multi-subject directory and aggregate per vertebral level.
+    :param base_path: base directory (e.g., ~/code/PAM50-normalized-metrics)
+    :param structure: 'spinal_cord' or 'canal'
+    :param vert_levels: list of vertebral levels to keep (e.g., [3])
+    :return: dataframe with per-participant per-level mean metrics, with 'group' = 'HC'
+    """
+    sg_dir = os.path.join(os.path.expanduser(base_path), structure, 'spine-generic_multi-subject')
+    df = pd.DataFrame()
+    for file in os.listdir(sg_dir):
+        if 'PAM50.csv' in file:
+            df_subj = pd.read_csv(os.path.join(sg_dir, file), dtype=METRICS_DTYPE)
+            df = pd.concat([df, df_subj], axis=0, ignore_index=True)
+    df.insert(0, 'participant_id', df['Filename'].str.split('/').str[0])
+    df = df[df['VertLevel'].isin(vert_levels)]
+    df = df.dropna(axis=1, how='all')
+    # Compute derived metrics
+    if structure in ['spinal_cord', 'canal']:
+        df['MEAN(compression_ratio)'] = df['MEAN(diameter_AP)'] / df['MEAN(diameter_RL)']
+        df['MEAN(solidity)'] = df['MEAN(solidity)'] * 100
+    # Aggregate per subject per level (mean across slices)
+    metrics_to_agg = [m for m in ['MEAN(area)', 'MEAN(diameter_AP)', 'MEAN(diameter_RL)',
+                                   'MEAN(compression_ratio)', 'MEAN(eccentricity)', 'MEAN(solidity)']
+                      if m in df.columns]
+    grouped = df.groupby(['participant_id', 'VertLevel'])[metrics_to_agg].mean().reset_index()
+    grouped['group'] = 'HC'
+    # Merge sex and age from participants.tsv
+    participants_tsv = os.path.join(sg_dir, 'participants.tsv')
+    if os.path.isfile(participants_tsv):
+        df_participants = pd.read_csv(participants_tsv, sep='\t')
+        grouped = grouped.merge(df_participants[['participant_id', 'sex', 'age']], on='participant_id', how='left')
+    print(f"Loaded HC spine-generic data: {grouped['participant_id'].nunique()} subjects, levels: {sorted(grouped['VertLevel'].unique())}")
+    return grouped
+
+
+def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, stratify_type=None, df_hc_perlevel=None):
     """
     Create figure with mean and std of morphometric metrics across subjects, separately for multiple sessions
     :param subjects_df: pandas dataframe with morphometric metrics across multiple subjects
@@ -808,6 +857,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
     :param sessions_to_process: list of sessions to process (e.g., ['ses-M0', 'ses-M3'])
     :param figure_path: path to save figure
     :param stratify_type: type of stratification ('mcl', 'myelopathy', 'therapeutic_decision', 'mjoa') or None
+    :param df_hc_perlevel: per-level HC data for myelopathy_with_hc stratification (output of load_hc_spinegeneric_perlevel)
     """
     mpl.rcParams['font.family'] = 'Arial'
 
@@ -835,7 +885,7 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             # 'MEAN(solidity)'
         ]
         # 2xN grid (N=len(METRICS))
-        fig, axs = plt.subplots(2, int(len(METRICS)), figsize=(int(len(METRICS)) * 4, 10))
+        fig, axs = plt.subplots(2, int(len(METRICS)), figsize=(int(len(METRICS)) * 4.5, 10))
         if len(METRICS) == 1:
             top_axes = [axs[0]]
             bottom_axes = [axs[1]]
@@ -925,6 +975,22 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                     sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
                                 linewidth=4, color=MYELOPATHY_COLORS[myelopathy],
                                 label=f"T2w- (n={myelopathy_n_subjects})" if myelopathy == 'no' else f"T2w+ (n={myelopathy_n_subjects})")
+        elif stratify_type == 'myelopathy_with_hc':
+            # Plot HC normative line first
+            if metric in df_normative_data.columns:
+                n_hc = len(df_normative_data['participant_id'].unique())
+                sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=df_normative_data, errorbar='sd',
+                            linewidth=4, color=HC_COMPARISON_COLORS['HC'],
+                            label=f'HC (n={n_hc})')
+            # Then DCM T2w- and T2+
+            for myelopathy, group_label in [('no', 'DCM T2w-'), ('yes', 'DCM T2w+')]:
+                myelopathy_data = subjects_df[subjects_df['Myelopathy'] == myelopathy]
+                if len(myelopathy_data) > 0:
+                    n_subj = len(myelopathy_data['participant_id'].unique())
+                    print(f"Myelopathy group '{myelopathy}': {n_subj} subjects") if metric == 'MEAN(area)' else None
+                    sns.lineplot(ax=ax, x="Slice (I->S)", y=metric, data=myelopathy_data, errorbar='sd',
+                                linewidth=4, color=HC_COMPARISON_COLORS[group_label],
+                                label=f'{group_label} (n={n_subj})')
         elif stratify_type == 'therapeutic_decision':
             # Plot by Therapeutic Decision groups instead of sessions
             decision_groups = subjects_df['therapeutic_decision'].unique()
@@ -1100,6 +1166,20 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             hue = 'Myelopathy'
             hue_order = [h for h in ['no', 'yes'] if h in grouped[hue].unique()]
             palette = {k: v for k, v in MYELOPATHY_COLORS.items() if k in hue_order}
+        elif stratify_type == 'myelopathy_with_hc' and 'Myelopathy' in grouped.columns:
+            # Add group column to DCM data (T2w+ / T2w-)
+            grouped['group'] = grouped['Myelopathy'].map({'yes': 'DCM T2w+', 'no': 'DCM T2w-'})
+            # Append HC per-level data; HC rows get NaN for clinical columns not present in hc_subset
+            if df_hc_perlevel is not None and metric in df_hc_perlevel.columns:
+                hc_subset = df_hc_perlevel[df_hc_perlevel['VertLevel'].isin(level_order_nums)].copy()
+                hc_subset['Level'] = pd.Categorical(
+                    [f'C{int(v)}' for v in hc_subset['VertLevel']],
+                    categories=level_order_labels, ordered=True)
+                # Retain all DCM columns so covariates (sex, age) remain available for DCM-only OLS
+                grouped = pd.concat([grouped, hc_subset], ignore_index=True)
+            hue = 'group'
+            hue_order = [h for h in ['HC', 'DCM T2w-', 'DCM T2w+'] if h in grouped['group'].unique()]
+            palette = {k: v for k, v in HC_COMPARISON_COLORS.items() if k in hue_order}
         elif stratify_type == 'therapeutic_decision' and 'therapeutic_decision' in grouped.columns:
             hue = 'therapeutic_decision'
             hue_order = [h for h in ['conservative', 'operative'] if h in grouped[hue].unique()]
@@ -1147,7 +1227,160 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
             unique_groups = [g for g in unique_groups if g in grouped[hue].dropna().unique().tolist()]
             tick_labels = [t.get_text() for t in ax_violin.get_xticklabels()]
             tick_pos_map = dict(zip(tick_labels, ax_violin.get_xticks()))
-            if len(unique_groups) == 2:
+
+            if stratify_type == 'myelopathy_with_hc' and hue == 'group':
+                # Three pairwise OLS tests, all uncorrected (p < 0.05):
+                #   DCM T2w- vs DCM T2w+: OLS controlling for sex, MCL, mJOA, age (consistent with -stratify myelopathy)
+                #   HC vs DCM T2w-      : OLS controlling for sex, age
+                #   HC vs DCM T2w+      : OLS controlling for sex, age
+                n_groups = len(hue_order)
+                group_width = 0.8 / n_groups
+                group_pos_idx = {g: i for i, g in enumerate(hue_order)}
+                ymin, ymax = ax_violin.get_ylim()
+                yrange = ymax - ymin if ymax > ymin else 1.0
+
+                for lvl_label in level_order_labels:
+                    tick_x = tick_pos_map.get(lvl_label, None)
+                    if tick_x is None:
+                        continue
+                    pvals = {}       # (g1, g2) -> raw p
+                    comp_results = []  # list of dicts for formatted summary
+
+                    # --- DCM T2w- vs DCM T2w+: OLS with covariates (mirrors binary myelopathy case) ---
+                    dcm_df = grouped[grouped['group'].isin(['DCM T2w-', 'DCM T2w+']) &
+                                     (grouped['Level'] == lvl_label)].copy()
+                    dcm_df['grp'] = (dcm_df['group'] == 'DCM T2w+').astype(int)
+                    cov_terms = []
+                    if 'sex' in dcm_df.columns:
+                        cov_terms.append('C(sex)')
+                    if 'MCL' in dcm_df.columns:
+                        cov_terms.append('C(MCL)')
+                    if 'mJOA_severity_bl' in dcm_df.columns:
+                        cov_terms.append('C(mJOA_severity_bl)')
+                    if 'age' in dcm_df.columns:
+                        dcm_df['age_c'] = pd.to_numeric(dcm_df['age'], errors='coerce')
+                        dcm_df['age_c'] -= dcm_df['age_c'].mean()
+                        cov_terms.append('age_c')
+                    needed = ['grp', metric] + [ct.split('(')[-1].rstrip(')') if ct.startswith('C(') else ct
+                                                for ct in cov_terms]
+                    df_model = dcm_df.dropna(subset=needed).copy().rename(columns={metric: 'metric_value'})
+                    formula = 'metric_value ~ grp' + (' + ' + ' + '.join(cov_terms) if cov_terms else '')
+                    n_t2neg = int((df_model['grp'] == 0).sum())
+                    n_t2pos = int((df_model['grp'] == 1).sum())
+                    if n_t2neg >= 3 and n_t2pos >= 3:
+                        try:
+                            res = smf.ols(formula, data=df_model).fit(cov_type='HC3')
+                            p = float(res.pvalues.get('grp', np.nan))
+                            b = res.params['grp']
+                            ci_low, ci_high = res.conf_int().loc['grp']
+                            sd_grp = df_model['grp'].std()
+                            sd_y = df_model['metric_value'].std()
+                            b_std = b * (sd_grp / sd_y)
+                            ci_low_std = ci_low * (sd_grp / sd_y)
+                            ci_high_std = ci_high * (sd_grp / sd_y)
+                            pvals[('DCM T2w-', 'DCM T2w+')] = p
+                            cov_readable = [c.replace('C(', '').replace(')', '').replace('_bl', '').replace('_', ' ')
+                                            for c in cov_terms]
+                            comp_results.append({
+                                'comparison': 'DCM T2w- vs DCM T2w+',
+                                'g1': f'DCM T2w- (n={n_t2neg})', 'g2': f'DCM T2w+ (n={n_t2pos})',
+                                'covariates': ', '.join(cov_readable) if cov_readable else 'none',
+                                'formula': formula,
+                                'p': p, 'b_std': b_std,
+                                'ci_low_std': ci_low_std, 'ci_high_std': ci_high_std,
+                            })
+                        except Exception:
+                            pass
+
+                    # --- HC vs DCM T2w- and HC vs DCM T2w+: OLS controlling for sex and age ---
+                    for dcm_label in ['DCM T2w-', 'DCM T2w+']:
+                        hc_dcm_df = grouped[grouped['group'].isin(['HC', dcm_label]) &
+                                            (grouped['Level'] == lvl_label)].copy()
+                        hc_dcm_df['grp'] = (hc_dcm_df['group'] == dcm_label).astype(int)
+                        hc_cov_terms = []
+                        if 'sex' in hc_dcm_df.columns:
+                            hc_cov_terms.append('C(sex)')
+                        if 'age' in hc_dcm_df.columns:
+                            hc_dcm_df['age_c'] = pd.to_numeric(hc_dcm_df['age'], errors='coerce')
+                            hc_dcm_df['age_c'] -= hc_dcm_df['age_c'].mean()
+                            hc_cov_terms.append('age_c')
+                        hc_needed = ['grp', metric] + [ct.split('(')[-1].rstrip(')') if ct.startswith('C(') else ct
+                                                        for ct in hc_cov_terms]
+                        hc_model = hc_dcm_df.dropna(subset=hc_needed).copy().rename(columns={metric: 'metric_value'})
+                        hc_formula = 'metric_value ~ grp' + (' + ' + ' + '.join(hc_cov_terms) if hc_cov_terms else '')
+                        n_hc = int((hc_model['grp'] == 0).sum())
+                        n_dcm = int((hc_model['grp'] == 1).sum())
+                        if n_hc >= 3 and n_dcm >= 3:
+                            try:
+                                hc_res = smf.ols(hc_formula, data=hc_model).fit(cov_type='HC3')
+                                p = float(hc_res.pvalues.get('grp', np.nan))
+                                b = hc_res.params['grp']
+                                ci_low, ci_high = hc_res.conf_int().loc['grp']
+                                sd_grp = hc_model['grp'].std()
+                                sd_y = hc_model['metric_value'].std()
+                                b_std = b * (sd_grp / sd_y)
+                                ci_low_std = ci_low * (sd_grp / sd_y)
+                                ci_high_std = ci_high * (sd_grp / sd_y)
+                                pvals[('HC', dcm_label)] = p
+                                hc_cov_readable = [c.replace('C(', '').replace(')', '').replace('_', ' ')
+                                                   for c in hc_cov_terms]
+                                comp_results.append({
+                                    'comparison': f'HC vs {dcm_label}',
+                                    'g1': f'HC (n={n_hc})', 'g2': f'{dcm_label} (n={n_dcm})',
+                                    'covariates': ', '.join(hc_cov_readable) if hc_cov_readable else 'none',
+                                    'formula': hc_formula,
+                                    'p': p, 'b_std': b_std,
+                                    'ci_low_std': ci_low_std, 'ci_high_std': ci_high_std,
+                                })
+                            except Exception:
+                                pass
+
+                    # Print formatted summary
+                    if comp_results:
+                        metric_label = METRIC_TO_AXIS.get(metric, metric)
+                        print(f'\n{"="*80}')
+                        print(f'STATISTICAL COMPARISONS — {metric_label}, Level {lvl_label}')
+                        print(f'{"="*80}')
+                        print(f'Test: Ordinary least squares (OLS) with HC3-robust standard errors')
+                        print(f'Significance threshold: p < 0.05 (uncorrected)')
+                        for i, r in enumerate(comp_results, 1):
+                            sig_marker = '  * significant' if r['p'] < 0.05 else '  (n.s.)'
+                            print(f'\n  Comparison {i}: {r["comparison"]}')
+                            print(f'    Groups    : {r["g1"]}  vs  {r["g2"]}')
+                            print(f'    Covariates: {r["covariates"]}')
+                            print(f'    Formula   : {r["formula"]}')
+                            print(f'    p = {r["p"]:.4f}   '
+                                  f'Standardised β = {r["b_std"]:.3f} '
+                                  f'(95% CI: {r["ci_low_std"]:.3f}, {r["ci_high_std"]:.3f})'
+                                  f'{sig_marker}')
+                        print(f'{"="*80}\n')
+
+                    # Significance: all comparisons uncorrected at p < 0.05
+                    sig_pairs = [(pair, p) for pair, p in pvals.items() if p < 0.05]
+                    if not sig_pairs:
+                        continue
+
+                    all_vals = grouped[grouped['Level'] == lvl_label][metric].dropna().values
+                    data_max = np.nanmax(all_vals) if len(all_vals) > 0 else ymax - 0.1 * yrange
+                    bracket_step = 0.11 * yrange
+                    bracket_h = 0.02 * yrange
+
+                    for b_idx, ((g1, g2), _) in enumerate(sig_pairs):
+                        x1 = tick_x + (group_pos_idx[g1] - (n_groups - 1) / 2) * group_width
+                        x2 = tick_x + (group_pos_idx[g2] - (n_groups - 1) / 2) * group_width
+                        y_bot = data_max + bracket_step * (b_idx + 1)
+                        y_top = y_bot + bracket_h
+                        ax_violin.plot([x1, x1, x2, x2], [y_bot, y_top, y_top, y_bot],
+                                       lw=1.5, color='black', clip_on=False)
+                        ax_violin.text((x1 + x2) / 2, y_top*0.97, '*', ha='center', va='bottom',
+                                       fontsize=TICKS_FONT_SIZE+10, color='black')
+                        y_needed = y_top + 0.05 * yrange
+                        if y_needed > ax_violin.get_ylim()[1]:
+                            ax_violin.set_ylim(ymin, y_needed)
+                            ymin, ymax = ax_violin.get_ylim()
+                            yrange = ymax - ymin
+
+            elif len(unique_groups) == 2:
                 g1, g2 = unique_groups[0], unique_groups[1]
                 # Map x tick label to position
                 ymin, ymax = ax_violin.get_ylim()
@@ -1174,8 +1407,8 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
                             df_level['age_c'] = pd.to_numeric(df_level['age'], errors='coerce')
                             df_level['age_c'] = df_level['age_c'] - df_level['age_c'].mean()
                             cov_terms.append('age_c')
-                        elif 'age_group' in df_level.columns and hue != 'age_group':
-                            cov_terms.append('C(age_group)')
+                        # elif 'age_group' in df_level.columns and hue != 'age_group':
+                        #     cov_terms.append('C(age_group)')
                         # Prepare model dataframe & rename metric column to avoid Patsy issues
                         needed_cols = ['grp', metric] + [ct.split('(')[-1].rstrip(')') if ct.startswith('C(') else ct for ct in cov_terms]
                         df_model = df_level.dropna(subset=needed_cols).copy().rename(columns={metric: 'metric_value'})
@@ -1339,6 +1572,11 @@ def create_figure(subjects_df, df_normative_data, sessions_to_process, figure_pa
         plotted_subjects = subjects_df[subjects_df['Myelopathy'].isin(MYELOPATHY_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
         stratification_info = f"(n={n_subjects_plot} subjects) stratified by Myelopathy"
+    elif stratify_type == 'myelopathy_with_hc':
+        plotted_subjects = subjects_df[subjects_df['Myelopathy'].isin(MYELOPATHY_COLORS.keys())]['participant_id'].unique()
+        n_subjects_plot = len(plotted_subjects)
+        n_hc = df_hc_perlevel['participant_id'].nunique() if df_hc_perlevel is not None else 0
+        stratification_info = f"(DCM n={n_subjects_plot}, HC n={n_hc}) DCM T2w+/T2- vs HC"
     elif stratify_type == 'therapeutic_decision':
         plotted_subjects = subjects_df[subjects_df['therapeutic_decision'].isin(THERAPEUTIC_DECISION_COLORS.keys())]['participant_id'].unique()
         n_subjects_plot = len(plotted_subjects)
@@ -1503,6 +1741,7 @@ def main():
     sessions_to_process = args.s
     exclude_file = os.path.expandvars(args.exclude_file)
     c2c3_file = os.path.expandvars(args.c2c3_file)
+    path_HC_sg = os.path.expandvars(args.path_HC_spinegeneric)
 
     # ----
     # Read files with morphometrics (CSV) and clinical (XSLX) data
@@ -1523,9 +1762,9 @@ def main():
     # ----
     # Print number of subjects with surgery before baseline
     # ----
-    print(f"Number of unique subjects before dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
-    subjects_df = subjects_df[subjects_df['surgery_before_baseline'] != 'yes']
-    print(f"Number of unique subjects after dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
+    # print(f"Number of unique subjects before dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
+    # subjects_df = subjects_df[subjects_df['surgery_before_baseline'] != 'yes']
+    # print(f"Number of unique subjects after dropping subjects with surgery before baseline: {len(subjects_df['participant_id'].unique())}")
 
     # ----
     # Read text file with levels to use (C3 or C2,C3 or exclude)
@@ -1536,7 +1775,7 @@ def main():
     # Drop rows with highest_stenosis == C2/C3 or C3/C4
     # Drop rows with num_of_stenosis == 4
     # ----
-    # subjects_df = drop_highest_stenosis(subjects_df)
+    subjects_df = drop_highest_stenosis(subjects_df)
 
     # # ----
     # # Keep only conservatively treated subjects (therapeutic_decision == 'conservative')
@@ -1578,6 +1817,12 @@ def main():
     # Load normative data
     df_normative_data, df_min, df_max = load_normative_data(path_HC, path_participants_tsv_pam50, structure, vert_min, vert_max)
 
+    # Load HC per-level data for myelopathy_with_hc stratification
+    df_hc_perlevel = None
+    if args.stratify == 'myelopathy_with_hc' and structure in ['spinal_cord', 'canal']:
+        vert_levels = list(range(vert_min, vert_max + 1))
+        df_hc_perlevel = load_hc_spinegeneric_perlevel(path_HC_sg, structure, vert_levels)
+
     if args.stratify == 'normative_mean_c2':
         # -------------
         # Load normative cord area for VertLevel C2
@@ -1610,7 +1855,7 @@ def main():
     # Use basename from args.i to create figure name
     figure_basename = os.path.basename(args.i).replace('.csv', '')
     figure_path = os.path.join(path_out, figure_basename)
-    create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, args.stratify)
+    create_figure(subjects_df, df_normative_data, sessions_to_process, figure_path, args.stratify, df_hc_perlevel)
 
     # Save age group compression table if age stratification selected
     if args.stratify == 'age':
