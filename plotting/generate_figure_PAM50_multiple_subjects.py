@@ -192,6 +192,11 @@ def get_parser():
                              "'None' for no stratification."
                              "Default: None.",
                              )
+    parser.add_argument('--run-ctree', action='store_true',
+                        help="Run URP-CTREE in R (partykit::ctree) to find the compression ratio cutoff "
+                             "at C3 that best predicts T2w signal change. Requires R >= 4.0 and the "
+                             "partykit package (auto-installed on first run). "
+                             "See plotting/run_ctree_compression_ratio.R for the R code.")
 
     return parser
 
@@ -1733,6 +1738,90 @@ def print_mjoa_by_sex(subjects_df):
     print("=" * 80)
 
 
+def run_ctree_analysis(subjects_df, output_dir):
+    """
+    Run URP-CTREE in R (partykit::ctree) to identify the optimal compression ratio cutoff
+    at C3 that predicts T2w hyperintensity (myelopathy) in DCM patients.
+
+    Requires R >= 4.0 on PATH and the partykit package (auto-installed by the R script on first run).
+    Install R on macOS with:  brew install r
+    Install R on Ubuntu with: sudo apt-get install r-base
+
+    :param subjects_df: DataFrame with DCM morphometrics + clinical data (already filtered/merged)
+    :param output_dir: Directory where the tree figure and summary CSV are saved
+    """
+    import shutil
+    import subprocess
+    import tempfile
+
+    # Check R is available
+    if shutil.which('Rscript') is None:
+        raise RuntimeError(
+            "Rscript not found on PATH. Install R first:\n"
+            "  macOS : brew install r\n"
+            "  Ubuntu: sudo apt-get install r-base\n"
+            "Then restart your terminal and retry."
+        )
+
+    # Filter to DCM patients at C3, baseline session, valid Myelopathy label
+    dcm_df = subjects_df[subjects_df['Myelopathy'].isin(['yes', 'no'])].copy()
+    if 'session_id' in dcm_df.columns:
+        dcm_df = dcm_df[dcm_df['session_id'] == 'ses-M0']
+    dcm_df = dcm_df[dcm_df['VertLevel'] == 3]
+
+    if dcm_df.empty:
+        print("run_ctree_analysis: no DCM data at VertLevel=3 with valid Myelopathy — skipping.")
+        return
+
+    # Per-participant mean compression ratio (aggregate across slices within C3)
+    dcm_grouped = (
+        dcm_df.groupby('participant_id')
+        .agg({'MEAN(compression_ratio)': 'mean', 'Myelopathy': 'first'})
+        .reset_index()
+    )
+    n_total  = len(dcm_grouped)
+    n_t2wpos = (dcm_grouped['Myelopathy'] == 'yes').sum()
+    n_t2wneg = (dcm_grouped['Myelopathy'] == 'no').sum()
+    print(f"\nrun_ctree_analysis: n={n_total} DCM patients at C3  (T2w-: {n_t2wneg}, T2w+: {n_t2wpos})")
+
+    # Save a permanent copy for reproducibility (shareable with colleagues)
+    os.makedirs(output_dir, exist_ok=True)
+    shareable_csv = os.path.join(output_dir, 'ctree_compression_ratio_C3_input.csv')
+    dcm_grouped.to_csv(shareable_csv, index=False)
+    print(f"Input data saved : {shareable_csv}")
+
+    # Write temp CSV for R
+    with tempfile.NamedTemporaryFile(suffix='.csv', delete=False, mode='w') as f:
+        dcm_grouped.to_csv(f, index=False)
+        tmp_csv = f.name
+
+    # Locate companion R script (same directory as this Python file)
+    r_script = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            'run_ctree_compression_ratio.R')
+    if not os.path.isfile(r_script):
+        raise FileNotFoundError(f"R script not found: {r_script}")
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Call R
+    print("Running R script (partykit::ctree)...")
+    result = subprocess.run(
+        ['Rscript', '--vanilla', r_script, tmp_csv, output_dir],
+        capture_output=True, text=True
+    )
+
+    # Print R stdout (formatted summary from the R script)
+    if result.stdout:
+        print(result.stdout)
+
+    if result.returncode != 0:
+        print(f"R stderr:\n{result.stderr}")
+        raise RuntimeError(f"R script exited with code {result.returncode}")
+
+    # Clean up temp file
+    os.unlink(tmp_csv)
+
+
 def main():
     args = get_parser().parse_args()
     path_HC = os.path.expandvars(args.path_HC)
@@ -1849,6 +1938,10 @@ def main():
         )
 
     # -------------
+    # URP-CTREE analysis (optional)
+    if args.run_ctree:
+        run_ctree_analysis(subjects_df, path_out)
+
     # Plotting
     # -------------
     os.makedirs(path_out, exist_ok=True)
