@@ -197,11 +197,16 @@ def read_clinical_file(clinical_file, sessions=2):
 
     columns_to_read += clinical_columns + surgery_columns + date_columns
 
+    # Optional columns — included only when present in the Excel file
+    optional_columns = ['date_inclusion']
+
     # Get only baseline clinical columns (i.e., columns ending with _bl or _BL)
     baseline_clinical_columns = [col for col in clinical_columns if col.endswith('_bl') or col.endswith('_BL')]
 
     if clinical_file and os.path.isfile(clinical_file):
-        df_clinical = pd.read_excel(clinical_file, usecols=columns_to_read)
+        xl_cols = pd.read_excel(clinical_file, nrows=0).columns.tolist()
+        columns_to_read_final = columns_to_read + [c for c in optional_columns if c in xl_cols]
+        df_clinical = pd.read_excel(clinical_file, usecols=columns_to_read_final)
         # Print number of missing values per column
         print("Number of missing values per column in clinical file:")
         print(df_clinical.isnull().sum())

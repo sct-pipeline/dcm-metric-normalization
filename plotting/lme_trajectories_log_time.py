@@ -121,6 +121,11 @@ def get_parser():
                    help='Output directory for figures and CSVs.')
     p.add_argument('--level', type=int, default=3, choices=[2, 3],
                    help='Vertebral level for baseline spinal cord area (default: C3).')
+    p.add_argument('--anchor-col',
+                   choices=['orthopedics_assessment_date_BL', 'date_inclusion'],
+                   default='orthopedics_assessment_date_BL',
+                   help='Column to use as day 0 anchor for time calculations '
+                        '(default: orthopedics_assessment_date_BL).')
     return p
 
 
@@ -155,15 +160,22 @@ def log_print(msg, log_file=None):
 # ──────────────────────────────────────────────────────────────────────────────
 # Data preparation
 # ──────────────────────────────────────────────────────────────────────────────
-def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
+def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3,
+                 anchor_col='orthopedics_assessment_date_BL'):
     """
     Reshape clinical data to long format with exact dates and log-time.
 
     Columns added per row (= one patient × timepoint):
-      time_days  – actual days elapsed since BL assessment
+      time_days  – actual days elapsed since anchor date
       time_log   – log(time_days + 1)          ← model predictor
-      surg_days  – days from BL to surgery (NaN if no surgery in this window)
+      surg_days  – days from anchor to surgery (NaN if no surgery in this window)
       surg_log   – log(surg_days + 1)           ← for surgery event marker
+
+    Parameters
+    ----------
+    anchor_col : str
+        Column to use as day 0. Either 'orthopedics_assessment_date_BL'
+        (default) or 'date_inclusion'.
 
     Returns
     -------
@@ -230,9 +242,23 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
               "using existing 'therapeutic_decision' column.")
 
     # ── parse assessment dates ────────────────────────────────────────────────
-    for col in [DATE_COL_BL, DATE_COL_6MTH, DATE_COL_12MTH]:
+    for col in [DATE_COL_BL, DATE_COL_6MTH, DATE_COL_12MTH, anchor_col]:
         if col in df.columns:
             df[col] = pd.to_datetime(df[col], errors='coerce')
+
+    # ── report subjects where anchor differs from BL assessment date ──────────
+    if anchor_col in df.columns and DATE_COL_BL in df.columns:
+        _diff = (df[DATE_COL_BL] - df[anchor_col]).dt.days
+        _nonzero = df.loc[_diff != 0, ['participant_id']].copy()
+        _nonzero[anchor_col]   = df.loc[_diff != 0, anchor_col].dt.date
+        _nonzero[DATE_COL_BL]  = df.loc[_diff != 0, DATE_COL_BL].dt.date
+        _nonzero['diff_days']  = _diff[_diff != 0].values
+        print(f"\nSubjects where {anchor_col} ≠ {DATE_COL_BL} (n={len(_nonzero)}):")
+        if _nonzero.empty:
+            print("  None")
+        else:
+            print(_nonzero.to_string(index=False))
+        print()
 
     # ── build long-format per score ───────────────────────────────────────────
     long_data_dict = {}
@@ -258,11 +284,12 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
             stenosis_type    = row.get('single_vs_multi_stenosis', 'unknown')
             area             = row.get(f'area_C{level}', np.nan)
             date_bl          = row.get(DATE_COL_BL, pd.NaT)
+            date_anchor      = row.get(anchor_col, pd.NaT)
 
-            # Surgery day (from BL) — used for event marker
+            # Surgery day (from anchor) — used for event marker
             surg_date_6mth = row.get(SURG_COL_BEFORE_6MTH, pd.NaT)
-            if pd.notna(date_bl) and pd.notna(surg_date_6mth):
-                surg_days = (surg_date_6mth - date_bl).days
+            if pd.notna(date_anchor) and pd.notna(surg_date_6mth):
+                surg_days = (surg_date_6mth - date_anchor).days
             else:
                 surg_days = np.nan
 
@@ -279,12 +306,13 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
                 surg_log            = log_time(surg_days) if not np.isnan(surg_days) else np.nan,
             )
 
-            # ── Baseline (day 0) ─────────────────────────────────────────
+            # ── Baseline ─────────────────────────────────────────────────
             score_bl = pd.to_numeric(row.get(col_bl, np.nan), errors='coerce')
             if pd.notna(score_bl):
+                days_bl = (date_bl - date_anchor).days if (pd.notna(date_bl) and pd.notna(date_anchor)) else np.nan
                 rows.append({**common,
-                             'time_days':  0.0,
-                             'time_log':   0.0,
+                             'time_days':  days_bl,
+                             'time_log':   log_time(days_bl) if not np.isnan(days_bl) else np.nan,
                              'time_label': 'Baseline',
                              'date':       date_bl,
                              'score':      float(score_bl)})
@@ -294,7 +322,7 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
                 score_6m = pd.to_numeric(row.get(col_6mth, np.nan), errors='coerce')
                 date_6m  = row.get(DATE_COL_6MTH, pd.NaT)
                 if pd.notna(score_6m):
-                    days_6m = (date_6m - date_bl).days if (pd.notna(date_bl) and pd.notna(date_6m)) else np.nan
+                    days_6m = (date_6m - date_anchor).days if (pd.notna(date_anchor) and pd.notna(date_6m)) else np.nan
                     rows.append({**common,
                                  'time_days':  days_6m,
                                  'time_log':   log_time(days_6m) if not np.isnan(days_6m) else np.nan,
@@ -307,7 +335,7 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3):
                 score_12m = pd.to_numeric(row.get(col_12mth, np.nan), errors='coerce')
                 date_12m  = row.get(DATE_COL_12MTH, pd.NaT)
                 if pd.notna(score_12m):
-                    days_12m = (date_12m - date_bl).days if (pd.notna(date_bl) and pd.notna(date_12m)) else np.nan
+                    days_12m = (date_12m - date_anchor).days if (pd.notna(date_anchor) and pd.notna(date_12m)) else np.nan
                     rows.append({**common,
                                  'time_days':  days_12m,
                                  'time_log':   log_time(days_12m) if not np.isnan(days_12m) else np.nan,
@@ -725,7 +753,8 @@ def _plot_obs_errorbars(ax, gdf, present_labels, tick_days, color):
                         capsize=3, capthick=1.2, linewidth=1.2, zorder=7)
 
 
-def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
+def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None,
+                 anchor_col='orthopedics_assessment_date_BL'):
     """
     95% CI band + LME curve, stratified by T2w hyperintensity.
     X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
@@ -768,8 +797,9 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
         surg_df = gdf[gdf['surg_days'].notna()].drop_duplicates('participant_id')
         _plot_surgery_on_curve(ax, surg_df, result, ginfo['i_params'], ginfo['s_params'], color)
 
+    _xlabel = 'Days from inclusion' if anchor_col == 'date_inclusion' else 'Days from baseline'
     ax.set_xlim(XLIM[0], XLIM[1])
-    ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
+    ax.set_xlabel(_xlabel, fontsize=LABEL_FONT_SIZE)
     ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
@@ -791,7 +821,8 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None):
     log_print(f"Saved: {fname}", log_file)
 
 
-def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
+def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None,
+                 anchor_col='orthopedics_assessment_date_BL'):
     """
     95% CI band + LME trajectories, stratified by therapeutic decision.
     X-axis: raw days. LME fit: score = b0 + b1*log(days+1) -> curved line.
@@ -836,8 +867,9 @@ def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
             _plot_surgery_on_curve(ax, surg_df, result,
                                    ginfo['i_params'], ginfo['s_params'], color)
 
+    _xlabel = 'Days from inclusion' if anchor_col == 'date_inclusion' else 'Days from baseline'
     ax.set_xlim(XLIM[0], XLIM[1])
-    ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
+    ax.set_xlabel(_xlabel, fontsize=LABEL_FONT_SIZE)
     ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
@@ -859,7 +891,8 @@ def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None):
     log_print(f"Saved: {fname}", log_file)
 
 
-def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
+def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
+                 anchor_col='orthopedics_assessment_date_BL'):
     """
     Combined model: 4 groups (myelopathy × treatment).
     95% CI band + LME curves.
@@ -926,8 +959,9 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None):
             surg_df = gdf[gdf['surg_days'].notna()].drop_duplicates('participant_id')
             _plot_surgery_on_curve(ax, surg_df, result, i_params, s_params, color)
 
+    _xlabel = 'Days from inclusion' if anchor_col == 'date_inclusion' else 'Days from baseline'
     ax.set_xlim(XLIM[0], XLIM[1])
-    ax.set_xlabel('Days from baseline', fontsize=LABEL_FONT_SIZE)
+    ax.set_xlabel(_xlabel, fontsize=LABEL_FONT_SIZE)
     ax.tick_params(axis='x', labelsize=TICK_FONT_SIZE)
     ax.set_ylabel(cfg['y_label'], fontsize=LABEL_FONT_SIZE)
     if cfg['ylim']:
@@ -1036,7 +1070,8 @@ def main():
     print("\nPreparing longitudinal data with log-time axis...")
     long_data_dict = prepare_data(
         df_clinical, df_morphometrics,
-        level=args.level, sessions=args.sessions
+        level=args.level, sessions=args.sessions,
+        anchor_col=args.anchor_col,
     )
 
     if not long_data_dict:
@@ -1049,9 +1084,10 @@ def main():
 
     with open(log_path, 'w') as log_file:
         log_print("LME Log-Time Analysis Log", log_file)
-        log_print(f"Sessions : {args.sessions}", log_file)
-        log_print(f"SC level : C{args.level}", log_file)
-        log_print(f"Output   : {args.outdir}\n", log_file)
+        log_print(f"Sessions   : {args.sessions}", log_file)
+        log_print(f"SC level   : C{args.level}", log_file)
+        log_print(f"Anchor col : {args.anchor_col}", log_file)
+        log_print(f"Output     : {args.outdir}\n", log_file)
 
         for score_name, df_long in long_data_dict.items():
             cfg = CLINICAL_SCORES[score_name]
@@ -1060,7 +1096,8 @@ def main():
             result_A, df_A = fit_model_A(df_long, score_name, log_file)
             all_results[(score_name, 'A_myelopathy')] = result_A
             if result_A is not None:
-                plot_model_A(df_long, result_A, score_name, cfg, args.outdir, log_file)
+                plot_model_A(df_long, result_A, score_name, cfg, args.outdir, log_file,
+                             anchor_col=args.anchor_col)
             else:
                 log_print(f"  Model A failed for {score_name}", log_file)
 
@@ -1068,7 +1105,8 @@ def main():
             result_B, df_B = fit_model_B(df_long, score_name, log_file)
             all_results[(score_name, 'B_therapeutic')] = result_B
             if result_B is not None:
-                plot_model_B(df_long, result_B, score_name, cfg, args.outdir, log_file)
+                plot_model_B(df_long, result_B, score_name, cfg, args.outdir, log_file,
+                             anchor_col=args.anchor_col)
             else:
                 log_print(f"  Model B failed for {score_name}", log_file)
 
@@ -1076,7 +1114,8 @@ def main():
             result_C, df_C = fit_model_C(df_long, score_name, log_file)
             all_results[(score_name, 'C_combined')] = result_C
             if result_C is not None:
-                plot_model_C(df_long, result_C, score_name, cfg, args.outdir, log_file)
+                plot_model_C(df_long, result_C, score_name, cfg, args.outdir, log_file,
+                             anchor_col=args.anchor_col)
             else:
                 log_print(f"  Model C failed for {score_name}", log_file)
 
