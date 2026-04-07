@@ -2,7 +2,7 @@
 # Aggregate spinal cord CSA per intervertebral disc for each subject.
 #
 # Discs are identified as the transition between two consecutive VertLevels.
-# For each disc, the two slices flanking the transition are selected and the
+# For each disc, the two slices at the transition are selected and then the
 # minimum CSA (MEAN(area)) is stored.
 #
 # Output structure:
@@ -241,6 +241,7 @@ def main():
     records = []
     for filename, df_sub in df.groupby('Filename'):
         subject, session = extract_sub_ses(filename)
+        # Find disc slices and metrics for this subject/session; single slice for each disc is selected based on minimum CSA
         disc_data = find_disc_slices(df_sub)
 
         out_row = {'Filename': os.path.basename(filename), 'subject': subject, 'session': session}
