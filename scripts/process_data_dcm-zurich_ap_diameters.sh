@@ -1,13 +1,13 @@
 #!/bin/bash
 #
-# Process dcm-zurich dataset: compute anterior-posterior (AP) cord diameters from T2w axial images.
+# Process dcm-zurich dataset: compute anterior and posterior cord lengths from T2w axial images.
 #
 # For each subject/session (using ses-M0 here), the script:
 #   1. Segments the spinal cord (uses manual segmentation from derivatives/labels if available,
 #      otherwise runs sct_deepseg spinalcord automatically)
 #   2. Labels intervertebral discs (uses manual labels from derivatives/labels if available,
 #      otherwise runs TotalSpineSeg automatically)
-#   3. Computes per-slice cord morphometrics (including diameter_anterior and diameter_posterior)
+#   3. Computes per-slice cord morphometrics (including anterior and posterior lengths)
 #      and appends results to T2w_ax_cord_metrics_perlevel.csv
 #
 # Usage to exclude specific subjects:
@@ -179,7 +179,7 @@ else
     file_t2_ax_labels=${file_t2_ax}_label-disc
 
     # -------------
-    # Compute diameter_anterior and diameter_posterior
+    # Compute anterior and posterior lengths
     # https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/5199
     # -------------
     echo "Computing spinal cord morphometrics..."
