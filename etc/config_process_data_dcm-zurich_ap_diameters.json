@@ -46,5 +46,12 @@
     "sub-153/ses-M0",
     "sub-156/ses-M0",
     "sub-158/ses-M0"
+  ],
+  "exclude_list" : [
+    "sub-042/ses-M0",
+    "sub-045/ses-M0",
+    "sub-037/ses-M0",
+    "sub-064/ses-M0",
+    "sub-156"
   ]
 }
