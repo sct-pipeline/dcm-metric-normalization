@@ -11,7 +11,7 @@
 #      and appends results to T2w_ax_cord_metrics_perlevel.csv
 #
 # Usage to exclude specific subjects:
-#     sct_run_batch -c config_process_data_dcm-zurich_ap_diameters.json -exclude-yml exclude_dcm-zurich.yml
+#     sct_run_batch -c config_process_data_dcm-zurich_ap_lengths.json -exclude-yml exclude_dcm-zurich.yml
 #
 # Example YAML exclude file (included in this repo) to exclude some subjects/sessions (note that YAML supports comments):
 #     t2_ax:
@@ -22,7 +22,7 @@
 #   {
 #     "path_data"   : "~/data/dcm-zurich",
 #     "path_output" : "~/results/dcm-zurich/dcm-zurich_2026-04-09",
-#     "script"      : "~/code/dcm-metric-normalization/scripts/process_data_dcm-zurich_ap_diameters.sh",
+#     "script"      : "~/code/dcm-metric-normalization/scripts/process_data_dcm-zurich_ap_lengths.sh",
 #     "jobs"        : 8,
 #     "include"     : "ses-M0"
 #   }
