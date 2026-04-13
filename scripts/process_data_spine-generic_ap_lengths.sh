@@ -153,6 +153,13 @@ echo "Computing spinal cord morphometrics..."
 # Note: -anat is used for QC purposes to display the metrics on the original image space.
 sct_process_segmentation -anat ${file_t2w}.nii.gz -i ${file_t2w_seg}.nii.gz -discfile ${file_t2w_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_cord_metrics_perslice.csv -append 1 -qc ${PATH_QC}
 
+# Compute cord metrics in the PAM50 ('-normalize-PAM50' flag)
+# Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
+# files will have the same number of rows, regardless of the subject's vertebral levels.
+mkdir -p ${PATH_RESULTS}/PAM50
+sct_process_segmentation -i ${file_t2w_seg}.nii.gz -discfile ${file_t2w_labels}.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/PAM50/${file_t2w}_PAM50.csv
+
+
 echo "Finished processing ${file_t2w}" >> ${PATH_LOG}/processed_files_T2w.log
 
 # ------------------------------------------------------------------------------
