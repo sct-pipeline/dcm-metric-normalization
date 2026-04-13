@@ -151,6 +151,7 @@ file_t2w_labels=${file_t2w}_label-discs_dlabel
 echo "Computing spinal cord morphometrics..."
 # Compute cord metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
 # Note: -anat is used for QC purposes to display the metrics on the original image space.
+# Note: We generate QC to visually check the anterior and posterior lengths.
 sct_process_segmentation -anat ${file_t2w}.nii.gz -i ${file_t2w_seg}.nii.gz -discfile ${file_t2w_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_cord_metrics_perslice.csv -append 1 -qc ${PATH_QC}
 
 # Compute cord metrics in the PAM50 ('-normalize-PAM50' flag)
