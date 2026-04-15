@@ -1,6 +1,6 @@
 {
   "path_data"    : "~/data/data.neuro.polymtl.ca/dcm-zurich",
-  "path_output"  : "~/results/dcm-zurich/dcm-zurich_ap_diameters_2026-04-09",
+  "path_output"  : "~/results/dcm-zurich/dcm-zurich_part01_ap_lengths_2026-04-15",
   "script"       : "~/code/dcm-metric-normalization/scripts/process_data_dcm-zurich_ap_lengths.sh",
   "jobs"         : 8,
   "include_list" : [
