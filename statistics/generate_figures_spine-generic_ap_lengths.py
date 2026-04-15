@@ -1,9 +1,9 @@
 #
 # Plot morphometric metrics (including anterior and posterior cord lengths) computed from the
 # spine-generic multi-subject dataset in PAM50 space, per slice and vertebral level.
+# Supports overlaying multiple datasets (e.g., HC and DCM patients) in a single figure.
 #
-# The script reads per-subject *_PAM50.csv files produced by process_data_spine-generic_ap_lengths.sh
-# and plots 7 metrics:
+# The script reads per-subject *_PAM50.csv files and plots 7 metrics:
 #   - MEAN(area)            : Cross-Sectional Area [mm²]
 #   - MEAN(diameter_AP)     : AP Diameter [mm]
 #   - MEAN(diameter_RL)     : Transverse Diameter [mm]
@@ -12,11 +12,18 @@
 #   - MEAN(length_posterior): Posterior Length [mm]
 #   - asymmetry             : Asymmetry [a.u.]  (= (length_anterior - length_posterior) / diameter_AP)
 #
-# Example usage:
+# Example usage (single dataset):
 #   python statistics/generate_figures_spine-generic_ap_lengths.py \
-#       -path-SC ~/results/spine-generic/spine-generic_ap_lengths_2026-04-13/results/PAM50 \
+#       -path-SC ~/results/spine-generic/spine-generic_ap_lengths_2026-04-14/results/PAM50 \
 #       -participant-file ~/data/data.neuro.polymtl.ca/data-multi-subject/participants.tsv \
-#       -path-out ~/results/spine-generic/spine-generic_ap_lengths_2026-04-13/figures
+#       -path-out ~/results/spine-generic/spine-generic_ap_lengths_2026-04-14/figures
+#
+# Example usage (HC + DCM patients):
+#   python statistics/generate_figures_spine-generic_ap_lengths.py \
+#       -path-SC ~/results/spine-generic/spine-generic_ap_lengths_2026-04-14/results/PAM50 \
+#                ~/results/dcm-zurich/dcm-zurich_ap_lengths_2026-04-15/results/PAM50 \
+#       -dataset-labels HC DCM \
+#       -path-out ~/results/combined_ap_lengths/figures
 #
 # Authors: Jan Valosek
 # Adapted from https://github.com/spinalcordtoolbox/PAM50-normalized-metrics/blob/main/statistics/generate_figures.py
@@ -136,16 +143,23 @@ PALETTE = {
     'manufacturer': {'Siemens': 'green', 'Philips': 'dodgerblue', 'GE': 'black'},
 }
 
+# Default colors for dataset overlay (cycled when more than 2 datasets)
+DATASET_COLORS = ['steelblue', 'tomato', 'seagreen', 'darkorange', 'purple']
+
 
 def get_parser():
     parser = argparse.ArgumentParser(
-        description="Plot morphometrics including anterior and posterior lengths computed from the spine-generic "
-                    "multi-subject dataset in PAM50 space.")
-    parser.add_argument('-path-SC', required=True, type=str,
-                        help="Path to folder containing per-subject *_PAM50.csv files.")
+        description="Plot morphometrics including anterior and posterior lengths from one or more datasets "
+                    "in PAM50 space. Multiple datasets are overlaid in the same figure using distinct colors.")
+    parser.add_argument('-path-SC', required=True, type=str, nargs='+',
+                        help="Path(s) to folder(s) containing per-subject *_PAM50.csv files. "
+                             "Multiple paths can be provided to overlay datasets.")
+    parser.add_argument('-dataset-labels', required=False, type=str, nargs='+', default=None,
+                        help="Optional labels for each dataset (same order as -path-SC). "
+                             "If not provided, the folder name is used as the label.")
     parser.add_argument('-participant-file', required=False, type=str, default=None,
-                        help="Path to participants.tsv. If not provided, the script looks for "
-                             "participants.tsv inside -path-SC.")
+                        help="Path to participants.tsv. Applies to all datasets. If not provided, "
+                             "the script looks for participants.tsv inside each dataset folder.")
     parser.add_argument('-path-out', required=False, type=str, default='stats',
                         help="Output directory (default: 'stats').")
     return parser
@@ -186,6 +200,19 @@ def create_lineplot(df, hue, path_out, show_cv=False):
         level = ('T' + str(vert[x] - 7)) if vert[x] > 7 else ('C' + str(vert[x]))
         print(f'  {level}: {n_subjects_per_level.get(vert[x], 0)}')
 
+    # Pre-compute palette and legend labels (with subject counts) once, outside the metric loop
+    if hue in PALETTE:
+        palette = PALETTE[hue]
+        legend_labels = None  # seaborn uses raw hue values
+    elif hue == 'dataset' and 'dataset' in df.columns:
+        datasets = list(df['dataset'].unique())
+        palette = {d: DATASET_COLORS[i % len(DATASET_COLORS)] for i, d in enumerate(datasets)}
+        n_per_dataset = df.groupby('dataset')['participant_id'].nunique()
+        legend_labels = {d: f'{d} (n={n_per_dataset[d]})' for d in datasets}
+    else:
+        palette = None
+        legend_labels = None
+
     for index, entry in enumerate(METRICS_LAYOUT):
         ax = axs[index]
 
@@ -195,18 +222,19 @@ def create_lineplot(df, hue, path_out, show_cv=False):
             continue
 
         metric = entry
-        if hue in PALETTE:
+        if hue is not None:
             sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd',
-                         hue=hue, linewidth=2, palette=PALETTE[hue])
-        elif hue is not None:
-            sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd',
-                         hue=hue, linewidth=2)
+                         hue=hue, linewidth=2, palette=palette)
         else:
             sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd', linewidth=2)
 
         if hue is not None:
             if index == 0:
-                ax.legend(loc='upper right', fontsize=TICKS_FONT_SIZE)
+                legend = ax.legend(loc='upper right', fontsize=TICKS_FONT_SIZE)
+                # Replace legend labels with enriched versions (e.g. "HC (n=201)")
+                if legend_labels is not None:
+                    for text in legend.get_texts():
+                        text.set_text(legend_labels.get(text.get_text(), text.get_text()))
             else:
                 ax.get_legend().remove()
 
@@ -314,7 +342,7 @@ def compute_normative_values(df, path_out):
         print(f'  Saved: {fname}')
 
 
-def read_csv_files(path_SC, participant_file=None):
+def read_csv_files(path_SC, participant_file=None, dataset_name=None):
     """
     Read all *_PAM50.csv files from path_SC, compute derived metrics, and optionally
     merge demographic data from participants.tsv.
@@ -335,6 +363,10 @@ def read_csv_files(path_SC, participant_file=None):
     # Compute derived metrics
     df['MEAN(compression_ratio)'] = df['MEAN(diameter_AP)'] / df['MEAN(diameter_RL)']
     df['asymmetry'] = (df['MEAN(length_anterior)'] - df['MEAN(length_posterior)']) / df['MEAN(diameter_AP)']
+
+    # Tag each row with dataset name (used for multi-dataset coloring)
+    if dataset_name is not None:
+        df['dataset'] = dataset_name
 
     subjects = df['participant_id'].unique()
     print(f'Number of subjects: {len(subjects)}')
@@ -364,7 +396,26 @@ def main():
     os.makedirs(path_out_figures, exist_ok=True)
     os.makedirs(path_out_csv, exist_ok=True)
 
-    df, df_participants, subjects = read_csv_files(args.path_SC, args.participant_file)
+    # Validate dataset labels length
+    if args.dataset_labels is not None and len(args.dataset_labels) != len(args.path_SC):
+        parser.error(f'-dataset-labels must have the same number of entries as -path-SC '
+                     f'({len(args.path_SC)} paths, {len(args.dataset_labels)} labels).')
+
+    # Load one or more datasets and concatenate
+    multiple_datasets = len(args.path_SC) > 1
+    dfs = []
+    all_subjects = []
+    for i, path in enumerate(args.path_SC):
+        if args.dataset_labels is not None:
+            dataset_name = args.dataset_labels[i]
+        else:
+            dataset_name = os.path.basename(path.rstrip('/')) if multiple_datasets else None
+        df_single, _, subs = read_csv_files(path, args.participant_file, dataset_name=dataset_name)
+        dfs.append(df_single)
+        all_subjects.extend(subs)
+
+    df = pd.concat(dfs, axis=0, ignore_index=True)
+    subjects = np.array(all_subjects)
 
     # Drop all-NaN columns and keep C2–C7 (VertLevel 2–7)
     df = df.dropna(axis=1, how='all')
@@ -376,16 +427,17 @@ def main():
     if dropped:
         print(f'Dropped subjects: {sorted(dropped)}')
 
-    # Figures — all subjects
-    create_lineplot(df, hue=None, path_out=path_out_figures)
+    # Figures — coloured by dataset if multiple datasets, otherwise ungrouped
+    dataset_hue = 'dataset' if multiple_datasets else None
+    create_lineplot(df, hue=dataset_hue, path_out=path_out_figures)
 
-    # Figures and stats stratified by sex (if available)
-    if 'sex' in df.columns:
+    # Figures and stats stratified by sex (single dataset only, to avoid confounds)
+    if not multiple_datasets and 'sex' in df.columns:
         create_lineplot(df, hue='sex', path_out=path_out_figures)
         compare_metrics_across_sex(df)
 
-    # Figures by manufacturer (if available)
-    if 'manufacturer' in df.columns:
+    # Figures by manufacturer (single dataset only)
+    if not multiple_datasets and 'manufacturer' in df.columns:
         create_lineplot(df, hue='manufacturer', path_out=path_out_figures)
 
     # Normative values
