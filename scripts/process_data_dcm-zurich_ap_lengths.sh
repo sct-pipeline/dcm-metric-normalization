@@ -185,6 +185,7 @@ else
     echo "Computing spinal cord morphometrics..."
     # Compute cord metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
     # Note: -anat is used for QC purposes to display the metrics on the original image space.
+    # Note: We generate QC to visually check the anterior and posterior lengths.
     sct_process_segmentation -anat ${file_t2_ax}.nii.gz -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1 -qc ${PATH_QC}
 
     echo "Finished processing ${file_t2_ax}" >> ${PATH_LOG}/processed_files_T2w_ax.log
