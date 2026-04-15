@@ -1,0 +1,40 @@
+{
+  "path_data"    : "~/data/data.neuro.polymtl.ca/dcm-zurich",
+  "path_output"  : "~/results/dcm-zurich/dcm-zurich_part02_ap_lengths_2026-04-15",
+  "script"       : "~/code/dcm-metric-normalization/scripts/process_data_dcm-zurich_ap_lengths.sh",
+  "jobs"         : 8,
+  "include_list" : [
+    "sub-040/ses-M0",
+    "sub-043/ses-M0",
+    "sub-046/ses-M0",
+    "sub-078/ses-M0",
+    "sub-080/ses-M0",
+    "sub-081/ses-M0",
+    "sub-092/ses-M0",
+    "sub-096/ses-M0",
+    "sub-098/ses-M0",
+    "sub-101/ses-M0",
+    "sub-108/ses-M0",
+    "sub-111/ses-M0",
+    "sub-113/ses-M0",
+    "sub-114/ses-M0",
+    "sub-116/ses-M0",
+    "sub-117/ses-M0",
+    "sub-118/ses-M0",
+    "sub-126/ses-M0",
+    "sub-145/ses-M0",
+    "sub-148/ses-M0",
+    "sub-157/ses-M0",
+    "sub-167/ses-M0",
+    "sub-172/ses-M0",
+    "sub-173/ses-M0",
+    "sub-174/ses-M0"
+  ],
+  "exclude_list" : [
+    "sub-042/ses-M0",
+    "sub-045/ses-M0",
+    "sub-037/ses-M0",
+    "sub-064/ses-M0",
+    "sub-156"
+  ]
+}
