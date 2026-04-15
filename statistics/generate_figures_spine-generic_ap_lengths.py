@@ -99,7 +99,7 @@ METRICS_TO_YLIM = {
     'MEAN(compression_ratio)': (0.41, 0.84),
     'MEAN(length_anterior)': (2.0, 5.0),
     'MEAN(length_posterior)': (2.0, 5.0),
-    ('MEAN(length_anterior)', 'MEAN(length_posterior)'): (2.0, 4.4),
+    ('MEAN(length_anterior)', 'MEAN(length_posterior)'): (2.0, 4.7),
     'asymmetry': (-0.20, 0.15),
 }
 
