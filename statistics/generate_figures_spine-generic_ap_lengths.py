@@ -42,25 +42,20 @@ METRICS = [
     'asymmetry',
 ]
 
-# Layout for the 3x2 figure: anterior and posterior lengths share one subplot (tuple entry)
+# Layout for the 2x4 figure (last cell is empty)
+# Row 1: CSA, AP diam, anterior length, posterior length
+# Row 2: RL diam, CR, asymmetry, empty
+# A vertical separator line is drawn between columns 2 and 3
 METRICS_LAYOUT = [
     'MEAN(area)',
     'MEAN(diameter_AP)',
+    'MEAN(length_anterior)',
+    'MEAN(length_posterior)',
     'MEAN(diameter_RL)',
     'MEAN(compression_ratio)',
-    ('MEAN(length_anterior)', 'MEAN(length_posterior)'),
     'asymmetry',
+    None,   # empty cell
 ]
-
-# Colors for the combined anterior and posterior lengths subplot
-LENGTH_COLORS = {
-    'MEAN(length_anterior)': 'darkgreen',
-    'MEAN(length_posterior)': 'purple',
-}
-LENGTH_LABELS = {
-    'MEAN(length_anterior)': 'Anterior length',
-    'MEAN(length_posterior)': 'Posterior length',
-}
 
 METRICS_DTYPE = {
     'MEAN(area)': 'float64',
@@ -87,7 +82,6 @@ METRIC_TO_AXIS = {
     'MEAN(compression_ratio)': 'Compression Ratio [a.u.]',
     'MEAN(length_anterior)': 'Anterior Length [mm]',
     'MEAN(length_posterior)': 'Posterior Length [mm]',
-    ('MEAN(length_anterior)', 'MEAN(length_posterior)'): 'Anterior and Posterior Lengths [mm]',
     'asymmetry': 'Asymmetry [a.u.]',
 }
 
@@ -99,7 +93,6 @@ METRICS_TO_YLIM = {
     'MEAN(compression_ratio)': (0.41, 0.84),
     'MEAN(length_anterior)': (2.0, 5.0),
     'MEAN(length_posterior)': (2.0, 5.0),
-    ('MEAN(length_anterior)', 'MEAN(length_posterior)'): (2.0, 4.7),
     'asymmetry': (-0.20, 0.15),
 }
 
@@ -173,12 +166,13 @@ def get_vert_indices(df):
 
 def create_lineplot(df, hue, path_out, show_cv=False):
     """
-    Create a 3x2 lineplot for 6 subplot entries defined by METRICS_LAYOUT.
-    Anterior and posterior lengths share one subplot; all other metrics get their own panel.
+    Create a 2x4 lineplot for 7 metrics defined by METRICS_LAYOUT (last cell is empty).
+    Row 1: CSA, AP diameter, RL diameter, Compression Ratio
+    Row 2: Anterior length, Posterior length, Asymmetry, (empty)
     """
     mpl.rcParams['font.family'] = 'Arial'
 
-    nrows, ncols = 2, 3
+    nrows, ncols = 2, 4
     fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 6, nrows * 5))
     axs = axes.ravel()
 
@@ -194,37 +188,32 @@ def create_lineplot(df, hue, path_out, show_cv=False):
 
     for index, entry in enumerate(METRICS_LAYOUT):
         ax = axs[index]
-        is_combined = isinstance(entry, tuple)
 
-        if is_combined:
-            # Combined subplot: plot both lengths with fixed colors, ignoring hue
-            for metric in entry:
-                sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd',
-                             linewidth=2, color=LENGTH_COLORS[metric], label=LENGTH_LABELS[metric])
-            ax.legend(loc='upper right', fontsize=TICKS_FONT_SIZE)
-            ylim_key = entry
+        # Hide the empty cell
+        if entry is None:
+            ax.set_visible(False)
+            continue
+
+        metric = entry
+        if hue in PALETTE:
+            sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd',
+                         hue=hue, linewidth=2, palette=PALETTE[hue])
+        elif hue is not None:
+            sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd',
+                         hue=hue, linewidth=2)
         else:
-            metric = entry
-            ylim_key = metric
-            if hue in PALETTE:
-                sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd',
-                             hue=hue, linewidth=2, palette=PALETTE[hue])
-            elif hue is not None:
-                sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd',
-                             hue=hue, linewidth=2)
+            sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd', linewidth=2)
+
+        if hue is not None:
+            if index == 0:
+                ax.legend(loc='upper right', fontsize=TICKS_FONT_SIZE)
             else:
-                sns.lineplot(ax=ax, x='Slice (I->S)', y=metric, data=df, errorbar='sd', linewidth=2)
+                ax.get_legend().remove()
 
-            if hue is not None:
-                if index == 0:
-                    ax.legend(loc='upper right', fontsize=TICKS_FONT_SIZE)
-                else:
-                    ax.get_legend().remove()
-
-        ax.set_ylim(METRICS_TO_YLIM[ylim_key])
+        ax.set_ylim(METRICS_TO_YLIM[metric])
         ymin, ymax = ax.get_ylim()
 
-        ax.set_ylabel(METRIC_TO_AXIS[ylim_key], fontsize=LABELS_FONT_SIZE)
+        ax.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
         ax.set_xlabel('Axial Slice #', fontsize=LABELS_FONT_SIZE)
         ax.tick_params(axis='both', which='major', labelsize=TICKS_FONT_SIZE)
 
@@ -243,6 +232,14 @@ def create_lineplot(df, hue, path_out, show_cv=False):
         ax.invert_xaxis()
         ax.yaxis.grid(True)
         ax.set_axisbelow(True)
+
+    # Draw a vertical separator line between columns 2 and 3 (in figure coordinates)
+    # The line spans the full figure height
+    fig.add_artist(
+        plt.Line2D([0.496, 0.496], [0.01, 0.92],
+                   transform=fig.transFigure,
+                   color='black', linewidth=1, linestyle='-')
+    )
 
     hue_suffix = f'_per{hue}' if hue else ''
     filename = f'lineplot{hue_suffix}.png'
