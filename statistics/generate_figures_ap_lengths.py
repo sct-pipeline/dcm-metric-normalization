@@ -1,6 +1,6 @@
 #
-# Plot morphometric metrics (including anterior and posterior cord lengths) computed from the
-# spine-generic multi-subject dataset in PAM50 space, per slice and vertebral level.
+# Plot morphometric metrics (including anterior and posterior cord lengths) from PAM50-normalized
+# per-subject CSVs, per slice and vertebral level.
 # Supports overlaying multiple datasets (e.g., HC and DCM patients) in a single figure.
 #
 # The script reads per-subject *_PAM50.csv files and plots 7 metrics:
@@ -13,13 +13,13 @@
 #   - asymmetry             : Asymmetry [a.u.]  (= (length_anterior - length_posterior) / diameter_AP)
 #
 # Example usage (single dataset):
-#   python statistics/generate_figures_spine-generic_ap_lengths.py \
+#   python statistics/generate_figures_ap_lengths.py \
 #       -path-SC ~/results/spine-generic/spine-generic_ap_lengths_2026-04-14/results/PAM50 \
 #       -participant-file ~/data/data.neuro.polymtl.ca/data-multi-subject/participants.tsv \
 #       -path-out ~/results/spine-generic/spine-generic_ap_lengths_2026-04-14/figures
 #
 # Example usage (HC + DCM patients):
-#   python statistics/generate_figures_spine-generic_ap_lengths.py \
+#   python statistics/generate_figures_ap_lengths.py \
 #       -path-SC ~/results/spine-generic/spine-generic_ap_lengths_2026-04-14/results/PAM50 \
 #                ~/results/dcm-zurich/dcm-zurich_ap_lengths_2026-04-15/results/PAM50 \
 #       -dataset-labels HC DCM \
