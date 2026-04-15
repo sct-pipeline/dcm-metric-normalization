@@ -188,6 +188,12 @@ else
     # Note: We generate QC to visually check the anterior and posterior lengths.
     sct_process_segmentation -anat ${file_t2_ax}.nii.gz -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1 -qc ${PATH_QC}
 
+    # Compute cord metrics in the PAM50 ('-normalize-PAM50' flag)
+    # Note: '-v 2' flag is used to get all available vertebral levels from PAM50 template. This assures that the output CSV
+    # files will have the same number of rows, regardless of the subject's vertebral levels.
+    mkdir -p ${PATH_RESULTS}/PAM50
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -normalize-PAM50 1 -v 2 -o ${PATH_RESULTS}/PAM50/${file_t2_ax}_PAM50.csv
+
     echo "Finished processing ${file_t2_ax}" >> ${PATH_LOG}/processed_files_T2w_ax.log
 
 fi
