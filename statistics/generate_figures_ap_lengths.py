@@ -51,16 +51,15 @@ METRICS = [
 ]
 
 # Layout for the 2x4 figure (last cell is empty)
-# Row 1: CSA, AP diam, anterior length, posterior length
-# Row 2: RL diam, CR, asymmetry, empty
-# A vertical separator line is drawn between columns 2 and 3
+# Row 1: CSA, AP diam, RL diam, CR
+# Row 2: anterior length, posterior length, asymmetry, empty
 METRICS_LAYOUT = [
     'MEAN(area)',
     'MEAN(diameter_AP)',
-    'MEAN(length_anterior)',
-    'MEAN(length_posterior)',
     'MEAN(diameter_RL)',
     'MEAN(compression_ratio)',
+    'MEAN(length_anterior)',
+    'MEAN(length_posterior)',
     'asymmetry',
     None,   # empty cell
 ]
@@ -287,13 +286,6 @@ def create_lineplot(df, hue, path_out, show_cv=False):
         ax.yaxis.grid(True)
         ax.set_axisbelow(True)
 
-    # Draw a vertical separator line between columns 2 and 3 (in figure coordinates)
-    # The line spans the full figure height
-    fig.add_artist(
-        plt.Line2D([0.496, 0.496], [0.01, 0.92],
-                   transform=fig.transFigure,
-                   color='black', linewidth=1, linestyle='-')
-    )
 
     hue_suffix = f'_per{hue}' if hue else ''
     filename = f'lineplot{hue_suffix}.png'
