@@ -36,6 +36,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
 import scipy.stats as stats
 
 # Flat list used for statistics and normative values
@@ -146,6 +147,19 @@ PALETTE = {
 # Default colors for dataset overlay (cycled when more than 2 datasets)
 DATASET_COLORS = ['steelblue', 'tomato', 'seagreen', 'darkorange', 'purple']
 
+# Thumbnails directory (relative to this script)
+THUMBNAILS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thumbnails_for_figure')
+
+METRIC_TO_THUMBNAIL = {
+    'MEAN(area)': 'csa.png',
+    'MEAN(diameter_AP)': 'ap_diam.png',
+    'MEAN(diameter_RL)': 'rl_diam.png',
+    'MEAN(compression_ratio)': 'cr.png',
+    'MEAN(length_anterior)': 'a_length.png',
+    'MEAN(length_posterior)': 'p_length.png',
+    'asymmetry': 'assymetry.png',
+}
+
 
 def get_parser():
     parser = argparse.ArgumentParser(
@@ -244,6 +258,18 @@ def create_lineplot(df, hue, path_out, show_cv=False):
         ax.set_ylabel(METRIC_TO_AXIS[metric], fontsize=LABELS_FONT_SIZE)
         ax.set_xlabel('Axial Slice #', fontsize=LABELS_FONT_SIZE)
         ax.tick_params(axis='both', which='major', labelsize=TICKS_FONT_SIZE)
+
+        # Add thumbnail: top-left for CSA and RL diameter (curves rise on the right), top-right otherwise
+        METRICS_THUMB_LEFT = {'MEAN(area)', 'MEAN(diameter_RL)'}
+        thumb_file = METRIC_TO_THUMBNAIL.get(metric)
+        if thumb_file:
+            thumb_path = os.path.join(THUMBNAILS_DIR, thumb_file)
+            if os.path.isfile(thumb_path):
+                img = mpimg.imread(thumb_path)
+                x0 = 0.02 if metric in METRICS_THUMB_LEFT else 0.70
+                axins = ax.inset_axes([x0, 0.65, 0.32, 0.48])  # [x0, y0, width, height] in axes coordinates (0-1)
+                axins.imshow(img)
+                axins.axis('off')
 
         for spine in ['right', 'left', 'top']:
             ax.spines[spine].set_visible(False)
