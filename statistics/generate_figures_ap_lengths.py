@@ -417,12 +417,12 @@ def main():
     df = pd.concat(dfs, axis=0, ignore_index=True)
     subjects = np.array(all_subjects)
 
-    # Drop all-NaN columns and keep C2–C7 (VertLevel 2–7)
+    # Drop all-NaN columns and keep C2–C6 (VertLevel 2–6)
     df = df.dropna(axis=1, how='all')
-    df = df[df['VertLevel'].between(2, 7)]
+    df = df[df['VertLevel'].between(2, 6)]
 
     subjects_after = df['participant_id'].unique()
-    print(f'Subjects after filtering to C2–C7: {len(subjects_after)}')
+    print(f'Subjects after filtering to C2–C6: {len(subjects_after)}')
     dropped = set(subjects) - set(subjects_after)
     if dropped:
         print(f'Dropped subjects: {sorted(dropped)}')
