@@ -244,7 +244,7 @@ def create_lineplot(df, hue, path_out, show_cv=False):
 
         if hue is not None:
             if index == 0:
-                legend = ax.legend(loc='upper right', fontsize=TICKS_FONT_SIZE, framealpha=1)
+                legend = ax.legend(loc='center', bbox_to_anchor=(0.5, 0.22), fontsize=TICKS_FONT_SIZE, framealpha=1)
                 # Replace legend labels with enriched versions (e.g. "HC (n=201)")
                 if legend_labels is not None:
                     for text in legend.get_texts():
