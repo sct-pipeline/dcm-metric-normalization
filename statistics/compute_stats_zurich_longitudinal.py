@@ -150,12 +150,113 @@ def get_parser():
     parser.add_argument(
         '-no-prediction', action='store_true',
         help="Skip the stepwise logistic regression (faster; useful for quick summaries).")
+    parser.add_argument(
+        '-spine-generic-path', required=False, metavar='<dir>',
+        help="Path to spine-generic PAM50 normalized metrics directory for HC reference data. "
+             "If provided, HC distributions will be overlaid on plots.")
     return parser
 
 
 # ===========================================================================
 # Data helpers
 # ===========================================================================
+METRICS_DTYPE = {'MEAN(area)': float, 'MEAN(diameter_AP)': float, 
+                 'MEAN(diameter_RL)': float, 'MEAN(eccentricity)': float, 
+                 'MEAN(solidity)': float}
+AGE_DECADES = ['10-20', '20-30', '30-40', '40-50', '50-60']
+
+
+def load_normative_data(path_HC, path_participants=None):
+    """
+    Load normative data from spine-generic dataset in PAM50 space.
+    
+    :param path_HC: Path to directory containing HC PAM50 CSV files
+    :param path_participants: Optional path to participants.tsv for demographic data
+    :return: (df_HC, df_HC_min, df_HC_max) - aggregated HC dataframe and slice bounds
+    """
+    # Initialize pandas dataframe where data across all subjects will be stored
+    df = pd.DataFrame()
+    # Loop through .csv files of healthy controls
+    for file in os.listdir(path_HC):
+        if 'PAM50.csv' in file:
+            # Read csv file as pandas dataframe for given subject
+            df_subject = pd.read_csv(os.path.join(path_HC, file), dtype=METRICS_DTYPE)
+
+            # Compute compression ratio (CR) as MEAN(diameter_AP) / MEAN(diameter_RL)
+            df_subject['MEAN(compression_ratio)'] = df_subject['MEAN(diameter_AP)'] / df_subject['MEAN(diameter_RL)']
+
+            # Concatenate DataFrame objects
+            df = pd.concat([df, df_subject], axis=0, ignore_index=True)
+    
+    if df.empty:
+        logger.warning(f'  No PAM50.csv files found in {path_HC}')
+        return None, None, None
+    
+    # Get sub-id (e.g., sub-amu01) from Filename column and insert it as a new column
+    df.insert(0, 'participant_id', df['Filename'].str.split('/').str[0])
+
+    # If a participants.tsv file is provided, insert columns sex, age from df_participants
+    if path_participants and os.path.isfile(path_participants):
+        try:
+            df_participants = pd.read_csv(path_participants, sep='\t')
+            merge_cols = [c for c in ["age", "sex", "height", "weight", "manufacturer", "participant_id"] 
+                         if c in df_participants.columns]
+            df = df.merge(df_participants[merge_cols], on='participant_id', how='left')
+            # Recode age into age bins by 10 years (decades)
+            if 'age' in df.columns:
+                df['age'] = pd.cut(df['age'], bins=[10, 20, 30, 40, 50, 60], labels=AGE_DECADES)
+        except Exception as e:
+            logger.warning(f'  Could not merge participants data: {e}')
+
+    df = df.dropna(axis=1, how='all')
+    df = df.dropna(axis=0, how='any').reset_index(drop=True)
+    # Keep only VertLevel from C1 to Th1
+    if 'VertLevel' in df.columns:
+        df = df[df['VertLevel'] <= 8]
+
+    if 'Slice (I->S)' in df.columns:
+        df_HC_min, df_HC_max = df['Slice (I->S)'].min(), df['Slice (I->S)'].max()
+    else:
+        df_HC_min, df_HC_max = None, None
+
+    # Multiply solidity by 100 to get percentage
+    if 'MEAN(solidity)' in df.columns:
+        df['MEAN(solidity)'] = df['MEAN(solidity)'] * 100
+
+    logger.info(f'  Loaded {len(df["participant_id"].unique())} HC subjects from {path_HC}')
+    return df, df_HC_min, df_HC_max
+
+
+def compute_normative_stats_by_level(df_HC):
+    """
+    Compute HC reference statistics (mean, std, percentiles) per vertebral level.
+    
+    :param df_HC: Dataframe from load_normative_data()
+    :return: Dictionary {metric: {level: {stat_name: value}}}
+    """
+    if df_HC is None or df_HC.empty:
+        return {}
+    
+    ref_stats = {}
+    metrics_to_analyze = [m for m in METRICS + METRICS_NORM if m in df_HC.columns]
+    
+    for metric in metrics_to_analyze:
+        ref_stats[metric] = {}
+        if 'VertLevel' in df_HC.columns:
+            for level in sorted(df_HC['VertLevel'].unique()):
+                vals = df_HC[df_HC['VertLevel'] == level][metric].dropna()
+                if len(vals) > 0:
+                    ref_stats[metric][level] = {
+                        'mean': vals.mean(),
+                        'std': vals.std(),
+                        'p05': vals.quantile(0.05),
+                        'p95': vals.quantile(0.95),
+                        'n': len(vals),
+                    }
+    
+    return ref_stats
+
+
 def parse_input_files(s):
     """
     Parse 'bl=path.csv,6m=path.csv,...' into {'bl': 'path.csv', '6m': 'path.csv', ...}.
@@ -534,13 +635,32 @@ def compute_temporal_slopes(dfs_by_tp, metrics, months_map=None, path_out=None):
 
 def plot_temporal_trajectories(dfs_by_tp, metrics, months_map=None, path_out=None,
                                 group_col='therapeutic_decision',
-                                group_labels={0: 'Conservative', 1: 'Operative'}):
+                                group_labels={0: 'Conservative', 1: 'Operative'},
+                                ref_stats=None):
     """
     Line plots showing group-mean ± STD metric trajectories over time,
     colour-coded by therapeutic decision (or any binary grouping variable).
     Individual subject trajectories are shown as thin semi-transparent lines.
+    HC reference ranges (mean ± std) overlaid as shaded bands.
 
     One figure per metric; saved to <path_out>/trajectory_<metric>.png.
+    
+    Parameters
+    ----------
+    dfs_by_tp : dict
+        {tp: DataFrame} indexed by participant_id
+    metrics : list
+        Metrics to plot
+    months_map : dict, optional
+        Mapping of timepoint labels to months
+    path_out : str, optional
+        Output directory
+    group_col : str
+        Column for grouping (default: therapeutic_decision)
+    group_labels : dict
+        Labels for groups
+    ref_stats : dict, optional
+        {metric: {level: {stat_name: value}}} from compute_normative_stats_by_level()
     """
     if months_map is None:
         months_map = MONTHS_MAP
@@ -609,11 +729,28 @@ def plot_temporal_trajectories(dfs_by_tp, metrics, months_map=None, path_out=Non
                         marker='o', color=color, lw=2.5,
                         markersize=7, label=label, zorder=3)
 
+        # ── HC reference bands (if available) ────────────────────────────────
+        if ref_stats and metric in ref_stats:
+            # Compute aggregate HC reference (mean across all levels)
+            hc_levels = ref_stats[metric]
+            if hc_levels:
+                hc_means = [stats_dict['mean'] for stats_dict in hc_levels.values()]
+                hc_stds = [stats_dict['std'] for stats_dict in hc_levels.values()]
+                hc_mean = np.mean(hc_means)
+                hc_std = np.mean(hc_stds)
+                
+                # Plot HC reference as light gray band
+                months_range = [min(months), max(months)] if months else [0, 60]
+                ax.axhspan(hc_mean - hc_std, hc_mean + hc_std,
+                          color='gray', alpha=0.1, zorder=0, label='HC ± 1 STD')
+                ax.axhline(hc_mean, color='gray', linestyle='--', lw=1.5, 
+                          alpha=0.6, zorder=1, label='HC mean')
+
         ax.set_xlabel('Months post-baseline', fontsize=11)
         ax.set_ylabel(metric, fontsize=11)
-        ax.set_title(f'Temporal trajectory — {metric}\n(mean ± STD + individual subjects)',
+        ax.set_title(f'Temporal trajectory — {metric}\n(mean ± STD + individual subjects, HC reference)',
                      fontsize=12)
-        ax.legend(fontsize=10)
+        ax.legend(fontsize=9, loc='best')
         sns.despine()
         plt.tight_layout()
 
@@ -898,6 +1035,19 @@ def main():
     else:
         motion_df = read_motion_file(args.motion_file, df_participants)
 
+    # Load HC normative data if path provided
+    df_HC = None
+    ref_stats = {}
+    if args.spine_generic_path:
+        logger.info(f'\nLoading spine-generic HC reference data...')
+        if os.path.isdir(args.spine_generic_path):
+            df_HC, _, _ = load_normative_data(args.spine_generic_path, None)
+            if df_HC is not None:
+                ref_stats = compute_normative_stats_by_level(df_HC)
+                logger.info(f'  Computed reference stats for {len(ref_stats)} metrics')
+        else:
+            logger.warning(f'  Spine-generic path not found: {args.spine_generic_path}')
+
     # -------------------------------------------------------------------
     # Per-timepoint analysis
     # -------------------------------------------------------------------
@@ -944,7 +1094,8 @@ def main():
         )
 
         plot_temporal_trajectories(
-            dfs_by_tp, METRICS + METRICS_NORM, path_out=temporal_out
+            dfs_by_tp, METRICS + METRICS_NORM, path_out=temporal_out,
+            ref_stats=ref_stats
         )
     else:
         logger.info('\nOnly one timepoint provided – temporal evolution analysis skipped.')
