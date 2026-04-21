@@ -1,0 +1,812 @@
+================================================================================
+PLOTTING SCRIPTS — DCM-ZURICH LONGITUDINAL ANALYSIS
+================================================================================
+Directory: /Users/kahina/NeuroPoly/dcm-metric-normalization/plotting/
+Updated   : 2026-04-21
+
+================================================================================
+QUICK EXPLAINATION PER SCRIPT
+================================================================================
+
+  build_surgery_mapping.py
+      Builds the surgery-scan mapping table (who had surgery, when relative to
+      which MRI session). Synthesises check_surg_dates, merge_all_subjects,
+      add_months_diff, and add_timepoint_columns into a single documented pipeline.
+
+  generate_figure_PAM50_multiple_subjects.py
+      Plots group-level spinal cord metric profiles across vertebral levels in
+      PAM50 space, with optional stratification by MCL group or myelopathy and
+      optional spine-generic normative reference bands.
+
+  plot_boxplots_violins_by_level.py
+      Produces boxplots, violin plots, and strip plots of per-level morphometric
+      metrics grouped by vertebral level and timepoint, with automatic outlier
+      annotation.
+
+  plot_csa_delta.py
+      Computes and plots cross-sectional area (CSA) change from baseline and
+      from the pre-surgery scan for each subject, using per-level data at the
+      stenosis levels.
+
+  plot_groupwise_prepost_by_max_stenosis.py
+      Creates group-averaged pre/post surgery PAM50 per-slice profiles stratified
+      by maximum stenosis level (e.g. C4/C5, C5/C6), with optional spine-generic
+      healthy-controls reference.
+
+  plot_individual_trajectories_pam50.py
+      Generates one figure per subject showing their longitudinal PAM50 per-slice
+      metric trajectories, with stenosis levels highlighted and time-aware
+      therapeutic group labels (operative vs. conservative).
+
+  plot_metrics_at_mcl_perslice.py
+      Computes and plots morphometric metrics in a ±N-slice window centred on the
+      MCL disc junction. Supports both standard (baseline-aligned) and operative
+      (surgery-aligned, months from surgery) modes in native or PAM50 space.
+
+  plot_mjoa_cord_area_violin.py
+      Creates a violin plot showing the univariate association between mJOA total
+      score and spinal cord cross-sectional area at a chosen vertebral level,
+      with Spearman correlation statistics.
+
+  plot_mjoa_longitudinal.py
+      Plots longitudinal mJOA trajectories across all timepoints and, for
+      operative subjects, trajectories aligned to the estimated surgery date.
+
+  plot_trajectory_zurich_longitudinal.py
+      Generates five types of longitudinal trajectory visualisations (per-level,
+      per-slice PAM50, per-slice native, level profiles, and group-split by
+      therapeutic decision), with time-aware operative/conservative stratification.
+
+
+================================================================================
+DETAILED SCRIPT DESCRIPTIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+1. build_surgery_mapping.py
+--------------------------------------------------------------------------------
+Git status : Committed 2026-04-20 (commit 413bd20)
+Created    : 2026-04-20
+
+PURPOSE
+  Builds the baseline_surgery_dates_merged_clean.csv table used by operative
+  analysis scripts. It consolidates four previously separate scripts into a
+  single, commented pipeline:
+    Step 1 — extract surgery dates from clinical_scores.xlsx
+    Step 2 — load M0 scan dates from participants.tsv
+    Step 3 — merge the two tables (left join on subject)
+    Step 4 — compute months from M0 scan to surgery (relativedelta)
+    Step 5 — assign nominal before/after surgery timepoints from months_diff
+    Step 6 — verify which timepoints have actual per-slice MRI data
+    Step 7 — save the output CSV (refuses to overwrite existing files)
+
+  NOTE: The existing baseline_surgery_dates_merged_clean.csv uses per-session
+  scan dates (not just M0) from a later REDCap export. This script uses the M0
+  date from participants.tsv, so months_diff values will differ for ~40 subjects,
+  but the before/after timepoint assignments agree for 42/43 operative subjects.
+
+FUNCTIONS
+  get_parser()
+    Define CLI arguments; returns ArgumentParser.
+
+  extract_surgery_dates(clinical_scores_path)
+    Read clinical_scores.xlsx, collect all surg_date_* columns (excluding
+    surg_date_before_* which are scan dates, not surgery dates), and keep only
+    subjects whose surgery date is consistent across all filled columns.
+    Returns DataFrame(subject:int, surgery_date:datetime).
+
+  load_baseline_scan_dates(participants_path)
+    Read participants.tsv, extract numeric subject ID and date_of_scan (M0).
+    Returns DataFrame(subject:int, date_of_scan:datetime).
+
+  merge_scan_and_surgery(baseline_df, surgery_df)
+    Left-join on subject; adds subject_bids (sub-XXX format).
+    Returns merged DataFrame.
+
+  compute_months_diff(merged_df)
+    For each row with both dates, compute relativedelta(surgery_date, date_of_scan)
+    expressed as years*12 + months + days/30, rounded to 2 dp.
+    Adds column months_diff_scan_to_surgery.
+
+  assign_nominal_timepoints(merged_df)
+    From months_diff, find the last TIMEPOINTS entry strictly before surgery
+    (before_surg) and the first at or after surgery (after_surg).
+    Subjects with months_diff <= 0 or > 60 get None/None.
+
+  verify_data_existence(df, perslice_dir, structure='cord')
+    Build a set of subjects with data at each timepoint by reading
+    T2w_ax_{structure}_metrics_perslice_{tp}_data.csv.
+    For each subject, walk backwards to find before_surg_found and forwards to
+    find after_surg_found. Both may differ from the nominal values when a
+    session's data file is missing.
+
+  finalise_and_save(df, output_path)
+    Drop numeric subject column, rename subject_bids to subject, format dates
+    as YYYY-MM-DD strings, sort, and save. Raises FileExistsError if output
+    already exists.
+
+  main()
+    Runs Steps 1–7 in order, printing progress at each step.
+
+CLI ARGUMENTS
+  --clinical-scores  PATH   clinical_scores.xlsx (required)
+  --participants     PATH   participants.tsv (required)
+  --perslice-dir     PATH   directory with per-slice metric CSVs (required)
+  --output           PATH   output CSV path — will NOT overwrite (required)
+  --structure        STR    structure name in filenames (default: cord)
+
+INPUT  : clinical_scores.xlsx, participants.tsv, per-slice metric CSVs
+OUTPUT : surgery mapping CSV (subject, date_of_scan, surgery_date,
+         months_diff_scan_to_surgery, before_surg, after_surg,
+         before_surg_found, after_surg_found)
+
+
+--------------------------------------------------------------------------------
+2. generate_figure_PAM50_multiple_subjects.py
+--------------------------------------------------------------------------------
+Git status : Committed (first commit 2025-10-21)
+
+PURPOSE
+  Group-level PAM50 per-slice line plots for one or more MRI sessions.
+  Optionally overlays spine-generic healthy-control normative bands and
+  stratifies subjects by MCL group or myelopathy severity.
+
+FUNCTIONS
+  get_parser()
+    CLI argument parser.
+
+  get_vert_indices(df)
+    From VertLevel column, compute the boundary slices and mid-vertebral
+    positions for drawing level labels.
+    Returns (vert Series, ind_vert array, ind_vert_mid array).
+
+  _read_pam50_df(path_HC)
+    Read all PAM50.csv files from the spine-generic HC directory, adding a
+    participant_id column derived from the filename.
+    Returns concatenated DataFrame.
+
+  load_normative_data(path_HC, path_participants_pam50, structure)
+    Load spine-generic normative PAM50 data for cord, canal, or aSCOR;
+    computes compression_ratio; returns (df_normative_data,
+    df_spine_generic_min, df_spine_generic_max).
+
+  fetch_participant_and_session(filename_path)
+    Extract participant_id (sub-XXX) and session_id (ses-XXX) from a BIDS
+    filename.
+    Returns (participant_id, session_id).
+
+  read_csv_file(csv_file, participants_file, stratify_type)
+    Read morphometric CSV, add participant/session IDs, optionally merge MCL
+    or myelopathy stratification from participants.tsv.
+    Returns DataFrame.
+
+  create_figure(subjects_df, n_subjects, df_normative_data,
+                sessions_to_process, figure_path, stratify_type)
+    Build multi-metric line plot across PAM50 slices for all requested
+    sessions, with optional colour-coding by stratify_type and normative band.
+    Saves PNG.
+
+  main()
+    Load data and call create_figure.
+
+CLI ARGUMENTS
+  -i                       PATH   input metric CSV (required)
+  -o                       PATH   output directory (required)
+  -s                       [TPS]  sessions to process (default: ses-M0)
+  -path-HC                 PATH   spine-generic normative directory
+  -participants-file-pam50 PATH   spine-generic participants.tsv
+  -participants-file       PATH   participants.tsv with stratification data
+  -stratify                STR    mcl | myelopathy
+
+INPUT  : per-slice PAM50 metric CSV, optional participants files, optional HC CSVs
+OUTPUT : PNG figure
+
+
+--------------------------------------------------------------------------------
+3. plot_boxplots_violins_by_level.py
+--------------------------------------------------------------------------------
+Git status : Committed (2026-03-09)
+
+PURPOSE
+  Visualise the distribution of per-level morphometric metrics across vertebral
+  levels (C2–C7) and timepoints using boxplots, violin plots, and strip plots.
+  Strip plots include automatic IQR-based outlier annotation.
+
+FUNCTIONS
+  get_parser()
+    CLI argument parser.
+
+  extract_subject_id(filename)
+    Regex-extract sub-XXX from a BIDS filename.
+
+  load_perlevel_data(data_dir, structure='cord', timepoints=None)
+    Load T2w_ax_{structure}_metrics_perlevel_{tp}_data.csv for each timepoint,
+    derive subject IDs, concatenate.
+    Returns combined DataFrame.
+
+  create_boxplot_figure(df, metric, output_dir)
+    Seaborn boxplot with x=VertLevel, hue=timepoint.
+    Saves PNG.
+
+  create_violin_figure(df, metric, output_dir)
+    Seaborn violin plot with x=VertLevel, hue=timepoint.
+    Saves PNG.
+
+  create_scatterplot_figure(df, metric, output_dir)
+    Strip plot with IQR outlier detection and subject ID annotation for outliers.
+    Saves PNG.
+
+  generate_plots(df, output_dir, metrics=None, plot_type='both')
+    Loop over metrics and requested plot types; call the appropriate figure function.
+
+  main()
+    Load data and generate all requested plots.
+
+CLI ARGUMENTS
+  --data-dir     PATH   per-level CSV directory (required)
+  --output-dir   PATH   output directory (required)
+  --structure    STR    cord | canal | aSCOR (default: cord)
+  --timepoints   [TPS]  timepoints to include (default: M0 M6 M12)
+  --plot-type    STR    boxplot | violinplot | scatterplot | both
+  --metrics      [MET]  metrics to plot (default: all available)
+
+INPUT  : per-level metric CSVs
+OUTPUT : PNG figures (boxplot, violinplot, scatterplot per metric)
+
+
+--------------------------------------------------------------------------------
+4. plot_csa_delta.py
+--------------------------------------------------------------------------------
+Git status : Committed 2026-04-20 (commit a6e48e8)
+
+PURPOSE
+  Compute and plot CSA change over time for DCM subjects. Two views:
+    (a) delta from M0 baseline at each follow-up timepoint
+    (b) delta from the last pre-surgery scan, aligned to surgery for operative
+        subjects
+
+FUNCTIONS
+  get_parser()
+    CLI argument parser.
+
+  extract_subject_from_filename(filename)
+    Extract subject ID in sub-XXX format from a BIDS filename.
+
+  load_participants(participants_file)
+    Load participant_id, maximum_stenosis (parsed to stenosis_level), and
+    surgery_date from participants.tsv.
+    Returns DataFrame.
+
+  load_metrics_by_timepoint(metrics_dir)
+    Load per-level metric CSVs for all timepoints; add subject, timepoint, and
+    nominal months columns.
+    Returns dict keyed by timepoint.
+
+  extract_csa_at_stenosis_levels(metrics_by_timepoint, participants_df)
+    For each subject/timepoint, extract mean CSA at the two vertebral levels
+    flanking the stenosis.
+    Returns long-format DataFrame.
+
+  calculate_csa_delta(df_csa, output_dir)
+    Compute delta = CSA_at_tp - CSA_at_M0 per subject.
+    Saves csa_delta_from_baseline.csv; returns DataFrame.
+
+  calculate_csa_pre_post_surgery(df_csa, participants_df, surgery_df, output_dir)
+    For operative subjects, compute delta relative to the last pre-surgery scan.
+    Saves csa_pre_post_surgery_delta.csv; returns DataFrame.
+
+  plot_csa_delta_trajectories(df_delta, output_dir)
+    Individual and group mean ± SD delta trajectories vs months from baseline.
+    Saves PNG.
+
+  plot_csa_pre_post_surgery_delta(df_pre_post, output_dir)
+    Pre/post surgery delta trajectories for operative subjects.
+    Saves PNG.
+
+  main()
+    Orchestrate loading, delta computation, and plotting.
+
+CLI ARGUMENTS
+  -metrics_dir  PATH  per-level metric CSV directory (required)
+  -participants PATH  participants.tsv (required)
+  -surgery      PATH  surgery dates CSV (required)
+  -o            PATH  output directory (required)
+
+INPUT  : per-level metric CSVs, participants.tsv, surgery dates CSV
+OUTPUT : csa_delta_from_baseline.csv, csa_pre_post_surgery_delta.csv, PNG figures
+
+
+--------------------------------------------------------------------------------
+5. plot_groupwise_prepost_by_max_stenosis.py
+--------------------------------------------------------------------------------
+Git status : Committed 2026-04-20 (commit 14870f0)
+
+PURPOSE
+  Group-averaged PAM50 per-slice profiles showing how cord morphology at each
+  slice changes from the pre-surgery session to the post-surgery session, broken
+  down by maximum stenosis level. Optionally overlays a spine-generic HC
+  reference line.
+
+FUNCTIONS
+  extract_subject_id(filename)
+    Regex-extract sub-XXX.
+
+  load_perslice_pam50_data(data_dir, structure, timepoints)
+    Load per-slice PAM50 metric CSVs; filter to C2–C7.
+    Returns DataFrame.
+
+  get_disc_junctions(df)
+    Identify disc junction slices from VertLevel transitions.
+    Returns list of dicts with x position and label.
+
+  load_participants_max_stenosis(participants_file, filter_number_stenosis=None)
+    Load maximum_stenosis; optionally filter by number_stenosis.
+    Returns DataFrame.
+
+  load_baseline_surgery_mapping(mapping_file)
+    Load baseline_surgery_dates_merged.csv; filter to rows with valid
+    before_surg_found and after_surg_found.
+    Returns DataFrame.
+
+  build_prepost_pairs_from_mapping(mapping_df, all_data)
+    For each subject, select the pre and post session from the mapping;
+    tag each row as pre_surgery or post_surgery.
+    Returns (df_pairs, failed_subjects list).
+
+  aggregate_group_prepost(df_pairs, metrics)
+    Compute mean, std, count per (maximum_stenosis, phase, slice).
+    Returns dict of DataFrames keyed by metric.
+
+  sanitize_name(text)
+    Clean string for use in filename.
+
+  normalize_disc_label(label)
+    Normalise disc label to ascending order (e.g. C6/C5 → C5/C6).
+
+  load_hc_normative_data(path_HC, metric)
+    Recursively load HC PAM50 CSV files for one metric.
+    Returns DataFrame or None.
+
+  compute_hc_reference_line(df_HC, metric)
+    Compute mean and std per slice from HC data.
+    Returns (slices, means, stds, count) or None.
+
+  plot_group(group_name, agg_by_metric, metrics, junctions, output_file,
+             n_subjects, filter_number_stenosis, hc_ref_data, df_pairs)
+    Build multi-metric figure for one MCL group: pre vs post lines with ±1 SD
+    shading, disc junction markers, optional HC reference, per-subject thin
+    lines. Saves PNG.
+
+  get_parser()
+    CLI argument parser.
+
+  main()
+    Orchestrate loading, pairing, aggregation, and plotting.
+
+CLI ARGUMENTS
+  --data-dir                 PATH   per-slice PAM50 CSVs (required)
+  --participants-file        PATH   participants.tsv (required)
+  --baseline-surgery-mapping PATH   surgery mapping CSV (required)
+  --output-dir               PATH   output directory (required)
+  --structure                STR    cord | canal | aSCOR (default: cord)
+  --timepoints               [TPS]  timepoints (default: M0–M60)
+  --metrics                  [MET]  metrics to plot
+  --min-subjects-per-group   INT    skip groups with fewer subjects (default: 2)
+  --filter-number-stenosis   INT    filter to specific number_stenosis
+  --hc-reference-path        PATH   spine-generic PAM50 directory
+
+INPUT  : per-slice PAM50 CSVs, participants.tsv, surgery mapping CSV,
+         optional HC PAM50 CSVs
+OUTPUT : PNG figures per MCL group, audit CSVs (included_subjects,
+         failed_subjects, group_counts)
+
+
+--------------------------------------------------------------------------------
+6. plot_individual_trajectories_pam50.py
+--------------------------------------------------------------------------------
+Git status : Committed (2026-03-24)
+
+PURPOSE
+  One figure per subject showing their longitudinal PAM50 per-slice metric
+  trajectories across all requested timepoints. Disc junctions are marked, MCL
+  and secondary stenosis levels are highlighted, and sessions are colour-coded
+  by time-aware therapeutic group (operative vs. conservative).
+
+FUNCTIONS
+  extract_subject_id(filename)
+    Regex-extract sub-XXX.
+
+  infer_labels_dir(data_dir)
+    Infer labels directory (../labels/) from data_dir.
+
+  load_timepoint_aware_labels(labels_dir, timepoints)
+    Load labels_{tp}.csv files; returns DataFrame(participant_id, timepoint,
+    therapeutic_group).
+
+  load_stenosis_maps(participants_file)
+    Load maximum_stenosis (MCL) and full stenosis list from participants.tsv.
+    Returns (max_stenosis_map dict, all_stenosis_map dict).
+
+  load_perslice_pam50_data(data_dir, structure, timepoints)
+    Load per-slice PAM50 metric CSVs; filter to C2–C7; return DataFrame.
+
+  get_disc_junctions(df)
+    Identify disc junction slices; return list of dicts.
+
+  normalize_disc_label(label)
+    Normalise single disc label to ascending order.
+
+  normalize_disc_list(labels)
+    Normalise a list of disc labels; return set.
+
+  sort_timepoints(timepoints)
+    Sort timepoints by nominal months; return sorted list.
+
+  get_std_column(metric)
+    Map MEAN(X) → STD(X) for error-band plotting.
+
+  plot_subject(df_subject, metrics, junctions, out_file,
+               max_stenosis_label, other_stenosis_labels)
+    Multi-metric PAM50 profile figure for one subject: one line per session,
+    coloured by therapeutic group. MCL junction highlighted in red, other
+    stenosis levels in orange. Saves PNG.
+
+  get_parser()
+    CLI argument parser.
+
+  main()
+    Load data and generate one figure per subject.
+
+CLI ARGUMENTS
+  --data-dir         PATH   per-slice PAM50 CSV directory (required)
+  --output-dir       PATH   output directory (required)
+  --structure        STR    cord | canal | aSCOR (default: cord)
+  --timepoints       [TPS]  sessions (default: M0 M6 M12)
+  --labels-dir       PATH   directory with labels_M0.csv etc. (auto-inferred)
+  --participants-file PATH  participants.tsv with maximum_stenosis and stenosis
+  --metrics          [MET]  metrics to plot
+  --subjects         [SUB]  specific subjects (default: all)
+
+INPUT  : per-slice PAM50 CSVs, participants.tsv, time-aware label CSVs
+OUTPUT : one PNG per subject
+
+
+--------------------------------------------------------------------------------
+7. plot_metrics_at_mcl_perslice.py
+--------------------------------------------------------------------------------
+Git status : Committed 2026-04-20 (commit 4837292)
+Created    : 2026-04-20
+
+PURPOSE
+  Compute and plot morphometric metrics (CSA, AP diameter, compression ratio)
+  in a ±N-slice window centred on the MCL disc junction. Two modes:
+
+  Standard mode  — x-axis is months from M0 baseline; delta relative to M0.
+  Operative mode — x-axis is months from surgery; delta relative to last
+                   pre-surgery scan (before_surg_found). Requires the surgery
+                   mapping CSV produced by build_surgery_mapping.py.
+
+  Supports both native and PAM50 spaces. Space label is included in all plot
+  titles.
+
+FUNCTIONS
+  get_parser()
+    CLI argument parser.
+
+  extract_subject_id(filename)
+    Regex-extract sub-XXX.
+
+  parse_mcl(mcl_str)
+    Parse 'C4/C5' → (4, 5); returns None on failure.
+
+  load_participants(participants_file)
+    Load participant_id and maximum_stenosis; parse MCL into upper_level and
+    lower_level integers; drop subjects with unparseable MCL.
+    Returns DataFrame(subject, upper_level, lower_level, maximum_stenosis).
+
+  load_perslice_data(data_dir, structure, timepoints, space='native')
+    Load per-slice CSVs for all timepoints (native or PAM50 naming);
+    filter to C2–C7; compute compression_ratio = diameter_AP / diameter_RL.
+    Returns combined DataFrame.
+
+  find_mcl_junction_slices(df_subj_tp, upper_level, lower_level, n_slices)
+    In I→S orientation, higher slice = more superior. The upper vertebra
+    (e.g. C4) occupies the higher slice numbers; the lower vertebra (e.g. C5)
+    occupies lower numbers. Takes the N lowest slices from the upper level and
+    the N highest slices from the lower level to form a window centred on the
+    disc junction.
+    Returns list of slice indices or None.
+
+  extract_metrics_at_mcl(all_data, participants_df, n_slices, metrics)
+    For each (subject, timepoint), call find_mcl_junction_slices and average
+    metrics across the window. Returns long-format DataFrame with one row per
+    (subject, timepoint).
+
+  plot_metric_trajectories(df_mcl, metric, output_dir, space)
+    Absolute metric over time (individual faint lines + group mean ± SD).
+    Space label shown in title. Saves PNG.
+
+  plot_delta_from_baseline(df_mcl, metric, output_dir, space)
+    Change from M0 baseline (individual + group). Space label in title.
+    Saves PNG.
+
+  plot_multi_metric_panel(df_mcl, metrics, output_dir, space)
+    Grid of all metrics × (absolute | delta). Space label in suptitle.
+    Saves PNG.
+
+  plot_by_mcl_group(df_mcl, metric, output_dir, n_slices, space)
+    Separate mean ± SD line per MCL group; rare groups (< 3 subjects) merged
+    into 'Other'. Space label in title. Saves PNG.
+
+  load_surgery_mapping(mapping_file)
+    Load baseline_surgery_dates_merged_clean.csv; keep only rows with both
+    before_surg_found and after_surg_found. Returns DataFrame.
+
+  extract_metrics_operative(all_data, participants_df, surgery_mapping,
+                             n_slices, metrics)
+    For each operative subject:
+      1. Extract MCL window at before_surg_found → reference values.
+      2. For every timepoint, compute months_from_surgery =
+         TIMEPOINT_MONTHS[tp] − months_diff_scan_to_surgery.
+      3. Compute delta = value − reference.
+    Returns DataFrame with absolute values, delta_* columns,
+    months_from_surgery, and phase tag (pre/post_surgery).
+
+  _operative_group_stats(df_plot, y_col)
+    Group by timepoint code (not by continuous months_from_surgery, which
+    would produce single-subject groups with NaN std). Place each group at its
+    mean months_from_surgery on the x-axis.
+    Returns DataFrame indexed by mean months_from_surgery.
+
+  _add_surgery_bands(ax, x_min, x_max)
+    Draw vertical dashed line at x=0 (surgery) and shade pre/post regions.
+
+  plot_operative_trajectories(df_op, metric, output_dir, space)
+    Absolute metric vs months from surgery; surgery line at x=0. Saves PNG.
+
+  plot_operative_delta(df_op, metric, output_dir, space)
+    Delta from pre-surgery scan vs months from surgery; pre-surgery point is
+    always at delta=0 by construction. Space label in title. Saves PNG.
+
+  plot_operative_panel(df_op, metrics, output_dir, space)
+    Summary panel for operative analysis (absolute | delta, all metrics).
+    Space label in suptitle. Saves PNG.
+
+  main()
+    Parse args; run standard figures or operative figures depending on
+    --operative-only flag.
+
+CLI ARGUMENTS
+  --data-dir                  PATH   per-slice CSV directory (required)
+  --participants              PATH   participants.tsv (required)
+  --output-dir                PATH   output directory (required)
+  --space                     STR    native | PAM50 (default: native)
+  --structure                 STR    cord | canal | aSCOR (default: cord)
+  --timepoints                [TPS]  timepoints (default: M0 M6 M12)
+  --n-slices                  INT    slices per side of junction (default: 3)
+  --metrics                   [MET]  metrics (default: area, AP diam, comp ratio)
+  --operative-only            FLAG   use surgery-relative timeline
+  --baseline-surgery-mapping  PATH   surgery mapping CSV (required if --operative-only)
+
+INPUT  : per-slice metric CSVs, participants.tsv, optional surgery mapping CSV
+OUTPUT : metrics_at_mcl.csv (or metrics_at_mcl_operative.csv),
+         PNG figures (trajectories, delta, by_mcl_group, panel,
+                      operative_trajectories, operative_delta, operative_panel)
+
+
+--------------------------------------------------------------------------------
+8. plot_mjoa_cord_area_violin.py
+--------------------------------------------------------------------------------
+Git status : Committed (first commit 2025-10-21)
+
+PURPOSE
+  Univariate association between mJOA total score and spinal cord CSA at a
+  chosen vertebral level, displayed as a violin plot with regression line and
+  Spearman correlation test.
+
+FUNCTIONS
+  get_parser()
+    CLI argument parser.
+
+  load_clinical_data(clinical_file, subject_col='record_id')
+    Load clinical_scores.xlsx; format participant_id as sub-XXX.
+    Returns DataFrame.
+
+  fetch_participant_and_session(filename_path)
+    Extract participant_id and session_id from BIDS filename.
+
+  load_cord_metrics(metrics_file, level, structure)
+    Load per-level metric CSV; filter to VertLevel == level; extract subject IDs.
+    Returns DataFrame.
+
+  merge_data(df_clinical, df_metrics, subject_col='participant_id')
+    Inner-join on subject ID.
+    Returns merged DataFrame.
+
+  plot_violin_association(df, output_dir, level, structure)
+    Violin plot of CSA distribution stratified by mJOA bin, with regression
+    line and Spearman ρ / p-value annotation. Saves PNG.
+
+  main()
+    Load and merge data; call plot_violin_association.
+
+CLI ARGUMENTS
+  -clinical  PATH  Excel file with clinical scores (required)
+  -metrics   PATH  per-level metric CSV (required)
+  -level     INT   vertebral level to analyse (default: 2)
+  -o         PATH  output directory (required)
+
+INPUT  : clinical_scores.xlsx, per-level metric CSV
+OUTPUT : PNG figure
+
+
+--------------------------------------------------------------------------------
+9. plot_mjoa_longitudinal.py
+--------------------------------------------------------------------------------
+Git status : Committed 2026-04-20 (commit fc0e202)
+
+PURPOSE
+  Longitudinal mJOA score analysis. Produces four figures:
+    (a) all-subjects trajectories across available timepoints
+    (b) zoomed view for the first 24 months
+    (c) operative subjects aligned to estimated surgery date
+    (d) baseline vs first post-surgery timepoint only
+
+FUNCTIONS
+  get_parser()
+    CLI argument parser.
+
+  load_clinical_data(clinical_file)
+    Load clinical_scores.xlsx; extract record_id; format subject as sub-XXX.
+    Returns DataFrame.
+
+  load_surgery_data(surgery_file)
+    Load surgery dates CSV; parse dates.
+    Returns DataFrame.
+
+  extract_mjoa_by_timepoint(df_clinical, output_dir)
+    Pivot mJOA columns to long format (one row per subject × timepoint).
+    Saves mjoa_by_timepoint.csv. Returns long DataFrame.
+
+  extract_pre_post_surgery_mjoa(df_clinical, df_surgery, output_dir)
+    For subjects with surgery, identify last pre-surgery and first post-surgery
+    mJOA measurements.
+    Saves mjoa_pre_post_surgery.csv. Returns DataFrame.
+
+  plot_mjoa_trajectories(df_long, output_dir)
+    Two-panel figure: all timepoints (left) and first 24 months (right).
+    Individual + group mean ± SD. Saves PNG.
+
+  plot_pre_post_surgery_trajectories(df_pre_post, df_surgery, output_dir)
+    Longitudinal mJOA for operative subjects across all timepoints, with surgery
+    date marked. Saves PNG.
+
+  plot_centered_at_surgery_date(df_pre_post, df_surgery, output_dir)
+    mJOA trajectories with x-axis in months from estimated surgery date.
+    Saves PNG.
+
+  plot_pre_post_only(df_pre_post, df_surgery, output_dir)
+    Paired plot: one pre-surgery measurement vs one post-surgery measurement
+    per operative subject. Saves PNG.
+
+  main()
+    Load data and call all four plot functions.
+
+CLI ARGUMENTS
+  -clinical  PATH  Excel file with clinical scores (required)
+  -surgery   PATH  surgery dates CSV (required)
+  -o         PATH  output directory (required)
+
+INPUT  : clinical_scores.xlsx, surgery dates CSV
+OUTPUT : mjoa_by_timepoint.csv, mjoa_pre_post_surgery.csv, PNG figures
+
+
+--------------------------------------------------------------------------------
+10. plot_trajectory_zurich_longitudinal.py
+--------------------------------------------------------------------------------
+Git status : Committed (2026-03-09)
+
+PURPOSE
+  Five visualisation options for longitudinal spinal cord morphometrics in the
+  DCM-Zurich cohort. Options can be run individually or all at once. Supports
+  time-aware stratification by therapeutic group (operative vs. conservative):
+
+    Option 1 — Per-level trajectories over time (colours = vertebral levels)
+    Option 2 — Per-slice PAM50 trajectories across slices (colours = timepoints)
+    Option 3 — Per-slice native trajectories across slices (colours = timepoints)
+    Option 4 — Vertebral level profiles per timepoint (x = level, colours = tp)
+    Option 5 — Group-split per-level trajectories: conservative (baseline-aligned)
+                and operative (post-op aligned, x-axis = scans since surgery)
+
+FUNCTIONS
+  extract_subject_id(filename)
+    Regex-extract sub-XXX.
+
+  load_perlevel_data(data_dir, structure, timepoints)
+    Load per-level CSVs; filter C2–C7; return DataFrame.
+
+  load_perslice_native_data(data_dir, structure, timepoints)
+    Load per-slice native CSVs; filter C2–C7; return DataFrame.
+
+  load_perslice_pam50_data(data_dir, structure, timepoints)
+    Load per-slice PAM50 CSVs; filter C2–C7; return DataFrame.
+
+  infer_labels_dir(data_dir)
+    Infer labels directory from data_dir parent.
+
+  load_timepoint_aware_labels(labels_dir, timepoints)
+    Load labels_{tp}.csv; return DataFrame(participant_id, timepoint,
+    therapeutic_group).
+
+  attach_timepoint_aware_labels(df, labels_df)
+    Merge therapeutic labels into morphometric data. Returns merged DataFrame.
+
+  prepare_grouped_trajectory_data(df)
+    Split by therapeutic_group; for operative subjects align to first post-op
+    timepoint (scan index from surgery).
+    Returns (conservative_df, operative_df).
+
+  save_operative_postop_counts_table(operative_df, output_dir)
+    Save subject count per aligned post-op scan index to CSV.
+
+  plot_perlevel_trajectories(df, metric, output_dir)  [Option 1]
+    Line plot per timepoint at each vertebral level. Saves PNG.
+
+  generate_option1_plots(df, output_dir, metrics)
+    Wrapper for Option 1.
+
+  get_disc_junction_slices(df, margin=4, return_junction_info=False)  [Option 2]
+    Identify slices within `margin` of any disc junction to exclude them from
+    smoothing. Returns set of slice indices.
+
+  plot_perslice_pam50_trajectories(df, metric, output_dir)  [Option 2]
+    Per-slice PAM50 line plot with disc junction markers. Saves PNG.
+
+  generate_option2_plots(df, output_dir, metrics)
+    Wrapper for Option 2.
+
+  plot_perslice_native_trajectories(df, metric, output_dir)  [Option 3]
+    Per-slice native line plot. Saves PNG.
+
+  generate_option3_plots(df, output_dir, metrics)
+    Wrapper for Option 3.
+
+  plot_level_profiles_by_timepoint(df, metric, output_dir)  [Option 4]
+    x-axis = vertebral level, one line per timepoint. Saves PNG.
+
+  generate_option4_plots(df, output_dir, metrics)
+    Wrapper for Option 4.
+
+  plot_group_perlevel_trajectories(df, metric, output_dir, group_name, aligned)
+    [Option 5] Per-level trajectories stratified by therapeutic group;
+    conservative uses calendar months from baseline; operative uses scan index
+    from surgery. Saves PNG.
+
+  generate_option5_plots(df, output_dir, metrics)
+    Wrapper for Option 5: calls prepare_grouped_trajectory_data then
+    plot_group_perlevel_trajectories for each group.
+
+  get_parser()
+    CLI argument parser.
+
+  main()
+    Load data; call the selected option wrapper(s).
+
+CLI ARGUMENTS
+  --data-dir     PATH   metric CSV directory (required)
+  --output-dir   PATH   output directory (required)
+  --structure    STR    cord | canal | aSCOR (default: cord)
+  --timepoints   [TPS]  timepoints (default: M0 M6 M12)
+  --option       STR    1 | 2 | 3 | 4 | 5 | all (default: all)
+  --metrics      [MET]  metrics to plot
+  --labels-dir   PATH   directory with time-aware label files (auto-inferred)
+
+INPUT  : per-level and/or per-slice metric CSVs (native and/or PAM50),
+         optional time-aware label CSVs
+OUTPUT : PNG figures organised by option,
+         subject_counts_operative_postop_aligned.csv
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================
