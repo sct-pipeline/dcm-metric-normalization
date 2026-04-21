@@ -230,8 +230,7 @@ def lrt(null_result, full_result) -> tuple[float, int, float, float, float]:
 
 def compute_r2(result) -> tuple[float, float]:
     """
-    Marginal R² (fixed effects only) and conditional R² (fixed + random)
-    following Nakagawa & Schielzeth (2013).
+    Marginal R² (fixed effects only) and conditional R² (fixed + random) following Nakagawa & Schielzeth (2013).
     """
     try:
         X = result.model.exog
@@ -271,8 +270,7 @@ def analyze_metric(metric: str, safe_metric: str,
     sep = '─' * 64
     print(f"\n{sep}\n  {label}\n{sep}")
 
-    # Determine which covariates are available, then pre-filter to complete cases
-    # so that all models (null and full) are fitted on the exact same dataset.
+    # Determine which covariates are available so that all models (null and full) are fitted on the exact same dataset.
     _has_sex = 'sex_bin' in data.columns and data['sex_bin'].notna().sum() > 0
     _has_age = 'age_c' in data.columns and data['age_c'].notna().sum() > 0
     drop_cols = [safe_metric]
@@ -356,7 +354,7 @@ def analyze_metric(metric: str, safe_metric: str,
             res['lrt_age_over_sex_p'] = round(p_a, 4)
             print(f"    age | sex: χ²({dfd_a}), p={p_a:.4f}")
 
-    # R² from sex+age model (REML for final reporting)
+    # R² from sex+age model
     if has_sex and has_age:
         best_formula = f"{safe_metric} ~ sex_bin + age_c"
     elif has_age:

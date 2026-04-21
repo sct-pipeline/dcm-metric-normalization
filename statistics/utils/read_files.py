@@ -372,7 +372,7 @@ def merge_anatomical_morphological_final_for_pred(anatomical_df, motion_df, df_m
     # set index of participant to have the same index
     final_df = final_df.set_index(['participant_id'])
     
-    # Check for duplicate indices and reset if necessary
+    # Check for duplicate indices and reset if necessary -- debug
     if final_df.index.has_duplicates:
         print(f'Warning: Duplicate participant IDs found in morphometric data. Resetting index.')
         final_df = final_df.reset_index().drop_duplicates(subset=['participant_id']).set_index(['participant_id'])
