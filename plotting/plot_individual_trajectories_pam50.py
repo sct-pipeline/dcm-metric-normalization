@@ -16,6 +16,8 @@ Usage example:
         --output-dir /path/to/output \
         --structure cord \
         --timepoints M0 M6 M12 M24 M36 M48 M60
+
+Authors: Kahina Baouche
 """
 
 import os
