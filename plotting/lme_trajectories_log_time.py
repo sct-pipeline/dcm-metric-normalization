@@ -453,12 +453,12 @@ def _prep_df(df_long, extra_terms, log_file=None):
         cov_terms.append('age_c')
     if df_model['sex'].nunique() > 1 and 'unknown' not in df_model['sex'].values:
         cov_terms.append('C(sex, Treatment(reference="M"))')
-    if (df_model['maximum_stenosis'].nunique() > 1 and
-            'unknown' not in df_model['maximum_stenosis'].values):
-        cov_terms.append('C(maximum_stenosis, Treatment(reference="C3/C4"))')
-    if (df_model['stenosis'].nunique() > 1 and
-            'unknown' not in df_model['stenosis'].values):
-        cov_terms.append('C(stenosis)')
+    # if (df_model['maximum_stenosis'].nunique() > 1 and
+    #         'unknown' not in df_model['maximum_stenosis'].values):
+    #     cov_terms.append('C(maximum_stenosis, Treatment(reference="C3/C4"))')
+    # if (df_model['stenosis'].nunique() > 1 and
+    #         'unknown' not in df_model['stenosis'].values):
+    #     cov_terms.append('C(stenosis)')
 
     drop_cols = ['score', 'time_log', 'myelopathy', 'therapeutic_decision']
     df_model  = df_model.dropna(subset=drop_cols)
