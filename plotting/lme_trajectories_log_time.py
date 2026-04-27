@@ -995,6 +995,39 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
     plt.close(fig)
     log_print(f"Saved: {fname}", log_file)
 
+    # ── Save data CSVs ────────────────────────────────────────────────────────
+    # 1. Observations
+    obs_cols = ['participant_id', 'sex', 'age', 'myelopathy', 'therapeutic_decision',
+                'surg_days', 'time_label', 'time_days', 'time_log', 'score']
+    obs_csv = os.path.join(outdir, f'lme_log_time_C_combined_{score_name}_observations.csv')
+    df_long[[c for c in obs_cols if c in df_long.columns]].rename(
+        columns={'score': f'{score_name.lower()}_score', 'myelopathy': 'hyperintensity'}
+    ).to_csv(obs_csv, index=False)
+    log_print(f"Saved: {obs_csv}", log_file)
+
+    # 2. Fitted curves + 95% CI for all 4 groups
+    if result is not None:
+        fitted_rows = []
+        for (myelo, td), (_, ls, label, i_params, s_params) in group_spec.items():
+            p     = result.params
+            i_adj = sum(_get(p, pn) for pn in i_params)
+            s_adj = sum(_get(p, pn) for pn in s_params)
+            y_hat = _predict_on_days(p, i_adj, s_adj, days_smooth)
+            y_lo, y_hi = _compute_prediction_ci(result, days_smooth, i_params, s_params)
+            for d, yh, yl, yu in zip(days_smooth, y_hat, y_lo, y_hi):
+                fitted_rows.append({
+                    'group':              label,
+                    'hyperintensity':     myelo,
+                    'therapeutic_decision': td,
+                    'days':               round(d, 2),
+                    'y_fitted':           round(yh, 4),
+                    'y_ci_lower':         round(yl, 4),
+                    'y_ci_upper':         round(yu, 4),
+                })
+        fitted_csv = os.path.join(outdir, f'lme_log_time_C_combined_{score_name}_fitted.csv')
+        pd.DataFrame(fitted_rows).to_csv(fitted_csv, index=False)
+        log_print(f"Saved: {fitted_csv}", log_file)
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Summary CSV
