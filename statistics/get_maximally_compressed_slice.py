@@ -72,10 +72,11 @@ def main():
 
     # Clinical table: record_id_BL → participant_id, integer maximum_stenosis → disk label
     pts = pd.read_excel(args.clinical_file, usecols=['record_id_BL', 'maximum_stenosis',
-                                                      'myelopathy',
-                                                      'cheps_assessment_date_BL',
-                                                      'c6_grading_cheps_BL', 'c8_grading_cheps_BL',
-                                                      't4_grading_cheps_BL'])
+                                                      # 'myelopathy',
+                                                      # 'cheps_assessment_date_BL',
+                                                      # 'c6_grading_cheps_BL', 'c8_grading_cheps_BL',
+                                                      # 't4_grading_cheps_BL'
+                                                     ])
     pts = pts.dropna(subset=['maximum_stenosis'])
     pts['participant_id'] = pts['record_id_BL'].apply(lambda x: f'sub-{int(x):03d}')
     pts['maximum_stenosis_str'] = pts['maximum_stenosis'].apply(lambda x: EXCEL_STENOSIS_TO_DISC.get(int(x)))
@@ -146,11 +147,11 @@ def main():
             'length_anterior':       round(a, 3),
             'length_posterior':      round(p, 3),
             'asymmetry':             round(asymmetry, 4),
-            'myelopathy':              pt_row['myelopathy'],
-            'cheps_assessment_date_BL': pt_row['cheps_assessment_date_BL'],
-            'c6_grading_cheps_BL':     pt_row['c6_grading_cheps_BL'],
-            'c8_grading_cheps_BL':   pt_row['c8_grading_cheps_BL'],
-            't4_grading_cheps_BL':   pt_row['t4_grading_cheps_BL'],
+            # 'myelopathy':              pt_row['myelopathy'],
+            # 'cheps_assessment_date_BL': pt_row['cheps_assessment_date_BL'],
+            # 'c6_grading_cheps_BL':     pt_row['c6_grading_cheps_BL'],
+            # 'c8_grading_cheps_BL':   pt_row['c8_grading_cheps_BL'],
+            # 't4_grading_cheps_BL':   pt_row['t4_grading_cheps_BL'],
         })
 
     if skipped:
