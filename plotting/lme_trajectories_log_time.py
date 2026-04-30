@@ -16,11 +16,11 @@ NOTE: At baseline day 0 → log(0+1) = log(1) = 0, preserving the zero-origin.
 
 Three LME models are fitted:
   A. Stratified by MRI hyperintensity alone:
-       score ~ C(myelopathy) + time_log + C(myelopathy):time_log + covariates
+       score ~ C(t2w_hyperintensity) + time_log + C(t2w_hyperintensity):time_log + covariates
   B. Stratified by therapeutic decision alone:
        score ~ C(therapeutic_decision) + time_log + C(therapeutic_decision):time_log + covariates
   C. Combined (both factors + 3-way interaction):
-       score ~ C(myelopathy) * C(therapeutic_decision) * time_log + covariates
+       score ~ C(t2w_hyperintensity) * C(therapeutic_decision) * time_log + covariates
 
 Surgery handling (exact dates, NOT categorical timepoints):
   - surg_date_before_BL     : if a date is present → surgery before baseline → exclude subject
@@ -192,10 +192,10 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3,
 
     df = df_clinical.merge(df_area, on='participant_id', how='left')
 
-    # ── myelopathy (T2w hyperintensity) ───────────────────────────────────────
-    if 'myelopathy' not in df.columns and 'Myelopathy' in df.columns:
-        df['myelopathy'] = df['Myelopathy']
-    df['myelopathy'] = df['myelopathy'].map(
+    # ── T2w hyperintensity ────────────────────────────────────────────────────
+    if 't2w_hyperintensity' not in df.columns and 'Myelopathy' in df.columns:
+        df['t2w_hyperintensity'] = df['Myelopathy']
+    df['t2w_hyperintensity'] = df['t2w_hyperintensity'].map(
         {0: 'no', 1: 'yes', '0': 'no', '1': 'yes', 'no': 'no', 'yes': 'yes'}
     )
 
@@ -275,9 +275,9 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3,
         rows = []
 
         for _, row in df.iterrows():
-            pid              = row['participant_id']
-            myelopathy       = row.get('myelopathy', np.nan)
-            therapeutic_dec  = row.get('therapeutic_decision', np.nan)
+            pid                 = row['participant_id']
+            t2w_hyperintensity  = row.get('t2w_hyperintensity', np.nan)
+            therapeutic_dec     = row.get('therapeutic_decision', np.nan)
             age              = pd.to_numeric(row.get('age', np.nan), errors='coerce')
             sex              = row.get('sex', 'unknown')
             max_stenosis     = row.get('maximum_stenosis', 'unknown')
@@ -295,7 +295,7 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3,
 
             common = dict(
                 participant_id      = pid,
-                myelopathy          = myelopathy,
+                t2w_hyperintensity  = t2w_hyperintensity,
                 therapeutic_decision= therapeutic_dec,
                 age                 = age,
                 sex                 = sex,
@@ -364,8 +364,8 @@ def prepare_data(df_clinical, df_morphometrics, level=3, sessions=3,
               f"({(df_long['therapeutic_decision'] == 'operative').sum()} obs)")
         print(f"  Of which surg_days non-null      : {n_surg_days_ok}  "
               f"(these get surgery markers)")
-        print(f"  T2w+ (myelopathy)                : "
-              f"{df_long[df_long['myelopathy'] == 'yes']['participant_id'].nunique()} subjects")
+        print(f"  T2w+ (t2w_hyperintensity)        : "
+              f"{df_long[df_long['t2w_hyperintensity'] == 'yes']['participant_id'].nunique()} subjects")
         print(f"  Days range (BL→last visit)       : "
               f"{df_long['time_days'].min():.0f}–{df_long['time_days'].max():.0f}")
 
@@ -435,8 +435,8 @@ def _prep_df(df_long, extra_terms, log_file=None):
     df_model = df_long.copy()
 
     # Categorical reference levels
-    df_model['myelopathy'] = pd.Categorical(
-        df_model['myelopathy'], categories=['no', 'yes'])
+    df_model['t2w_hyperintensity'] = pd.Categorical(
+        df_model['t2w_hyperintensity'], categories=['no', 'yes'])
     df_model['therapeutic_decision'] = pd.Categorical(
         df_model['therapeutic_decision'], categories=['conservative', 'operative'])
 
@@ -460,7 +460,7 @@ def _prep_df(df_long, extra_terms, log_file=None):
     #         'unknown' not in df_model['stenosis'].values):
     #     cov_terms.append('C(stenosis)')
 
-    drop_cols = ['score', 'time_log', 'myelopathy', 'therapeutic_decision']
+    drop_cols = ['score', 'time_log', 't2w_hyperintensity', 'therapeutic_decision']
     df_model  = df_model.dropna(subset=drop_cols)
 
     # Return only the covariate terms (not the interaction/structural terms that
@@ -469,15 +469,15 @@ def _prep_df(df_long, extra_terms, log_file=None):
 
 
 def fit_model_A(df_long, score_name, log_file=None):
-    """Model A: stratified by myelopathy (T2w+/T2w-) only."""
+    """Model A: stratified by T2w hyperintensity (T2w+/T2w-) only."""
     log_print(f"\n{'='*70}", log_file)
-    log_print(f"Model A – {score_name}  (stratification: myelopathy / T2w)", log_file)
+    log_print(f"Model A – {score_name}  (stratification: t2w_hyperintensity)", log_file)
     log_print(f"{'='*70}", log_file)
 
     interaction_terms = [
-        'C(myelopathy)',
+        'C(t2w_hyperintensity)',
         'time_log',
-        'C(myelopathy):time_log',
+        'C(t2w_hyperintensity):time_log',
     ]
     df_model, cov_terms = _prep_df(df_long, interaction_terms, log_file)
     formula = f"score ~ {' + '.join(interaction_terms + cov_terms)}"
@@ -505,17 +505,17 @@ def fit_model_B(df_long, score_name, log_file=None):
 def fit_model_C(df_long, score_name, log_file=None):
     """Model C: combined model – both factors + 3-way interaction."""
     log_print(f"\n{'='*70}", log_file)
-    log_print(f"Model C – {score_name}  (combined: myelopathy × therapeutic decision × time)", log_file)
+    log_print(f"Model C – {score_name}  (combined: t2w_hyperintensity × therapeutic decision × time)", log_file)
     log_print(f"{'='*70}", log_file)
 
     interaction_terms = [
-        'C(myelopathy)',
+        'C(t2w_hyperintensity)',
         'C(therapeutic_decision)',
         'time_log',
-        'C(myelopathy):time_log',
+        'C(t2w_hyperintensity):time_log',
         'C(therapeutic_decision):time_log',
-        'C(myelopathy):C(therapeutic_decision)',
-        'C(myelopathy):C(therapeutic_decision):time_log',
+        'C(t2w_hyperintensity):C(therapeutic_decision)',
+        'C(t2w_hyperintensity):C(therapeutic_decision):time_log',
     ]
     df_model, cov_terms = _prep_df(df_long, interaction_terms, log_file)
     formula = f"score ~ {' + '.join(interaction_terms + cov_terms)}"
@@ -675,9 +675,9 @@ def _compute_prediction_ci(result, days_arr, i_param_names, s_param_names):
     result        : MixedLM result object
     days_arr      : array-like of raw days (x-axis values)
     i_param_names : param names that contribute +1 to the intercept
-                    (group dummy variables, e.g. ['C(myelopathy)[T.yes]'])
+                    (group dummy variables, e.g. ['C(t2w_hyperintensity)[T.yes]'])
     s_param_names : param names that contribute log(t+1) to the slope
-                    (interaction terms, e.g. ['C(myelopathy)[T.yes]:time_log'])
+                    (interaction terms, e.g. ['C(t2w_hyperintensity)[T.yes]:time_log'])
 
     Returns
     -------
@@ -770,13 +770,13 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None,
                 'i_params': [],
                 's_params': []},
         'yes': {'color': COLOR_T2W_PLUS,  'label': 'T2w+',
-                'i_params': ['C(myelopathy)[T.yes]'],
-                's_params': ['C(myelopathy)[T.yes]:time_log']},
+                'i_params': ['C(t2w_hyperintensity)[T.yes]'],
+                's_params': ['C(t2w_hyperintensity)[T.yes]:time_log']},
     }
 
     log_print(f"\n{score_name} – Model A  (T2w hyperintensity):", log_file)
     for myelo, ginfo in groups.items():
-        gdf   = df_long[df_long['myelopathy'] == myelo]
+        gdf   = df_long[df_long['t2w_hyperintensity'] == myelo]
         color = ginfo['color']
         n     = gdf['participant_id'].nunique()
         log_print(f"  {ginfo['label']:<10s}: n = {n}", log_file)
@@ -815,7 +815,7 @@ def plot_model_A(df_long, result, score_name, cfg, outdir, log_file=None,
     ax.tick_params(labelsize=TICK_FONT_SIZE)
     ax.set_title(f'{score_name} stratified by T2w hyperintensity', fontsize=TITLE_FONT_SIZE)
     plt.tight_layout()
-    fname = os.path.join(outdir, f'lme_log_time_A_myelopathy_{score_name}.png')
+    fname = os.path.join(outdir, f'lme_log_time_A_t2w_hyperintensity_{score_name}.png')
     fig.savefig(fname, dpi=300, bbox_inches='tight')
     plt.close(fig)
     log_print(f"Saved: {fname}", log_file)
@@ -894,7 +894,7 @@ def plot_model_B(df_long, result, score_name, cfg, outdir, log_file=None,
 def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
                  anchor_col='orthopedics_assessment_date_BL'):
     """
-    Combined model: 4 groups (myelopathy × treatment).
+    Combined model: 4 groups (t2w_hyperintensity × treatment).
     95% CI band + LME curves.
     Color encodes T2w status; linestyle encodes treatment.
     Surgery dates marked with 'x' on the operative fitted curves (colored by T2w group).
@@ -902,7 +902,7 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
     mpl.rcParams['font.family'] = 'Arial'
     days_smooth = np.linspace(XLIM[0], XLIM[1], 300)
 
-    # (myelopathy, treatment) -> (color, linestyle, label, i_params, s_params)
+    # (t2w_hyperintensity, treatment) -> (color, linestyle, label, i_params, s_params)
     group_spec = {
         ('no',  'conservative'): (COLOR_T2W_MINUS, '--', 'T2w− / Conservative',
                                   [], []),
@@ -910,15 +910,15 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
                                   ['C(therapeutic_decision)[T.operative]'],
                                   ['C(therapeutic_decision)[T.operative]:time_log']),
         ('yes', 'conservative'): (COLOR_T2W_PLUS,  '--', 'T2w+ / Conservative',
-                                  ['C(myelopathy)[T.yes]'],
-                                  ['C(myelopathy)[T.yes]:time_log']),
+                                  ['C(t2w_hyperintensity)[T.yes]'],
+                                  ['C(t2w_hyperintensity)[T.yes]:time_log']),
         ('yes', 'operative'):    (COLOR_T2W_PLUS,  '-',  'T2w+ / Operative',
-                                  ['C(myelopathy)[T.yes]',
+                                  ['C(t2w_hyperintensity)[T.yes]',
                                    'C(therapeutic_decision)[T.operative]',
-                                   'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]'],
-                                  ['C(myelopathy)[T.yes]:time_log',
+                                   'C(t2w_hyperintensity)[T.yes]:C(therapeutic_decision)[T.operative]'],
+                                  ['C(t2w_hyperintensity)[T.yes]:time_log',
                                    'C(therapeutic_decision)[T.operative]:time_log',
-                                   'C(myelopathy)[T.yes]:C(therapeutic_decision)[T.operative]:time_log']),
+                                   'C(t2w_hyperintensity)[T.yes]:C(therapeutic_decision)[T.operative]:time_log']),
     }
 
     fig, ax = plt.subplots(figsize=(6, 4))
@@ -926,7 +926,7 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
     log_print(f"\n{score_name} – Model C  (T2w hyperintensity × therapeutic decision):", log_file)
     for (myelo, td), (color, ls, label, i_params, s_params) in group_spec.items():
         gdf = df_long[
-            (df_long['myelopathy'] == myelo) &
+            (df_long['t2w_hyperintensity'] == myelo) &
             (df_long['therapeutic_decision'] == td)
         ]
         n = gdf['participant_id'].nunique()
@@ -997,11 +997,11 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
 
     # ── Save data CSVs ────────────────────────────────────────────────────────
     # 1. Observations
-    obs_cols = ['participant_id', 'sex', 'age', 'myelopathy', 'therapeutic_decision',
+    obs_cols = ['participant_id', 'sex', 'age', 't2w_hyperintensity', 'therapeutic_decision',
                 'surg_days', 'time_label', 'time_days', 'time_log', 'score']
     obs_csv = os.path.join(outdir, f'lme_log_time_C_combined_{score_name}_observations.csv')
     df_long[[c for c in obs_cols if c in df_long.columns]].rename(
-        columns={'score': f'{score_name.lower()}_score', 'myelopathy': 'hyperintensity'}
+        columns={'score': f'{score_name.lower()}_score'}
     ).to_csv(obs_csv, index=False)
     log_print(f"Saved: {obs_csv}", log_file)
 
@@ -1017,7 +1017,7 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
             for d, yh, yl, yu in zip(days_smooth, y_hat, y_lo, y_hi):
                 fitted_rows.append({
                     'group':              label,
-                    'hyperintensity':     myelo,
+                    't2w_hyperintensity': myelo,
                     'therapeutic_decision': td,
                     'days':               round(d, 2),
                     'y_fitted':           round(yh, 4),
@@ -1125,9 +1125,9 @@ def main():
         for score_name, df_long in long_data_dict.items():
             cfg = CLINICAL_SCORES[score_name]
 
-            # ── Model A: myelopathy ──────────────────────────────────────
+            # ── Model A: t2w_hyperintensity ──────────────────────────────
             result_A, df_A = fit_model_A(df_long, score_name, log_file)
-            all_results[(score_name, 'A_myelopathy')] = result_A
+            all_results[(score_name, 'A_t2w_hyperintensity')] = result_A
             if result_A is not None:
                 plot_model_A(df_long, result_A, score_name, cfg, args.outdir, log_file,
                              anchor_col=args.anchor_col)
