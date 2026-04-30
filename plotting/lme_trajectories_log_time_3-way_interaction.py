@@ -34,7 +34,7 @@ JOA dates (exact):
   - orthopedics_assessment_date_12mth → actual days elapsed since BL
 
 Example usage:
-    python lme_trajectories_log_time.py \
+    python lme_trajectories_log_time_3-way_interaction.py \
         -clinical-file data/clinical_scores.xlsx \
         -morphometrics-file data/morphometrics.csv \
         -participants-to-use data/participants.txt \
