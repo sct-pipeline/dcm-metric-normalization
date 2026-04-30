@@ -1,5 +1,5 @@
 """
-LME trajectory analysis for degenerative cervical myelopathy with logarithmic time axis.
+LME trajectory analysis for with logarithmic time and and 2-way interaction (T2w hyperintensity × therapeutic decision).
 
 Motivation for logarithmic time
 --------------------------------
@@ -503,19 +503,16 @@ def fit_model_B(df_long, score_name, log_file=None):
 
 
 def fit_model_C(df_long, score_name, log_file=None):
-    """Model C: combined model – both factors + 3-way interaction."""
+    """Model C: combined model – T2w × treatment interaction on intercept, shared time slope."""
     log_print(f"\n{'='*70}", log_file)
-    log_print(f"Model C – {score_name}  (combined: t2w_hyperintensity × therapeutic decision × time)", log_file)
+    log_print(f"Model C – {score_name}  (combined: t2w_hyperintensity × therapeutic decision, shared slope)", log_file)
     log_print(f"{'='*70}", log_file)
 
     interaction_terms = [
         'C(t2w_hyperintensity)',
         'C(therapeutic_decision)',
         'time_log',
-        'C(t2w_hyperintensity):time_log',
-        'C(therapeutic_decision):time_log',
         'C(t2w_hyperintensity):C(therapeutic_decision)',
-        'C(t2w_hyperintensity):C(therapeutic_decision):time_log',
     ]
     df_model, cov_terms = _prep_df(df_long, interaction_terms, log_file)
     formula = f"score ~ {' + '.join(interaction_terms + cov_terms)}"
@@ -903,22 +900,21 @@ def plot_model_C(df_long, result, score_name, cfg, outdir, log_file=None,
     days_smooth = np.linspace(XLIM[0], XLIM[1], 300)
 
     # (t2w_hyperintensity, treatment) -> (color, linestyle, label, i_params, s_params)
+    # No time interactions: all groups share the same slope; only intercepts differ.
     group_spec = {
         ('no',  'conservative'): (COLOR_T2W_MINUS, '--', 'T2w− / Conservative',
                                   [], []),
         ('no',  'operative'):    (COLOR_T2W_MINUS, '-',  'T2w− / Operative',
                                   ['C(therapeutic_decision)[T.operative]'],
-                                  ['C(therapeutic_decision)[T.operative]:time_log']),
+                                  []),
         ('yes', 'conservative'): (COLOR_T2W_PLUS,  '--', 'T2w+ / Conservative',
                                   ['C(t2w_hyperintensity)[T.yes]'],
-                                  ['C(t2w_hyperintensity)[T.yes]:time_log']),
+                                  []),
         ('yes', 'operative'):    (COLOR_T2W_PLUS,  '-',  'T2w+ / Operative',
                                   ['C(t2w_hyperintensity)[T.yes]',
                                    'C(therapeutic_decision)[T.operative]',
                                    'C(t2w_hyperintensity)[T.yes]:C(therapeutic_decision)[T.operative]'],
-                                  ['C(t2w_hyperintensity)[T.yes]:time_log',
-                                   'C(therapeutic_decision)[T.operative]:time_log',
-                                   'C(t2w_hyperintensity)[T.yes]:C(therapeutic_decision)[T.operative]:time_log']),
+                                  []),
     }
 
     fig, ax = plt.subplots(figsize=(6, 4))
