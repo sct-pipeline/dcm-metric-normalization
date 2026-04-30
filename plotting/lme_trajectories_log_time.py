@@ -385,7 +385,7 @@ def _build_and_fit(df_model, formula, score_name, log_file=None):
             model = MixedLM.from_formula(
                 formula,
                 data=df_model,
-                groups=df_model['participant_id'],
+                groups=df_model['participant_id'],   # cluster rows by patient (rows per patient are not independent)
                 re_formula='1 + time_log',      # random intercept + random slope in log-time
             )
             result = model.fit(method='lbfgs', maxiter=2000)
