@@ -2,5 +2,6 @@
   "path_data"   : "~/data/dcm-zurich",
   "path_output" : "~/results/dcm-zurich/dcm-zurich_2026-05-14_SCTv73",
   "script"      : "~/code/dcm-metric-normalization/scripts/process_data_dcm-zurich.sh",
-  "jobs"        : 4
+  "jobs"        : 16,
+  "include"     : "ses-M0"
 }
