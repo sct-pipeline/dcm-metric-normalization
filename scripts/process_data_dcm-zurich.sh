@@ -2,6 +2,8 @@
 #
 # Process dcm-zurich dataset
 #
+# Requirements: SCT v7.3 (with sct_process_segmentation supporting symmetry measures and updated AP diameter)
+#
 # Usage to exclude specific subjects:
 #     sct_run_batch -c config_process_data_dcm-zurich.json -exclude-yml exclude_dcm-zurich.yml
 #
@@ -262,17 +264,19 @@ else
     # -------------
     # Compute spinal cord morphometrics
     # -------------
+    # Note: '-anat' flag is used to specify the anatomical image to compute spinal cord orientation (using HOG method).
+    #  It is required to compute symmetry and quadrants area metrics.
     echo "Computing spinal cord morphometrics..."
     # Compute cord metrics perlevel in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1
     sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_labels}_projected_centerline.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
     # Compute cord metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice.csv -append 1
 
     # Normalized to PAM50 perlevel -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel_PAM50.csv -append 1
     # Normalized to PAM50 perslice -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice_PAM50.csv -append 1
 
     # -------------
     # Segment spinal canal if manual segmentation doesn't exists
@@ -285,14 +289,14 @@ else
     # -------------
     echo "Computing spinal canal morphometrics..."
     # Compute canal metrics perlevel in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel.csv -append 1
     # Compute canal metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice.csv -append 1
 
     # Normalized to PAM50 perlevel -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel_PAM50.csv -append 1
     # Normalized to PAM50 perslice -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat {file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice_PAM50.csv -append 1
 
     # -------------
     # Compute aSCOR -- it needs both SC and canal segmentations
