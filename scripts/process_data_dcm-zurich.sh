@@ -266,7 +266,7 @@ else
     echo "Computing spinal cord morphometrics..."
     # Compute cord metrics perlevel in the native space -- metrics across subjects are appended to a single CSV file
     sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_labels}_projected_centerline.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+#    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_labels}_projected_centerline.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
     # Compute cord metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
     sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice.csv -append 1
 
