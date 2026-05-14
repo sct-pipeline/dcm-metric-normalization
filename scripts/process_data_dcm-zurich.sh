@@ -5,17 +5,18 @@
 # Requirements: SCT v7.3 (with sct_process_segmentation supporting symmetry measures and updated AP diameter)
 #
 # Usage to exclude specific subjects:
-#     sct_run_batch -c config_process_data_dcm-zurich.json -exclude-yml ~/data/dcm-zurich/exclude_dcm-zurich.yml
-#
+#     sct_run_batch -c config_process_data_dcm-zurich.json -exclude-yml ~/data/dcm-zurich/exclude.yml
 #
 # Example config_process_data_dcm-zurich.json configuration file to process only session M0:
 #   {
 #     "path_data"   : "~/data/dcm-zurich",
-#     "path_output" : "~/results/dcm-zurich/dcm-zurich_2025-10-31",
+#     "path_output" : "~/results/dcm-zurich/dcm-zurich_2026-05-14",
 #     "script"      : "~/code/dcm-metric-normalization/scripts/process_data_dcm-zurich.sh",
 #     "jobs"        : 8,
 #     "include"     : "ses-M0"
 #   }
+#
+# NOTE that both "include" and "exclude-yml" options can be used together.
 #
 # The following global variables are retrieved from the caller sct_run_batch
 # but could be overwritten by uncommenting the lines below:
