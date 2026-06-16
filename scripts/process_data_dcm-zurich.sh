@@ -2,8 +2,21 @@
 #
 # Process dcm-zurich dataset
 #
-# Usage:
-#     sct_run_batch -c <PATH_TO_REPO>/etc/config_process_data_<DATASET>.json
+# Requirements: SCT v7.3 (with sct_process_segmentation supporting symmetry measures and updated AP diameter)
+#
+# Usage to exclude specific subjects:
+#     sct_run_batch -c config_process_data_dcm-zurich.json -exclude-yml ~/data/dcm-zurich/exclude.yml
+#
+# Example config_process_data_dcm-zurich.json configuration file to process only session M0:
+#   {
+#     "path_data"   : "~/data/dcm-zurich",
+#     "path_output" : "~/results/dcm-zurich/dcm-zurich_2026-05-14",
+#     "script"      : "~/code/dcm-metric-normalization/scripts/process_data_dcm-zurich.sh",
+#     "jobs"        : 8,
+#     "include"     : "ses-M0"
+#   }
+#
+# NOTE that both "include" and "exclude-yml" options can be used together.
 #
 # The following global variables are retrieved from the caller sct_run_batch
 # but could be overwritten by uncommenting the lines below:
@@ -38,11 +51,11 @@ echo "PATH_QC: ${PATH_QC}"
 # If it doesn't, perform automatic spinal cord segmentation
 segment_if_does_not_exist() {
   local file="$1"
-  local contrast="$2"
+  local contrast="$2"   # only for logging
   # Update global variable with segmentation file name
-  FILESEG="${file}_label-SC_mask"
+  FILESEG="${file}_label-SC_seg"
   # Getting the path for manual segmentation for each session
-  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}-manual.nii.gz"
+  FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
   echo
   echo "Looking for manual segmentation: $FILESEGMANUAL"
   if [[ -e $FILESEGMANUAL ]]; then
@@ -51,10 +64,10 @@ segment_if_does_not_exist() {
     rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
     sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic spinal cord segmentation."
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting spinal cord automatically" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic spinal cord segmentation."
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting spinal cord automatically" >> "${PATH_LOG}/${contrast}_SC_segmentations.log"
     # Segment spinal cord
-    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    sct_deepseg spinalcord -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
 }
 
@@ -69,14 +82,14 @@ label_t2_sag_if_does_not_exist(){
   FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILELABEL}-manual.nii.gz"
   echo "Looking for manual disc labels: $FILELABELMANUAL"
   if [[ -e $FILELABELMANUAL ]]; then
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual disc labels."
-    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found --> using manual disc labels" >> "${PATH_LOG}/T2w_disc_labels.log"
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual T2w sag disc labels."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found --> using manual T2w sag disc labels" >> "${PATH_LOG}/T2w_sag_disc_labels.log"
     rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
     # Generate labeled segmentation from manual disc labels
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -discfile ${FILELABEL}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Manual disc labels not found. Proceeding with automatic labeling."
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic labeling" >> "${PATH_LOG}/T2w_disc_labels.log"
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] Manual T2w sag disc labels not found. Proceeding with automatic labeling."
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic T2w sag labeling" >> "${PATH_LOG}/T2w_sag_disc_labels.log"
     # Generate labeled segmentation automatically (no manual disc labels provided)
     sct_label_vertebrae -i ${file}.nii.gz -s ${file_seg}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
@@ -84,11 +97,33 @@ label_t2_sag_if_does_not_exist(){
   sct_qc -i ${file}.nii.gz -s ${file_seg}_labeled_discs.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
 }
 
+label_t2_ax_if_does_not_exist(){
+  local file="$1"
+  # Copy manual disc labels from derivatives/labels if they exist
+  FILELABEL="${file}_label-disc"
+  FILELABELMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file}_labels-manual.nii.gz"
+  echo "Looking for manual disc labels: $FILELABELMANUAL"
+  if [[ -e $FILELABELMANUAL ]]; then
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] Found! Using manual disc labels."
+    echo "✅ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz found under derivatives/labels --> using manual disc labels" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
+    rsync -avzh $FILELABELMANUAL ${FILELABEL}.nii.gz
+  else
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] Manual disc labels not found. Proceeding with automatic labeling using TotalSpineSeg."
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] ${FILELABEL}.nii.gz NOT found --> using automatic labeling using TotalSpineSeg" >> "${PATH_LOG}/T2w_ax_disc_labels.log"
+    # Automatically label discs using TotalSpineSeg
+    sct_deepseg totalspineseg -i ${file}.nii.gz -step1-only 1
+    # Keep only disc labels and remove other outputs
+    mv ${file}_step1_levels.nii.gz ${FILELABEL}.nii.gz
+    rm ${file}_step1_cord.nii.gz ${file}_step1_canal.nii.gz ${file}_step1_output.nii.gz
+    # Create disc labels QC
+    sct_qc -i ${file}.nii.gz -s ${FILELABEL}.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject "disc_labels_totalspineseg"
+  fi
+}
+
 # Check if manual canal segmentation file already exists. If it does, copy it locally.
 # If it doesn't, perform automatic canal segmentation
 segment_canal_if_does_not_exist() {
   local file="$1"
-  local contrast="$2"
   # Update global variable with segmentation file name 
   FILESEG="${file}_label-canal_seg"
   FILESEGMANUAL="${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${FILESEG}.nii.gz"
@@ -99,10 +134,10 @@ segment_canal_if_does_not_exist() {
     rsync -avzh $FILESEGMANUAL ${FILESEG}.nii.gz
     sct_qc -i ${file}.nii.gz -s ${FILESEG}.nii.gz -p sct_deepseg_sc -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic canal segmentation."
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting canal automatically" >> "${PATH_LOG}/T2w_canal_segmentations.log"
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic canal segmentation."
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] ${FILESEG}.nii.gz NOT found --> segmenting canal automatically" >> "${PATH_LOG}/T2w_canal_segmentations.log"
     # Segment canal
-    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    sct_deepseg sc_canal_t2 -i ${file}.nii.gz -o ${FILESEG}.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION} -largest 1
   fi
 }
 
@@ -121,8 +156,8 @@ segment_lesion_if_does_not_exist() {
     rsync -avzh $FILESEGMANUAL ${file}_lesion_seg.nii.gz
     sct_qc -i ${file}.nii.gz -s ${file}_lesion_seg.nii.gz -p sct_deepseg_lesion -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   else
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic lesion segmentation."
-    echo "❌ [$(date '+%Y-%m-%d %H:%M:%S')] ${file}_lesion_seg.nii.gz NOT found --> segmenting lesion automatically" >> "${PATH_LOG}/T2w_lesion_segmentations.log"
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] Not found. Proceeding with automatic lesion segmentation."
+    echo "🤖 [$(date '+%Y-%m-%d %H:%M:%S')] ${file}_lesion_seg.nii.gz NOT found --> segmenting lesion automatically" >> "${PATH_LOG}/T2w_lesion_segmentations.log"
     # Segment lesions
     sct_deepseg lesion_sci_t2 -i ${file}.nii.gz -o ${file}.nii.gz -c ${contrast} -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
   fi
@@ -180,26 +215,26 @@ rsync -Ravzh ${PATH_DATA}/./${SUBJECT}/${SESSION}/anat/${SUBJECT}_${SESSION}*T2w
 # Go to subject folder for source images
 cd ${SUBJECT}/${SESSION}/anat
 
-# ------------------------------------------------------------------------------
-# T2w Sagittal
-# ------------------------------------------------------------------------------
-# Define variables
-# We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
-file_t2_sag="${SUBJECT//[\/]/_}"_"${SESSION}"_acq-sagittal_T2w
-# Check if file_t2_sag exists
-if [[ ! -e ${file_t2_sag}.nii.gz ]]; then
-    echo "File ${file_t2_sag}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
-    echo "ERROR: File ${file_t2_sag}.nii.gz does not exist. Exiting."
-    exit 1
-else
-    # Segment SC
-    segment_if_does_not_exist ${file_t2_sag} 't2'
-    file_t2_sag_seg=$FILESEG
-    label_t2_sag_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
-
-    echo "Finished processing ${file_t2_sag}" >> ${PATH_LOG}/processed_files_T2w_sag.log
-
-fi
+## ------------------------------------------------------------------------------
+## T2w Sagittal
+## ------------------------------------------------------------------------------
+## Define variables
+## We do a substitution '/' --> '_' in case there is a subfolder 'ses-0X/'
+#file_t2_sag="${SUBJECT//[\/]/_}"_"${SESSION}"_acq-sagittal_T2w
+## Check if file_t2_sag exists
+#if [[ ! -e ${file_t2_sag}.nii.gz ]]; then
+#    echo "File ${file_t2_sag}.nii.gz does not exist" >> ${PATH_LOG}/missing_files.log
+#    echo "ERROR: File ${file_t2_sag}.nii.gz does not exist. Exiting."
+#    exit 1
+#else
+#    # Segment SC
+#    segment_if_does_not_exist ${file_t2_sag} 'T2w_sag'
+#    file_t2_sag_seg=$FILESEG
+#    label_t2_sag_if_does_not_exist ${file_t2_sag} ${file_t2_sag_seg} 't2'
+#
+#    echo "Finished processing ${file_t2_sag}" >> ${PATH_LOG}/processed_files_T2w_sag.log
+#
+#fi
 # ------------------------------------------------------------------------------
 # T2w Axial
 # ------------------------------------------------------------------------------
@@ -217,64 +252,33 @@ else
     # -------------
     # Segment SC (if SC segmentation file already exists under derivatives folder, it will be copied)
     # -------------
-    segment_if_does_not_exist ${file_t2_ax} 't2'
+    segment_if_does_not_exist ${file_t2_ax} 'T2w_ax'
     file_t2_ax_seg=$FILESEG
 
-    # -------------
-    # Label SC
-    # TODO: consider moving the if statement inside a new function, e.g., `label_t2w_ax_if_does_not_exist`
-    # -------------
-    # Check if manual disc labels file already exists. If so, generate labeled segmentation from manual disc labels.
-    echo "Looking for manual disc labels: ${PATH_DATA}/derivatives/labels/${SUBJECT}/anat/${file_t2_ax}_labels-manual.nii.gz"
-    if [[ -e ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ]]; then
-        echo "Found! Using manual disc labels."
-        rsync -avzh ${PATH_DATA}/derivatives/labels/${SUBJECT}/${SESSION}/anat/${file_t2_ax}_labels-manual.nii.gz ${file_t2_ax}_labels.nii.gz
-
-        file_t2_ax_labels=${file_t2_ax}_labels
-    # If manual disc labels file does not exist, use disc labels from sagittal image
-    else
-        # Bring T2w sagittal image to T2w axial image to obtain warping field.
-        # This warping field will be used to bring the T2w sagittal disc labels to the T2w axial space.
-        # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/9
-        # Note: the '-dseg' is used only for the QC report
-        sct_register_multimodal -i ${file_t2_sag}.nii.gz -d ${file_t2_ax}.nii.gz -identity 1 -x nn -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION} -dseg ${file_t2_ax_seg}.nii.gz
-        # Bring T2w sagittal disc labels (located in the middle of the spinal cord) to T2w axial space
-        # Context: https://github.com/sct-pipeline/dcm-metric-normalization/issues/10
-        sct_apply_transfo -i ${file_t2_sag_seg}_labeled_discs.nii.gz -d ${file_t2_ax}.nii.gz -w warp_${file_t2_sag}2${file_t2_ax}.nii.gz -x label
-        # Generate QC report to assess warped disc labels
-        sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_sag_seg}_labeled_discs_reg.nii.gz -p sct_label_utils -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
-
-        file_t2_ax_labels=${file_t2_sag_seg}_labeled_discs_reg
-    fi
-
-    # Label T2w axial spinal cord segmentation.
-    # Either using manual disc labels or using disc labels from sagittal image -- this is handled in the previous step.
-    # Note: we use `sct_label_vertebrae -discfile` to avoid cord straightening
-    # Details: https://github.com/spinalcordtoolbox/spinalcordtoolbox/pull/4896
-    sct_label_vertebrae -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -c t2
-    # Generate QC report to assess labeled segmentation
-    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_seg}_labeled.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
-    # Intervertebral discs labeling and vertebrae segmentation and generate QC report
-    sct_deepseg totalspineseg -i ${file_t2_ax}.nii.gz -o ${file_t2_ax}_label-TotalSpineSeg.nii.gz -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
+    label_t2_ax_if_does_not_exist ${file_t2_ax}
+    file_t2_ax_labels=${file_t2_ax}_label-disc
 
     # -------------
     # Compute spinal cord morphometrics
     # -------------
+    # Note: '-anat' flag is used to specify the anatomical image to compute spinal cord orientation (using HOG method).
+    #  It is required to compute symmetry and quadrants area metrics.
     echo "Computing spinal cord morphometrics..."
     # Compute cord metrics perlevel in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel.csv -append 1
+#    sct_qc -i ${file_t2_ax}.nii.gz -s ${file_t2_ax_labels}_projected_centerline.nii.gz -p sct_label_vertebrae -qc ${PATH_QC} -qc-subject ${SUBJECT}_${SESSION}
     # Compute cord metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice.csv -append 1
 
     # Normalized to PAM50 perlevel -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perlevel_PAM50.csv -append 1
     # Normalized to PAM50 perslice -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_cord_metrics_perslice_PAM50.csv -append 1
 
     # -------------
     # Segment spinal canal if manual segmentation doesn't exists
     # -------------
-    segment_canal_if_does_not_exist ${file_t2_ax} 't2'
+    segment_canal_if_does_not_exist ${file_t2_ax}
     file_t2_ax_canal_seg=$FILESEG
 
     # -------------
@@ -282,14 +286,14 @@ else
     # -------------
     echo "Computing spinal canal morphometrics..."
     # Compute canal metrics perlevel in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -perlevel 1 -vert 2:9 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel.csv -append 1
     # Compute canal metrics perslice in the native space -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice.csv -append 1
 
     # Normalized to PAM50 perlevel -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -perlevel 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perlevel_PAM50.csv -append 1
     # Normalized to PAM50 perslice -- metrics across subjects are appended to a single CSV file
-    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice_PAM50.csv -append 1
+    sct_process_segmentation -i ${file_t2_ax_canal_seg}.nii.gz -discfile ${file_t2_ax_labels}.nii.gz -anat ${file_t2_ax}.nii.gz -normalize-PAM50 1 -perslice 1 -o ${PATH_RESULTS}/T2w_ax_canal_metrics_perslice_PAM50.csv -append 1
 
     # -------------
     # Compute aSCOR -- it needs both SC and canal segmentations
